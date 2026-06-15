@@ -92,6 +92,7 @@ export function useGiftFlow(profile: User) {
     const urlStep = searchParams.get("step")
     return isGiftStep(urlStep) ? urlStep : "intro"
   })
+  const stepRef = useRef(step)
   const [verifiedRecipient, setVerifiedRecipient] =
     useState<TransferRecipient | null>(null)
   const [verifiedRecipientInput, setVerifiedRecipientInput] = useState("")
@@ -150,6 +151,10 @@ export function useGiftFlow(profile: User) {
       ? 1
       : 0
     : Math.max(0, GIFT_STEPS.indexOf(step) - 1)
+
+  useEffect(() => {
+    stepRef.current = step
+  }, [step])
 
   const updateUrl = useCallback(
     (
@@ -229,8 +234,8 @@ export function useGiftFlow(profile: User) {
       const urlStep = isGiftStep(rawStep) ? rawStep : "intro"
       const nextStep = isDesktop && urlStep === "details" ? "style" : urlStep
 
-      if (step !== nextStep) setStep(nextStep)
-    } else if (previousSearch && !currentSearch && step !== "intro") {
+      if (stepRef.current !== nextStep) setStep(nextStep)
+    } else if (previousSearch && !currentSearch && stepRef.current !== "intro") {
       setStep("intro")
     }
 
@@ -274,7 +279,7 @@ export function useGiftFlow(profile: User) {
       }
     })
     previousSearchRef.current = currentSearch
-  }, [assets, form, isDesktop, searchParams, step])
+  }, [assets, form, isDesktop, searchParams])
 
   useEffect(() => {
     if (!selectedAssetKey && assets[0]?.key) {

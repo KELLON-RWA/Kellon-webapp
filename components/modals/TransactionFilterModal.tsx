@@ -23,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Button } from "../ui/button";
 
 export type ActivityFilter =
   | "all"
@@ -147,16 +148,18 @@ export default function TransactionFilterModal({
             Reset
           </span>
         </button>
-        <button
+        <Button
+          variant="flow"
+          size="flow"
           type="button"
           onClick={onApply}
-          className="group relative flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95 cursor-pointer"
+          className="group relative flex-1 overflow-hidden  py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95 cursor-pointer"
         >
           <span className="relative z-10 flex items-center justify-center gap-2 text-sm">
             Apply
           </span>
           <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-        </button>
+        </Button>
       </div>
     </div>
   );

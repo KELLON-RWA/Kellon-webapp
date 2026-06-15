@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { getChainLabel } from "@/lib/chains";
 import {
   getCurrencyDecimals,
@@ -902,9 +903,9 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
     return (
       <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
         <div className="flex items-center justify-between mb-8 px-4 pt-4">
-          <button className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer">
+          <Button variant="iconCircle" size="icon">
             <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-          </button>
+          </Button>
           <h2 className="text-lg font-bold text-black dark:text-white">
             Transaction
           </h2>
@@ -922,12 +923,14 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
     return (
       <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
         <div className="flex items-center justify-between mb-8 px-4">
-          <button
+          <Button
+            type="button"
+            variant="iconCircle"
+            size="icon"
             onClick={() => router.back()}
-            className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-          </button>
+          </Button>
           <h2 className="text-lg font-bold text-black dark:text-white">
             Transaction
           </h2>
@@ -948,12 +951,14 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
     <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-8 px-4">
-        <button
+        <Button
+          type="button"
+          variant="iconCircle"
+          size="icon"
           onClick={() => router.back()}
-          className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-        </button>
+        </Button>
         <h2 className="text-lg font-bold text-black dark:text-white">
           {transactionTitle}
         </h2>
@@ -1045,29 +1050,33 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
 
         {/* Action Buttons - Only 2 buttons */}
         <div className="mt-6 flex gap-3">
-          <button
+          <Button
+            type="button"
+            variant="flowSecondary"
+            size="action"
             onClick={downloadAsPDF}
             disabled={isGenerating}
-            className={cn(
-              "group relative flex-1 overflow-hidden rounded-xl border border-black/5 bg-white py-3 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 active:scale-95 cursor-pointer font-bold",
-            )}
+            className="flex-1"
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
               Save as PDF
             </span>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="flow"
+            size="action"
             onClick={shareReceipt}
             disabled={isGenerating}
-            className="group relative flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95 cursor-pointer"
+            className="flex-1"
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
               Share
             </span>
 
             <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   getTransactionAmountLabel,
@@ -184,29 +185,31 @@ export default function TransactionsPage() {
   };
 
   return (
-    <section className="container mx-auto flex h-[100dvh] max-w-4xl flex-col overflow-hidden px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-20">
+    <section className="container mx-auto flex h-[100dvh] max-w-4xl flex-col overflow-hidden px-4 pb-0 pt-4 md:px-6 md:pb-12 md:pt-20">
       <div className="flex items-center justify-between">
-        <button
+        <Button
           type="button"
+          variant="iconCircle"
+          size="icon"
           onClick={() => router.back()}
-          className="rounded-full border border-black/5 bg-white p-2 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
           aria-label="Go back"
         >
           <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </button>
+        </Button>
 
         <h1 className="text-lg font-semibold text-black dark:text-white md:text-2xl">
           Transactions
         </h1>
 
-        <button
+        <Button
           type="button"
+          variant="iconCircle"
+          size="icon"
           onClick={openFilters}
-          className="rounded-full border border-black/5 bg-white p-2 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
           aria-label="Open filters"
         >
           <Filter className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </button>
+        </Button>
       </div>
 
       <TransactionFilterModal

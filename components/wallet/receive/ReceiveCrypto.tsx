@@ -14,8 +14,8 @@ import QRCode from "qrcode";
 import ChainIcon from "@/components/wallet/ChainIcon";
 import { ChainAccount } from "@/types/db";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
-import { cn } from "@/lib/utils";
 import SelectNetworkModal from "@/components/modals/SelectNetworkModal";
+import { Button } from "@/components/ui/button";
 
 interface ReceiveCryptoProps {
   chainAccounts: ChainAccount[];
@@ -231,27 +231,31 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
 
       {/* Action Buttons */}
       <div className="flex gap-4 px-4">
-        <button
+        <Button
+          type="button"
+          variant="flowSecondary"
+          size="action"
           onClick={handleCopyAddress}
-          className={cn(
-            "group relative flex-1 overflow-hidden rounded-xl border border-black/5 bg-white py-3 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 active:scale-95 cursor-copy font-bold",
-          )}
+          className="flex-1 cursor-copy"
         >
           <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
             {copied ? "Copied!" : "Copy Address"}
           </span>
           <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-gray-900/5 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-        </button>
+        </Button>
 
-        <button
+        <Button
+          type="button"
+          variant="flow"
+          size="action"
           onClick={shareAddress}
-          className="group relative flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95 cursor-pointer"
+          className="flex-1"
         >
           <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
             Share Address
           </span>
           <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-        </button>
+        </Button>
       </div>
 
       {/* Network Selection Modal */}
