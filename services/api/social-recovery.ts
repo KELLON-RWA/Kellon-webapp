@@ -21,7 +21,9 @@ export interface RecoveryExecutionResult {
 /**
  * GUARDIAN MANAGEMENT
  */
-export const addGuardian = async (guardianId: string): Promise<ApiResponse<Guardian>> => {
+export const addGuardian = async (
+  guardianId: string,
+): Promise<ApiResponse<Guardian>> => {
   const res = await fetch("/api/recovery/guardians", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -49,7 +51,9 @@ export const getGuardiansOf = async (): Promise<ApiResponse<Guardian[]>> => {
   return handleResponse(res)
 }
 
-export const acceptGuardianInvite = async (userId: string): Promise<ApiResponse<void>> => {
+export const acceptGuardianInvite = async (
+  userId: string,
+): Promise<ApiResponse<void>> => {
   const res = await fetch(`/api/recovery/guardians/${userId}/accept`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -75,7 +79,9 @@ export const initiateRecovery = async (data: {
   return handleResponse(res)
 }
 
-export const getMyRecoveryRequests = async (): Promise<ApiResponse<RecoveryRequest[]>> => {
+export const getMyRecoveryRequests = async (): Promise<
+  ApiResponse<RecoveryRequest[]>
+> => {
   const res = await fetch("/api/recovery/requests", {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -85,7 +91,9 @@ export const getMyRecoveryRequests = async (): Promise<ApiResponse<RecoveryReque
 }
 
 // Updated URL to match: /recovery/approvals/pending
-export const getPendingApprovals = async (): Promise<ApiResponse<RecoveryRequest[]>> => {
+export const getPendingApprovals = async (): Promise<
+  ApiResponse<RecoveryRequest[]>
+> => {
   const res = await fetch("/api/recovery/approvals/pending", {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -94,7 +102,9 @@ export const getPendingApprovals = async (): Promise<ApiResponse<RecoveryRequest
   return handleResponse(res)
 }
 
-export const approveRecovery = async (requestId: string): Promise<ApiResponse<void>> => {
+export const approveRecovery = async (
+  requestId: string,
+): Promise<ApiResponse<void>> => {
   const res = await fetch(`/api/recovery/${requestId}/approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -103,7 +113,9 @@ export const approveRecovery = async (requestId: string): Promise<ApiResponse<vo
   return handleResponse(res)
 }
 
-export const executeRecovery = async (requestId: string): Promise<ApiResponse<void>> => {
+export const executeRecovery = async (
+  requestId: string,
+): Promise<ApiResponse<void>> => {
   const res = await fetch(`/api/recovery/${requestId}/execute`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -115,12 +127,12 @@ export const executeRecovery = async (requestId: string): Promise<ApiResponse<vo
 /**
  * SIMPLE / QUICK RECOVERY
  */
-// Updated URL to match: /api/simple-recover (Assuming /api prefix)
+// Updated URL to match: /api/recovery/simple-recover
 export const executeSimpleRecover = async (data: {
   newOwnerAddress: string
   chain: string
 }): Promise<ApiResponse<RecoveryExecutionResult>> => {
-  const res = await fetch("/api/simple-recover", {
+  const res = await fetch("/api/recovery/simple-recover", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
