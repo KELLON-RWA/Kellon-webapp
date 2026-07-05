@@ -1,5 +1,5 @@
-import { BankDetail } from "@/types/db";
-import { ApiResponse, apiFetch, handleResponse } from ".";
+import { BankDetail } from "@/types/db"
+import { ApiResponse, apiFetch, handleResponse } from "."
 
 /**
  * Bank Account Management Service
@@ -15,9 +15,9 @@ export const bankService = {
     const res = await apiFetch("/api/banks", {
       method: "GET",
       headers: { "Content-Type": "application/json" },
-    });
+    })
 
-    return handleResponse(res);
+    return handleResponse(res)
   },
 
   /**
@@ -32,12 +32,12 @@ export const bankService = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
 
   /**
-   * PATCH /api/banks/:id
+   * PUT /api/banks/:id
    * Updates details for a specific bank entry.
    */
   updateBank: async (
@@ -45,11 +45,11 @@ export const bankService = {
     data: Partial<BankDetail>,
   ): Promise<ApiResponse<BankDetail>> => {
     const res = await apiFetch(`/api/banks/${id}`, {
-      method: "PATCH",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
 
   /**
@@ -60,7 +60,7 @@ export const bankService = {
     const res = await apiFetch(`/api/banks/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
-};
+}
