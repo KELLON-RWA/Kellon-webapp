@@ -115,12 +115,12 @@ export const executeRecovery = async (requestId: string): Promise<ApiResponse<vo
 /**
  * SIMPLE / QUICK RECOVERY
  */
-// Updated URL to match: /api/simple-recover (Assuming /api prefix)
+// Updated URL to match: /api/recovery/simple-recover
 export const executeSimpleRecover = async (data: {
   newOwnerAddress: string
   chain: string
 }): Promise<ApiResponse<RecoveryExecutionResult>> => {
-  const res = await fetch("/api/simple-recover", {
+  const res = await fetch("/api/recovery/simple-recover", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

@@ -62,7 +62,7 @@ export const invoiceService = {
   },
 
   getInvoiceByCode: async (code: string): Promise<ApiResponse<Invoice>> => {
-    const res = await apiFetch(`/api/invoices/code/${code}`, {
+    const res = await apiFetch(`/api/invoices/links/${code}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -74,7 +74,7 @@ export const invoiceService = {
     code: string,
     payload: PayInvoicePayload,
   ): Promise<ApiResponse<Invoice>> => {
-    const res = await apiFetch(`/api/invoices/code/${code}/pay`, {
+    const res = await apiFetch(`/api/invoices/links/${code}/pay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
