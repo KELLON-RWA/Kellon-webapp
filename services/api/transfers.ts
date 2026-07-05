@@ -1,133 +1,175 @@
-import type { AssetType } from "@/types/db";
-import { ApiResponse, apiFetch, handleResponse } from ".";
+import type { AssetType } from "@/types/db"
+import { ApiResponse, apiFetch, handleResponse } from "."
 
 export interface InternalTransferPayload {
-  amount: number | string;
-  symbol: string;
-  assetType: AssetType;
-  chain: string;
-  recipientEmail?: string;
-  recipientTag?: string;
-  metadata?: Record<string, string | number | boolean | null>;
-  verificationCode?: string;
-  verificationType?: "otp" | "totp";
-  verificationCodes?: Record<string, string>;
+  amount: number | string
+  symbol: string
+  assetType: AssetType
+  chain: string
+  recipientEmail?: string
+  recipientTag?: string
+  metadata?: Record<string, string | number | boolean | null>
+  verificationCode?: string
+  verificationType?: "otp" | "totp"
+  verificationCodes?: Record<string, string>
 }
 
 export interface InternalTransferResponse {
-  transactionId?: string;
-  status?: string;
+  transactionId?: string
+  status?: string
   recipient: {
-    type: "existing" | "pending";
-    id?: string;
-    email?: string | null;
-    tag?: string | null;
-  };
+    type: "existing" | "pending"
+    id?: string
+    email?: string | null
+    tag?: string | null
+  }
 }
 
 export interface TransferRecipient {
-  found: boolean;
-  id?: string;
-  name?: string | null;
-  addresses?: Record<string, string | null | undefined> | null;
+  found: boolean
+  id?: string
+  name?: string | null
+  addresses?: Record<string, string | null | undefined> | null
 }
 
 export interface SponsorUserOperationPayload {
-  userOperation: Record<string, unknown>;
-  chain: string;
+  userOperation: Record<string, unknown>
+  chain: string
 }
 
 export interface SubmitUserOperationPayload
   extends SponsorUserOperationPayload {
-  signature: string;
-  verificationCode?: string;
-  verificationType?: string;
-  verificationCodes?: Record<string, string>;
+  signature: string
+  verificationCode?: string
+  verificationType?: string
+  verificationCodes?: Record<string, string>
 }
 
 export interface SubmitUserOperationResponse {
-  userOpHash: string;
+  userOpHash: string
 }
 
 type TransferErrorBody = {
-  message?: string;
-  code?: string;
-  verificationType?: "otp" | "totp";
+  message?: string
+  code?: string
+  verificationType?: "otp" | "totp"
   error?:
     | string
     | {
-        message?: string;
-        code?: string;
-        verificationType?: "otp" | "totp";
-      };
-};
+        message?: string
+        code?: string
+        verificationType?: "otp" | "totp"
+      }
+}
 
 export class TransferVerificationRequiredError extends Error {
-  verificationType: "otp" | "totp";
+  verificationType: "otp" | "totp"
 
   constructor(message: string, verificationType: "otp" | "totp" = "otp") {
-    super(message);
-    this.name = "TransferVerificationRequiredError";
-    this.verificationType = verificationType;
+    super(message)
+    this.name = "TransferVerificationRequiredError"
+    this.verificationType = verificationType
   }
 }
 
 export function isTransferVerificationRequiredError(
   error: unknown,
 ): error is TransferVerificationRequiredError {
-  return error instanceof TransferVerificationRequiredError;
+  return error instanceof TransferVerificationRequiredError
 }
 
 function getPlatformHeader(): string {
-  return typeof window !== "undefined" ? "web" : "server";
+  return typeof window !== "undefined" ? "web" : "server"
 }
 
 async function handleTransferResponse<T>(
   res: Response,
 ): Promise<ApiResponse<T>> {
-  const json = await res.json().catch(() => null);
+  const json = await res.json().catch(() => null)
 
   if (!res.ok) {
-    const body = (json || {}) as TransferErrorBody;
+    const body = (json || {}) as TransferErrorBody
     const nestedError =
-      typeof body.error === "object" && body.error ? body.error : null;
-    const code = nestedError?.code || body.code;
+      typeof body.error === "object" && body.error ? body.error : null
+    const code = nestedError?.code || body.code
     const message =
       body.message ||
       nestedError?.message ||
       (typeof body.error === "string" ? body.error : undefined) ||
-      "Unable to process transfer";
+      "Unable to process transfer"
     const verificationType =
-      nestedError?.verificationType || body.verificationType || "otp";
+      nestedError?.verificationType || body.verificationType || "otp"
 
     if (res.status === 403 && code === "VERIFICATION_REQUIRED") {
-      throw new TransferVerificationRequiredError(message, verificationType);
+      throw new TransferVerificationRequiredError(message, verificationType)
     }
 
-    throw new Error(message);
+    throw new Error(message)
   }
 
   return {
     success: true,
     data: json?.data !== undefined ? json.data : json,
-  };
+  }
+}
+
+export interface TransferStellarPayload {
+  amount: number | string
+  symbol: string
+  toAddress?: string
+  recipientEmail?: string
+  recipientTag?: string
+  recipientUsername?: string
+  verificationCode?: string
+  verificationType?: "otp" | "totp"
+}
+
+export interface TransferSolanaPayload {
+  amount: number | string
+  symbol: string
+  toAddress?: string
+  recipientEmail?: string
+  recipientTag?: string
+  recipientUsername?: string
+  verificationCode?: string
+  verificationType?: "otp" | "totp"
+}
+
+export interface TransferEVMPayload {
+  amount: number | string
+  symbol: string
+  chain: string
+  toAddress?: string
+  recipientEmail?: string
+  recipientTag?: string
+  recipientUsername?: string
+  verificationCode?: string
+  verificationType?: "otp" | "totp"
+}
+
+export interface TransferCryptoPayload {
+  chain: string
+  toAddress: string
+  amount: number | string
+  verificationCode?: string
+  verificationType?: "otp" | "totp"
 }
 
 export const transferService = {
   verifyRecipient: async (
     identifier: string,
   ): Promise<ApiResponse<TransferRecipient>> => {
-    const normalizedIdentifier = identifier.trim();
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
+    const normalizedIdentifier = identifier.trim()
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier)
     const queryKey = isEmail
       ? "email"
       : normalizedIdentifier.startsWith("@")
         ? "tag"
-        : "username";
+        : "username"
     const queryValue =
       queryKey === "email"
         ? normalizedIdentifier.toLowerCase()
-        : normalizedIdentifier.replace(/^@/, "");
+        : normalizedIdentifier.replace(/^@/, "")
     const res = await apiFetch(
       `/api/workflows/lookup?${queryKey}=${encodeURIComponent(queryValue)}`,
       {
@@ -135,11 +177,14 @@ export const transferService = {
         headers: { "Content-Type": "application/json" },
       },
       { signed: false },
-    );
+    )
 
-    return handleResponse(res);
+    return handleResponse(res)
   },
 
+  /**
+   * @deprecated Use transferStellar, transferSolana, or transferEVM instead.
+   */
   createInternalTransfer: async (
     body: InternalTransferPayload,
   ): Promise<ApiResponse<InternalTransferResponse>> => {
@@ -150,9 +195,69 @@ export const transferService = {
         "x-platform": getPlatformHeader(),
       },
       body: JSON.stringify(body),
-    });
+    })
 
-    return handleTransferResponse(res);
+    return handleTransferResponse(res)
+  },
+
+  transferStellar: async (
+    body: TransferStellarPayload,
+  ): Promise<ApiResponse<{ hash: string; message: string }>> => {
+    const res = await apiFetch("/api/transfers/stellar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-platform": getPlatformHeader(),
+      },
+      body: JSON.stringify(body),
+    })
+
+    return handleTransferResponse(res)
+  },
+
+  transferSolana: async (
+    body: TransferSolanaPayload,
+  ): Promise<ApiResponse<{ hash: string; message: string }>> => {
+    const res = await apiFetch("/api/transfers/solana", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-platform": getPlatformHeader(),
+      },
+      body: JSON.stringify(body),
+    })
+
+    return handleTransferResponse(res)
+  },
+
+  transferEVM: async (
+    body: TransferEVMPayload,
+  ): Promise<ApiResponse<{ hash: string; message: string }>> => {
+    const res = await apiFetch("/api/transfers/evm", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-platform": getPlatformHeader(),
+      },
+      body: JSON.stringify(body),
+    })
+
+    return handleTransferResponse(res)
+  },
+
+  transferCrypto: async (
+    body: TransferCryptoPayload,
+  ): Promise<ApiResponse<{ hash: string }>> => {
+    const res = await apiFetch("/api/transfers/crypto", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-platform": getPlatformHeader(),
+      },
+      body: JSON.stringify(body),
+    })
+
+    return handleTransferResponse(res)
   },
 
   sponsorUserOperation: async (
@@ -169,9 +274,9 @@ export const transferService = {
         body: JSON.stringify(body),
       },
       { signed: false },
-    );
+    )
 
-    return handleTransferResponse(res);
+    return handleTransferResponse(res)
   },
 
   submitUserOperation: async (
@@ -184,8 +289,8 @@ export const transferService = {
         "x-platform": getPlatformHeader(),
       },
       body: JSON.stringify(body),
-    });
+    })
 
-    return handleTransferResponse(res);
+    return handleTransferResponse(res)
   },
-};
+}
