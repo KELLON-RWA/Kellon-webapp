@@ -40,6 +40,11 @@ export default function WalletServicesModal({
     router.push("/invoices");
   };
 
+  const handleSendGift = () => {
+    onClose(false);
+    router.push("/gifts");
+  };
+
   const content = (
     <div className="px-4 pb-8 md:px-0 md:pb-0">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -73,7 +78,7 @@ export default function WalletServicesModal({
           icon={<Gift className="h-6 w-6 text-pink-500" />}
           title="Send Gift"
           description="Send crypto gifts to friends"
-          onClick={() => handleComingSoon("Send Gift")}
+          onClick={handleSendGift}
         />
         <ServiceOption
           icon={<MoreHorizontal className="h-6 w-6 text-gray-400" />}

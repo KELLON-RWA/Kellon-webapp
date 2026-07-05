@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { ArrowLeft, ArrowRight, FileText, Loader2 } from "lucide-react";
@@ -33,7 +33,6 @@ import {
   getInvoiceAssetGroups,
   getInvoiceAssetOptions,
   getInvoiceCustomerContactLabel,
-  getInvoiceSelfIdentifiers,
   isInvoiceCustomerContactEmail,
 } from "./create-invoice/utils";
 
@@ -43,6 +42,8 @@ interface CreateInvoicePageProps {
 
 export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const assetOptions = useMemo(
     () => getInvoiceAssetOptions(profile.assets || []),
     [profile.assets],
@@ -52,17 +53,41 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
     [assetOptions],
   );
   const defaultAsset = assetGroups[0];
+  const queryAsset = searchParams.get("asset")?.toUpperCase() || "";
+  const queryChain = searchParams.get("network") || searchParams.get("chain");
+  const queryAmount = searchParams.get("amount") || "";
+  const queryCustomer = searchParams.get("customer") || "";
+  const queryCustomerName = searchParams.get("customerName") || "";
+  const queryDescription = searchParams.get("description") || "";
+  const queryExpiry = searchParams.get(
+    "expiry",
+  ) as InvoiceFormValues["expiryPreset"] | null;
+  const queryStep = searchParams.get("step") as InvoiceStep | null;
+  const queryAssetGroup = assetGroups.find(
+    (asset) => asset.symbol === queryAsset,
+  );
+  const queryAssetChain = queryAssetGroup?.chains.find(
+    (asset) => asset.chain.toLowerCase() === queryChain?.toLowerCase(),
+  );
 
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      amount: "",
-      assetSymbol: defaultAsset?.symbol || "",
-      chain: defaultAsset?.chains[0]?.chain || "",
-      description: "",
-      customerName: "",
-      customerContact: "",
-      expiryPreset: "1d",
+      amount: queryAmount,
+      assetSymbol: queryAssetGroup?.symbol || defaultAsset?.symbol || "",
+      chain:
+        queryAssetChain?.chain ||
+        queryAssetGroup?.chains[0]?.chain ||
+        defaultAsset?.chains[0]?.chain ||
+        "",
+      description: queryDescription,
+      customerName: queryCustomerName,
+      customerContact: queryCustomer,
+      expiryPreset:
+        queryExpiry &&
+        EXPIRY_PRESETS.some((preset) => preset.value === queryExpiry)
+          ? queryExpiry
+          : "1d",
     },
   });
 
@@ -84,23 +109,82 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
     (preset) => preset.value === watchedExpiryPreset,
   );
   const customerContactValue = customerContact.trim();
+  const customerContactKey = customerContactValue.toLowerCase();
   const customerContactLabel =
     getInvoiceCustomerContactLabel(customerContactValue);
 
   const [verifiedCustomer, setVerifiedCustomer] =
     useState<TransferRecipient | null>(null);
+  const [verifiedCustomerContact, setVerifiedCustomerContact] = useState("");
   const [isVerifyingCustomer, setIsVerifyingCustomer] = useState(false);
   const [customerLookupMessage, setCustomerLookupMessage] = useState("");
   const [mobileStep, setMobileStep] = useState<InvoiceStep>("amount");
   const [isDesktopReview, setIsDesktopReview] = useState(false);
+  const isCurrentCustomerVerified =
+    Boolean(verifiedCustomer?.found) &&
+    verifiedCustomerContact === customerContactKey;
 
+  const updateUrl = (
+    updates: Record<string, string | null>,
+    options: { replace?: boolean } = {},
+  ) => {
+    const params = new URLSearchParams(searchParams.toString());
+    let changed = false;
+
+    Object.entries(updates).forEach(([key, value]) => {
+      const currentValue = params.get(key);
+
+      if (!value && currentValue !== null) {
+        params.delete(key);
+        changed = true;
+        return;
+      }
+
+      if (value && currentValue !== value) {
+        params.set(key, value);
+        changed = true;
+      }
+    });
+
+    if (!changed) return;
+
+    const query = params.toString();
+    const nextUrl = query ? `${pathname}?${query}` : pathname;
+    const navigate = options.replace ? router.replace : router.push;
+    navigate(nextUrl, { scroll: false });
+  };
+
+  const profileWithUsername = profile as User & {
+    username?: string | null;
+  };
+  const selfIdentifierKey = useMemo(() => {
+    const identifiers = [
+      profile.id || "",
+      profile.email || "",
+      profile.tag || "",
+      profile.tag ? `@${profile.tag.replace(/^@/, "")}` : "",
+      profileWithUsername.username || "",
+      profileWithUsername.username
+        ? `@${profileWithUsername.username.replace(/^@/, "")}`
+        : "",
+    ];
+
+    return identifiers
+      .filter(Boolean)
+      .map((identifier) => identifier.toLowerCase())
+      .join("|");
+  }, [profile.email, profile.id, profile.tag, profileWithUsername.username]);
   const selfIdentifiers = useMemo(
-    () => getInvoiceSelfIdentifiers(profile),
-    [profile],
+    () => new Set(selfIdentifierKey.split("|").filter(Boolean)),
+    [selfIdentifierKey],
   );
 
   useEffect(() => {
-    if (!selectedAssetGroup) return;
+    if (!selectedAssetGroup) {
+      form.setValue("assetSymbol", defaultAsset?.symbol || "");
+      form.setValue("chain", defaultAsset?.chains[0]?.chain || "");
+      return;
+    }
 
     const chainIsAvailable = selectedAssetGroup.chains.some(
       (asset) => asset.chain === selectedChain,
@@ -109,11 +193,87 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
     if (!chainIsAvailable) {
       form.setValue("chain", selectedAssetGroup.chains[0]?.chain || "");
     }
-  }, [form, selectedAssetGroup, selectedChain]);
+  }, [defaultAsset, form, selectedAssetGroup, selectedChain]);
+
+  useEffect(() => {
+    updateUrl(
+      {
+        asset: selectedAssetSymbol || null,
+        network: selectedChain || null,
+        amount: watchedAmount || null,
+        customer: customerContactValue || null,
+        customerName: watchedCustomerName || null,
+        description: watchedDescription || null,
+        expiry: watchedExpiryPreset || null,
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    customerContactValue,
+    selectedAssetSymbol,
+    selectedChain,
+    watchedAmount,
+    watchedCustomerName,
+    watchedDescription,
+    watchedExpiryPreset,
+  ]);
+
+  useEffect(() => {
+    if (!queryStep || !INVOICE_STEPS.includes(queryStep)) return;
+
+    if (queryStep === "amount") {
+      setMobileStep("amount");
+      setIsDesktopReview(false);
+      return;
+    }
+
+    if (queryStep === "details") {
+      setMobileStep("details");
+      setIsDesktopReview(false);
+      return;
+    }
+
+    if (
+      queryStep === "review" &&
+      customerContactValue &&
+      !verifiedCustomer &&
+      (isVerifyingCustomer || !customerLookupMessage)
+    ) {
+      return;
+    }
+
+    if (queryStep === "review" && !isCurrentCustomerVerified) {
+      setMobileStep("details");
+      setIsDesktopReview(false);
+      updateUrl({ step: "details" }, { replace: true });
+      return;
+    }
+
+    if (queryStep === "review") {
+      setMobileStep("review");
+      setIsDesktopReview(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    customerContactValue,
+    customerLookupMessage,
+    isCurrentCustomerVerified,
+    isVerifyingCustomer,
+    queryStep,
+    verifiedCustomer,
+  ]);
 
   useEffect(() => {
     const contact = customerContact.trim();
+    const contactKey = contact.toLowerCase();
+
+    if (verifiedCustomer?.found && verifiedCustomerContact === contactKey) {
+      return;
+    }
+
     setVerifiedCustomer(null);
+    setVerifiedCustomerContact("");
 
     if (!contact) {
       setCustomerLookupMessage("");
@@ -141,7 +301,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
 
     const timeoutId = window.setTimeout(async () => {
       try {
-        const lookupValue = contact.includes("@")
+        const lookupValue = isInvoiceCustomerContactEmail(contact)
           ? contact.toLowerCase()
           : contact.replace(/^@/, "");
         const response = await transferService.verifyRecipient(lookupValue);
@@ -155,6 +315,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
         }
 
         setVerifiedCustomer(customer);
+        setVerifiedCustomerContact(contactKey);
         setCustomerLookupMessage(
           customer.name
             ? `Verified as ${customer.name}`
@@ -177,10 +338,16 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
       window.clearTimeout(timeoutId);
       setIsVerifyingCustomer(false);
     };
-  }, [customerContact, form, selfIdentifiers]);
+  }, [
+    customerContact,
+    form,
+    selfIdentifiers,
+    verifiedCustomer,
+    verifiedCustomerContact,
+  ]);
 
   const ensureCustomerIsVerified = () => {
-    if (verifiedCustomer?.found) return true;
+    if (isCurrentCustomerVerified) return true;
 
     form.setError("customerContact", {
       message: isVerifyingCustomer
@@ -192,7 +359,10 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
 
   const goToMobileDetails = async () => {
     const isValid = await form.trigger(["assetSymbol", "chain", "amount"]);
-    if (isValid) setMobileStep("details");
+    if (isValid) {
+      setMobileStep("details");
+      updateUrl({ step: "details" });
+    }
   };
 
   const goToMobileReview = async () => {
@@ -205,6 +375,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
 
     if (isValid && ensureCustomerIsVerified()) {
       setMobileStep("review");
+      updateUrl({ step: "review" });
     }
   };
 
@@ -212,6 +383,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
     const isValid = await form.trigger();
     if (isValid && ensureCustomerIsVerified()) {
       setIsDesktopReview(true);
+      updateUrl({ step: "review" });
     }
   };
 
@@ -231,7 +403,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
       ? isInvoiceCustomerContactEmail(customerContact)
       : false;
 
-    if (!verifiedCustomer?.found) {
+    if (!isCurrentCustomerVerified) {
       form.setError("customerContact", {
         message: "Verify this Kellon customer before creating the invoice.",
       });
@@ -288,12 +460,10 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
       selectedAsset={selectedAsset}
       selectedAssetSymbol={selectedAssetSymbol}
       watchedAmount={watchedAmount}
-      watchedCustomerName={watchedCustomerName}
       watchedDescription={watchedDescription}
       watchedExpiryPreset={watchedExpiryPreset}
       selectedExpiry={selectedExpiry}
       verifiedCustomer={verifiedCustomer}
-      customerContact={customerContact}
       customerContactValue={customerContactValue}
       customerContactLabel={customerContactLabel}
     />
@@ -306,12 +476,16 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
         <button
           type="button"
           onClick={() => {
-            if (mobileStep !== "amount") {
-              setMobileStep(mobileStep === "review" ? "details" : "amount");
-              return;
-            }
             if (isDesktopReview) {
               setIsDesktopReview(false);
+              setMobileStep("details");
+              updateUrl({ step: "details" });
+              return;
+            }
+            if (mobileStep !== "amount") {
+              const nextStep = mobileStep === "review" ? "details" : "amount";
+              setMobileStep(nextStep);
+              updateUrl({ step: nextStep });
               return;
             }
             router.back();
@@ -366,7 +540,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
                 <FlowActionFooter
                   sticky={false}
                   onClick={goToMobileReview}
-                  disabled={isBusy || !verifiedCustomer?.found}
+                  disabled={isBusy || !isCurrentCustomerVerified}
                   textClassName="text-sm"
                   helperText="We verify the customer before you create the invoice."
                 >
@@ -379,7 +553,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
                 <FlowActionFooter
                   sticky={false}
                   type="submit"
-                  disabled={isBusy || !verifiedCustomer?.found}
+                  disabled={isBusy || !isCurrentCustomerVerified}
                   textClassName="text-sm"
                   helperText="Confirm the details before generating this payment request."
                 >
@@ -403,7 +577,10 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
                     type="button"
                     variant="outline"
                     className="h-14 flex-1 rounded-2xl"
-                    onClick={() => setIsDesktopReview(false)}
+                    onClick={() => {
+                      setIsDesktopReview(false);
+                      updateUrl({ step: "details" });
+                    }}
                   >
                     Edit Details
                   </Button>
@@ -411,7 +588,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
                     sticky={false}
                     type="submit"
                     className="flex-1"
-                    disabled={isBusy || !verifiedCustomer?.found}
+                    disabled={isBusy || !isCurrentCustomerVerified}
                   >
                     {form.formState.isSubmitting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -438,7 +615,7 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
                   <FlowActionFooter
                     sticky={false}
                     onClick={goToDesktopReview}
-                    disabled={isBusy || !verifiedCustomer?.found}
+                    disabled={isBusy || !isCurrentCustomerVerified}
                     helperText="Add the invoice details and verify the Kellon customer before review."
                   >
                     Continue

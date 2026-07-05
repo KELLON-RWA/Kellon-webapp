@@ -69,9 +69,9 @@ export function getRecipientKind(value: string): RecipientKind {
   const trimmed = value.trim();
 
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "email";
-  if (/^@?[a-zA-Z0-9_.-]{3,}$/.test(trimmed)) return "tag";
   if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return "evm";
   if (/^G[A-Z2-7]{55}$/.test(trimmed)) return "stellar";
+  if (/^@?[a-zA-Z0-9_.-]{3,}$/.test(trimmed)) return "tag";
 
   return "unknown";
 }

@@ -32,7 +32,7 @@ export function formatCurrencyAmount(value: number, currency: string): string {
 export function formatAssetAmount(value: number): string {
   return formatNumber(value, {
     minimumFractionDigits: value > 0 && value < 1 ? 2 : 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 6,
   });
 }
 
@@ -97,6 +97,43 @@ function getMetadataSymbol(metadata: Transaction["metadata"]): string | null {
     : null;
 }
 
+function getMetadataStringValue(
+  metadata: Transaction["metadata"],
+  keys: string[],
+): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function parseNumberValue(value: unknown): number | null {
+  const parsed =
+    typeof value === "string" || typeof value === "number" ? Number(value) : NaN;
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getMetadataNumberValue(
+  metadata: Transaction["metadata"],
+  keys: string[],
+): number | null {
+  if (!metadata || typeof metadata !== "object") return null;
+
+  for (const key of keys) {
+    const parsed = parseNumberValue(metadata[key]);
+    if (parsed !== null) return parsed;
+  }
+
+  return null;
+}
+
 export function getTransactionSymbol(transaction: Transaction): string {
   const metadata = transaction.metadata;
   const provider = metadata?.provider?.toLowerCase();
@@ -122,12 +159,14 @@ export function getProviderAmount(transaction: Transaction): number | null {
   switch (provider) {
     case "paycrest": {
       const paycrestAmount = metadata?.paycrestResponse?.amount;
-      if (paycrestAmount) return parseFloat(paycrestAmount);
+      const parsedAmount = parseNumberValue(paycrestAmount);
+      if (parsedAmount !== null) return parsedAmount;
       break;
     }
     case "centiiv": {
       const centiivAmount = metadata?.centiivResponse?.receivableAmount;
-      if (centiivAmount) return parseFloat(centiivAmount);
+      const parsedAmount = parseNumberValue(centiivAmount);
+      if (parsedAmount !== null) return parsedAmount;
       break;
     }
     default:
@@ -138,24 +177,57 @@ export function getProviderAmount(transaction: Transaction): number | null {
 }
 
 function parseTransactionAmount(amount: Transaction["amount"]): number | null {
-  const parsed = typeof amount === "string" ? Number(amount) : amount;
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseNumberValue(amount);
+}
+
+function getTransactionMetadataAmount(transaction: Transaction): number | null {
+  return getMetadataNumberValue(transaction.metadata, [
+    "cryptoAmount",
+    "sendAmount",
+    "assetAmount",
+    "tokenAmount",
+  ]);
 }
 
 function getTransactionDisplayAmount(transaction: Transaction): number | null {
+  const metadataAmount = getTransactionMetadataAmount(transaction);
+  if (metadataAmount !== null) return metadataAmount;
+
   const providerAmount = getProviderAmount(transaction);
   if (providerAmount !== null) return providerAmount;
 
-  if (["TRANSFER_IN", "TRANSFER_OUT"].includes(transaction.type)) {
+  if (
+    [
+      "BUY",
+      "DEPOSIT",
+      "SELL",
+      "WITHDRAW",
+      "TRANSFER_IN",
+      "TRANSFER_OUT",
+    ].includes(transaction.type)
+  ) {
     return parseTransactionAmount(transaction.amount);
   }
 
   return null;
 }
 
+function getTransactionFiatCurrency(transaction: Transaction): string | null {
+  return getMetadataStringValue(transaction.metadata, [
+    "receiveCurrency",
+    "fiatCurrency",
+    "currency",
+  ])?.toUpperCase() || null;
+}
+
 export function getTransactionTitle(transaction: Transaction): string {
   const action = getTransactionAction(transaction.type);
   const symbol = getTransactionSymbol(transaction);
+
+  if (transaction.type === "WITHDRAW") {
+    const fiatCurrency = getTransactionFiatCurrency(transaction);
+    return `${fiatCurrency || symbol} Withdrawal`;
+  }
 
   if (action === "Buy") {
     return `Buy ${symbol}`;
@@ -187,6 +259,10 @@ export function getTransactionStatusLabel(
       return "Failed";
     case "CANCELLED":
       return "Cancelled";
+    case "PENDING":
+      return "Pending";
+    case "REFUNDED":
+      return "Refunded";
     default:
       return status.charAt(0) + status.slice(1).toLowerCase();
   }
@@ -202,7 +278,10 @@ export function getTransactionStatusClasses(
     case "FAILED":
       return "text-red-500 dark:text-red-400";
     case "CANCELLED":
+    case "REFUNDED":
       return "text-gray-500 dark:text-gray-400";
+    case "PENDING":
+      return "text-primary-60 dark:text-primary-80";
     default:
       return "text-primary-60 dark:text-primary-80";
   }

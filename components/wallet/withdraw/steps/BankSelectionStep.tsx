@@ -28,6 +28,8 @@ interface BankSelectionStepProps {
   asset: string | null;
   amount: string;
   amountUnit: string | null;
+  fiatCurrency: string;
+  country: string | null;
   selectedChain?: { name: string } | null;
   selectedBank: BankDetail | null;
   savedBanks: BankDetail[];
@@ -44,6 +46,8 @@ export function WithdrawBankSelectionStep({
   asset,
   amount,
   amountUnit,
+  fiatCurrency,
+  country,
   selectedChain,
   selectedBank,
   savedBanks,
@@ -100,7 +104,7 @@ export function WithdrawBankSelectionStep({
           ? await providerService.verifyPaycrestAccount({
               institution: selectedProviderBank.value,
               accountIdentifier: accountNumber,
-              currency: amountUnit || "NGN",
+              currency: fiatCurrency || "NGN",
               save: false,
               bankName: selectedProviderBank.label,
             })
@@ -127,7 +131,7 @@ export function WithdrawBankSelectionStep({
           bankCode: response.data.bankCode || selectedProviderBank.value,
           accountNumber: response.data.accountNumber || accountNumber,
           accountName,
-          country: amountUnit || "NGN",
+          country: country || "NG",
           provider: isPaycrest ? "paycrest" : "centiiv",
         });
       } catch (error) {
@@ -147,7 +151,7 @@ export function WithdrawBankSelectionStep({
     return () => {
       cancelled = true;
     };
-  }, [accountNumber, amountUnit, isPaycrest, selectedProviderBank]);
+  }, [accountNumber, country, fiatCurrency, isPaycrest, selectedProviderBank]);
 
   const handleAccountNumberChange = (value: string) => {
     if (!/^\d{0,10}$/.test(value)) return;
@@ -171,7 +175,7 @@ export function WithdrawBankSelectionStep({
           bankCode: verifiedAccount.bankCode,
           accountNumber: verifiedAccount.accountNumber,
           accountName: verifiedAccount.accountName,
-          country: verifiedAccount.country || amountUnit || "NGN",
+          country: verifiedAccount.country || country || "NG",
           provider: verifiedAccount.provider,
         });
 
@@ -204,7 +208,7 @@ export function WithdrawBankSelectionStep({
           asset={asset}
           selectedChain={selectedChain}
           amount={amount}
-          fiatCurrency={amountUnit || undefined}
+          amountCurrency={amountUnit || undefined}
         />
 
         <div className="mt-8">

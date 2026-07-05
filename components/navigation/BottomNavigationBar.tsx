@@ -28,7 +28,10 @@ const BottomNavigationBar: FC<BottomNavigationBarProps> = ({
     "/buy",
     "/withdraw",
     "/send",
+    "/gifts",
     "/receive",
+    "/notifications",
+    "/transactions",
   ];
 
   if (HIDDEN_PATHS.includes(pathname)) {

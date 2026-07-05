@@ -1,49 +1,49 @@
-"use client";
+"use client"
 
-import { AlertCircle, ArrowRight, Check, Globe, Loader2 } from "lucide-react";
-import Image from "next/image";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
-import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
-import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import { AlertCircle, ArrowRight, Check, Globe, Loader2 } from "lucide-react"
+import Image from "next/image"
+import { useState } from "react"
+import { cn } from "@/lib/utils"
+import SummaryPill from "@/components/wallet/shared/FlowSummaryPill"
+import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter"
 
 interface Provider {
-  id: string;
-  name: string;
-  logo?: string;
-  deliveryTime?: string;
-  fee?: string;
-  features: string[];
-  isRecommended?: boolean;
+  id: string
+  name: string
+  logo?: string
+  deliveryTime?: string
+  fee?: string
+  features: string[]
+  isRecommended?: boolean
 }
 
 interface ProviderSelectionStepProps {
-  asset: string | null;
-  amount: string;
-  amountUnit: string | null;
-  fiatCurrency: string;
-  selectedChain?: { name: string } | null;
-  providers: Provider[];
-  selectedProviderId: string | null;
-  onSelectProvider: (id: string) => void;
-  onContinue: () => void;
+  asset: string | null
+  amount: string
+  amountUnit: string | null
+  fiatCurrency: string
+  selectedChain?: { name: string } | null
+  providers: Provider[]
+  selectedProviderId: string | null
+  onSelectProvider: (id: string) => void
+  onContinue: () => void
   providerRates: Record<
     string,
     {
-      cryptoAmount: number | null;
-      fiatAmount: number | null;
-      rawRate: number | null;
+      cryptoAmount: number | null
+      fiatAmount: number | null
+      rawRate: number | null
     } | null
-  >;
-  isRatesLoading: boolean;
+  >
+  isRatesLoading: boolean
 }
 
 function hasUsableProviderRate(
   rateDetails:
     | {
-        cryptoAmount: number | null;
-        fiatAmount: number | null;
-        rawRate: number | null;
+        cryptoAmount: number | null
+        fiatAmount: number | null
+        rawRate: number | null
       }
     | null
     | undefined,
@@ -53,7 +53,7 @@ function hasUsableProviderRate(
       rateDetails.rawRate > 0 &&
       rateDetails.fiatAmount &&
       rateDetails.fiatAmount > 0,
-  );
+  )
 }
 
 export function WithdrawProviderSelectionStep({
@@ -69,30 +69,30 @@ export function WithdrawProviderSelectionStep({
   providerRates,
   isRatesLoading,
 }: ProviderSelectionStepProps) {
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
   const visibleProviders = isRatesLoading
     ? providers
     : providers.filter((provider) =>
         hasUsableProviderRate(providerRates[provider.id]),
-      );
-  const visibleProviderCount = visibleProviders.length;
+      )
+  const visibleProviderCount = visibleProviders.length
   const selectedProvider =
     visibleProviders.find((provider) => provider.id === selectedProviderId) ||
-    null;
+    null
   const selectedProviderRate = selectedProviderId
     ? providerRates[selectedProviderId]
-    : null;
-  const hasSelectedProviderRate = hasUsableProviderRate(selectedProviderRate);
+    : null
+  const hasSelectedProviderRate = hasUsableProviderRate(selectedProviderRate)
   const isSelectedRatePending =
     Boolean(selectedProvider) &&
-    (isRatesLoading || selectedProviderRate === undefined);
+    (isRatesLoading || selectedProviderRate === undefined)
   const canContinue =
-    Boolean(selectedProvider) && hasSelectedProviderRate && !isRatesLoading;
+    Boolean(selectedProvider) && hasSelectedProviderRate && !isRatesLoading
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value);
+    }).format(value)
 
   return (
     <div className="flex h-full min-h-[calc(100dvh-200px)] flex-col md:min-h-[500px]">
@@ -101,7 +101,7 @@ export function WithdrawProviderSelectionStep({
           asset={asset}
           selectedChain={selectedChain}
           amount={amount}
-          fiatCurrency={amountUnit || undefined}
+          amountCurrency={amountUnit || undefined}
         />
 
         <div className="mt-6 md:mt-8">
@@ -116,12 +116,12 @@ export function WithdrawProviderSelectionStep({
 
           <div className="space-y-3 md:space-y-4">
             {visibleProviders.map((provider) => {
-              const isSelected = provider.id === selectedProviderId;
-              const showFallback = imageErrors[provider.id] || !provider.logo;
-              const rateDetails = providerRates[provider.id];
-              const rawRate = rateDetails?.rawRate;
-              const estimatedFiat = rateDetails?.fiatAmount;
-              const isLoadingRate = isRatesLoading && rateDetails === undefined;
+              const isSelected = provider.id === selectedProviderId
+              const showFallback = imageErrors[provider.id] || !provider.logo
+              const rateDetails = providerRates[provider.id]
+              const rawRate = rateDetails?.rawRate
+              const estimatedFiat = rateDetails?.fiatAmount
+              const isLoadingRate = isRatesLoading && rateDetails === undefined
 
               return (
                 <button
@@ -227,7 +227,7 @@ export function WithdrawProviderSelectionStep({
                     </div>
                   ) : null}
                 </button>
-              );
+              )
             })}
           </div>
 
@@ -269,5 +269,5 @@ export function WithdrawProviderSelectionStep({
         )}
       </FlowActionFooter>
     </div>
-  );
+  )
 }

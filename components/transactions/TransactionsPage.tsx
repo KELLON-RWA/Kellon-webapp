@@ -12,7 +12,15 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  getTransactionAmountLabel,
+  getTransactionStatusClasses,
+  getTransactionStatusLabel,
+  getTransactionTitle,
+  isPositiveTransaction,
+} from "@/lib/dashboard-utils";
 import { transactionService } from "@/services/api/transactions";
 import type { Transaction } from "@/types/db";
 import TransactionFilterModal, {
@@ -22,152 +30,6 @@ import TransactionFilterModal, {
 type QuickTab = "all" | "sent" | "received";
 
 const QUICK_TABS: QuickTab[] = ["all", "sent", "received"];
-
-function formatAssetAmount(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: value > 0 && value < 1 ? 2 : 0,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-function getTransactionAction(type: Transaction["type"]): string {
-  switch (type) {
-    case "BUY":
-    case "DEPOSIT":
-      return "Buy";
-    case "TRANSFER_IN":
-      return "Received";
-    case "TRANSFER_OUT":
-      return "Sent";
-    default:
-      return type.charAt(0) + type.slice(1).toLowerCase();
-  }
-}
-
-function isPositiveTransaction(type: Transaction["type"]): boolean {
-  return ["DEPOSIT", "BUY", "TRANSFER_IN"].includes(type);
-}
-
-function getMetadataSymbol(metadata: Transaction["metadata"]): string | null {
-  const symbol =
-    metadata?.cryptoCurrencyCode ||
-    metadata?.cryptoCurrency ||
-    metadata?.token ||
-    metadata?.asset ||
-    metadata?.toAsset ||
-    metadata?.targetAsset;
-
-  return typeof symbol === "string" && symbol.trim()
-    ? symbol.toUpperCase()
-    : null;
-}
-
-function getTransactionSymbol(transaction: Transaction): string {
-  const metadata = transaction.metadata;
-  const provider = metadata?.provider?.toLowerCase();
-
-  if (transaction.type === "BUY") {
-    return getMetadataSymbol(metadata) || transaction.symbol;
-  }
-
-  switch (provider) {
-    case "paycrest":
-      return getMetadataSymbol(metadata) || transaction.symbol;
-    case "centiiv":
-      return getMetadataSymbol(metadata) || transaction.symbol;
-    default:
-      return transaction.symbol;
-  }
-}
-
-function getProviderAmount(transaction: Transaction): number | null {
-  const metadata = transaction.metadata;
-  const provider = metadata?.provider?.toLowerCase();
-
-  switch (provider) {
-    case "paycrest": {
-      const paycrestAmount = metadata?.paycrestResponse?.amount;
-      if (paycrestAmount) return parseFloat(paycrestAmount);
-      break;
-    }
-    case "centiiv": {
-      const centiivAmount = metadata?.centiivResponse?.receivableAmount;
-      if (centiivAmount) return parseFloat(centiivAmount);
-      break;
-    }
-    default:
-      return null;
-  }
-
-  return null;
-}
-
-function parseTransactionAmount(amount: Transaction["amount"]): number | null {
-  const parsed = typeof amount === "string" ? Number(amount) : amount;
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function getTransactionDisplayAmount(transaction: Transaction): number | null {
-  const providerAmount = getProviderAmount(transaction);
-  if (providerAmount !== null) return providerAmount;
-
-  if (["TRANSFER_IN", "TRANSFER_OUT"].includes(transaction.type)) {
-    return parseTransactionAmount(transaction.amount);
-  }
-
-  return null;
-}
-
-function getTransactionTitle(transaction: Transaction): string {
-  const action = getTransactionAction(transaction.type);
-  const symbol = getTransactionSymbol(transaction);
-
-  if (action === "Buy") {
-    return `Buy ${symbol}`;
-  }
-
-  return `${symbol} ${action}`;
-}
-
-function getTransactionAmountLabel(transaction: Transaction): string {
-  const amount = getTransactionDisplayAmount(transaction);
-  const symbol = getTransactionSymbol(transaction);
-
-  if (amount === null) {
-    return `-- ${symbol}`;
-  }
-
-  const prefix = isPositiveTransaction(transaction.type) ? "+" : "-";
-  return `${prefix}${formatAssetAmount(amount)} ${symbol}`;
-}
-
-function getTransactionStatusLabel(status: Transaction["status"]): string {
-  switch (status) {
-    case "COMPLETED":
-    case "PAID":
-      return "Successful";
-    case "FAILED":
-      return "Failed";
-    case "CANCELLED":
-      return "Cancelled";
-    default:
-      return status.charAt(0) + status.slice(1).toLowerCase();
-  }
-}
-
-function getTransactionStatusClasses(status: Transaction["status"]): string {
-  switch (status) {
-    case "COMPLETED":
-    case "PAID":
-      return "text-emerald-600 dark:text-emerald-400";
-    case "FAILED":
-      return "text-red-500 dark:text-red-400";
-    case "CANCELLED":
-      return "text-gray-500 dark:text-gray-400";
-    default:
-      return "text-primary-60 dark:text-primary-80";
-  }
-}
 
 function matchesActivityFilter(
   transaction: Transaction,
@@ -323,29 +185,31 @@ export default function TransactionsPage() {
   };
 
   return (
-    <section className="container mx-auto flex h-[100dvh] max-w-4xl flex-col overflow-hidden px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-20">
+    <section className="container mx-auto flex h-[100dvh] max-w-4xl flex-col overflow-hidden px-4 pb-0 pt-4 md:px-6 md:pb-12 md:pt-20">
       <div className="flex items-center justify-between">
-        <button
+        <Button
           type="button"
+          variant="iconCircle"
+          size="icon"
           onClick={() => router.back()}
-          className="rounded-full border border-black/5 bg-white p-2 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
           aria-label="Go back"
         >
           <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </button>
+        </Button>
 
         <h1 className="text-lg font-semibold text-black dark:text-white md:text-2xl">
           Transactions
         </h1>
 
-        <button
+        <Button
           type="button"
+          variant="iconCircle"
+          size="icon"
           onClick={openFilters}
-          className="rounded-full border border-black/5 bg-white p-2 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
           aria-label="Open filters"
         >
           <Filter className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </button>
+        </Button>
       </div>
 
       <TransactionFilterModal

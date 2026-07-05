@@ -1,41 +1,41 @@
-"use client";
+"use client"
 
-import { useEffect, useMemo } from "react";
-import { ArrowRight, Delete } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { cn } from "@/lib/utils";
-import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
-import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
-import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
-import { Input } from "@/components/ui/input";
+import { useEffect, useMemo } from "react"
+import { ArrowRight, Delete } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { cn } from "@/lib/utils"
+import { formatNumberWithCommas } from "@/lib/format-number-with-comma"
+import SummaryPill from "@/components/wallet/shared/FlowSummaryPill"
+import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter"
+import { Input } from "@/components/ui/input"
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
-} from "@/components/ui/form";
+} from "@/components/ui/form"
 
 interface AmountEntryStepProps {
-  asset: string | null;
-  selectedChain?: { name: string } | null;
-  amount: string;
-  assetBalance: number;
-  onContinue: () => void;
-  onAmountChange: (value: string) => void;
+  asset: string | null
+  selectedChain?: { name: string } | null
+  amount: string
+  assetBalance: number
+  onContinue: () => void
+  onAmountChange: (value: string) => void
 }
 
 type AmountFormValues = {
-  amount: string;
-};
+  amount: string
+}
 
-const FIXED_QUICK_AMOUNTS = [10, 25, 50, 100, 250, 500];
+const FIXED_QUICK_AMOUNTS = [10, 25, 50, 100, 250, 500]
 
 function formatAssetAmount(value: number) {
-  if (!Number.isFinite(value)) return "0";
-  return value.toFixed(6).replace(/\.?0+$/, "");
+  if (!Number.isFinite(value)) return "0"
+  return value.toFixed(6).replace(/\.?0+$/, "")
 }
 
 export function WithdrawAmountEntryStep({
@@ -63,7 +63,7 @@ export function WithdrawAmountEntryStep({
           ),
       }),
     [asset, assetBalance],
-  );
+  )
 
   const form = useForm<AmountFormValues>({
     resolver: zodResolver(amountSchema),
@@ -71,24 +71,24 @@ export function WithdrawAmountEntryStep({
       amount: amount || "",
     },
     mode: "onChange",
-  });
+  })
 
   useEffect(() => {
     if (form.getValues("amount") !== amount) {
-      form.setValue("amount", amount, { shouldValidate: true });
+      form.setValue("amount", amount, { shouldValidate: true })
     }
-  }, [amount, form]);
+  }, [amount, form])
 
-  const currentAmount = form.watch("amount");
+  const currentAmount = form.watch("amount")
   const displayAmount = currentAmount
     ? formatNumberWithCommas(currentAmount)
-    : "0";
-  const isAmountValid = form.formState.isValid;
+    : "0"
+  const isAmountValid = form.formState.isValid
   const quickAmounts = useMemo(
     () =>
       FIXED_QUICK_AMOUNTS.filter((value) => value <= assetBalance).slice(0, 6),
     [assetBalance],
-  );
+  )
 
   const keypadKeys = [
     "1",
@@ -103,46 +103,46 @@ export function WithdrawAmountEntryStep({
     ".",
     "0",
     "delete",
-  ];
+  ]
 
   const syncAmount = (nextValue: string) => {
     if (nextValue !== "" && !/^\d+(\.\d{0,6})?$/.test(nextValue)) {
-      return;
+      return
     }
 
     form.setValue("amount", nextValue, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
-    });
-    onAmountChange(nextValue);
-  };
+    })
+    onAmountChange(nextValue)
+  }
 
   const handleKeypadPress = (value: string) => {
-    const currentValue = form.getValues("amount");
-    let nextAmount = currentValue;
+    const currentValue = form.getValues("amount")
+    let nextAmount = currentValue
 
     if (value === "delete") {
-      nextAmount = currentValue.slice(0, -1);
+      nextAmount = currentValue.slice(0, -1)
     } else if (value === "." && currentValue.includes(".")) {
-      return;
+      return
     } else if (currentValue === "0" && value !== ".") {
-      nextAmount = value;
+      nextAmount = value
     } else {
-      nextAmount = currentValue + value;
+      nextAmount = currentValue + value
     }
 
-    syncAmount(nextAmount);
-  };
+    syncAmount(nextAmount)
+  }
 
   const handleFormSubmit = ({ amount: enteredAmount }: AmountFormValues) => {
     if (Number(enteredAmount) <= assetBalance) {
-      onContinue();
+      onContinue()
     }
-  };
+  }
 
   const balanceLabel =
-    `${formatAssetAmount(assetBalance)} ${asset || ""}`.trim();
+    `${formatAssetAmount(assetBalance)} ${asset || ""}`.trim()
 
   return (
     <Form {...form}>
@@ -152,7 +152,7 @@ export function WithdrawAmountEntryStep({
             asset={asset}
             selectedChain={selectedChain}
             amount={currentAmount}
-            fiatCurrency={asset || undefined}
+            amountCurrency={asset || undefined}
           />
 
           <div className="block w-full lg:hidden">
@@ -344,5 +344,5 @@ export function WithdrawAmountEntryStep({
         </FlowActionFooter>
       </div>
     </Form>
-  );
+  )
 }

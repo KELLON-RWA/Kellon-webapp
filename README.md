@@ -58,7 +58,3 @@ npm run type-check   # Run TypeScript checks
 npm run format       # Check Prettier formatting
 npm run format:fix   # Fix Prettier formatting
 ```
-
-## Notes
-
-This is a private Kellon project. Keep credentials, API details, and internal implementation notes confidential.

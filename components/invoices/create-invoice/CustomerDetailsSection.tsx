@@ -62,35 +62,40 @@ export function CustomerDetailsSection({
         <FormField
           control={form.control}
           name="customerContact"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Email or Kellon Tag
-              </FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  placeholder="customer@email.com or @username"
-                  className={cn(INVOICE_INPUT_CLASS, "h-12 rounded-2xl")}
-                />
-              </FormControl>
-              {customerLookupMessage ? (
-                <p
-                  className={cn(
-                    "text-xs font-medium",
-                    verifiedCustomer?.found
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : isVerifyingCustomer
-                        ? "text-gray-500 dark:text-gray-400"
-                        : "text-red-500",
-                  )}
-                >
-                  {customerLookupMessage}
-                </p>
-              ) : null}
-              <FormMessage className="text-xs text-red-500" />
-            </FormItem>
-          )}
+          render={({ field, fieldState }) => {
+            const showLookupMessage =
+              Boolean(customerLookupMessage) && !fieldState.error;
+
+            return (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Email or Kellon Tag
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    placeholder="customer@email.com or @username"
+                    className={cn(INVOICE_INPUT_CLASS, "h-12 rounded-2xl")}
+                  />
+                </FormControl>
+                {showLookupMessage ? (
+                  <p
+                    className={cn(
+                      "text-xs font-medium",
+                      verifiedCustomer?.found
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : isVerifyingCustomer
+                          ? "text-gray-500 dark:text-gray-400"
+                          : "text-red-500",
+                    )}
+                  >
+                    {customerLookupMessage}
+                  </p>
+                ) : null}
+                <FormMessage className="text-xs text-red-500" />
+              </FormItem>
+            );
+          }}
         />
       </div>
     </section>

@@ -21,6 +21,10 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         primary: "bg-primary-50 text-white hover:bg-primary-80",
         flow: "group relative overflow-hidden rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-lg hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+        flowSecondary:
+          "group relative overflow-hidden rounded-xl border border-black/5 bg-white font-bold text-black transition-all hover:bg-gray-50 active:scale-[0.98] dark:border-white/10 dark:bg-secondary-50 dark:text-white dark:hover:bg-secondary-60/50 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+        iconCircle:
+          "rounded-full border border-black/5 bg-white text-gray-600 shadow-sm transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-300 dark:hover:bg-secondary-60/50",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
@@ -33,6 +37,7 @@ const buttonVariants = cva(
         "icon-lg": "size-10",
         full: "w-full h-12 rounded-md px-6 has-[>svg]:px-4",
         flow: "w-full px-4 py-3.5 md:py-4",
+        action: "h-[52px] px-5 py-3 text-sm md:text-base",
       },
     },
     defaultVariants: {

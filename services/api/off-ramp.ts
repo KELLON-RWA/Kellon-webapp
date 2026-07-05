@@ -2,28 +2,39 @@ import { ApiResponse, apiFetch, handleResponse } from "./index";
 
 /**
  * --- Offramp Request Interface ---
- * Mapped to: { fiatAmount, fiatCurrency, cryptoCurrencyCode, chain, bankId, recipient, ... }
+ * Mapped to the backend OfframpInput:
+ * { cryptoAmount, fiatCurrency, cryptoCurrency, chain, bankId, bankDetail, rate, ...metadata }
  */
 export interface OfframpInitRequest {
-  fiatAmount: number;
   fiatCurrency: string;
-  cryptoCurrencyCode: string; // Map from your asset symbol
+  cryptoAmount: number;
+  cryptoCurrency: string;
+  cryptoCurrencyCode?: string; // Compatibility with the current controller aliases
   cryptocurrency?: string;
   asset?: string;
   token?: string;
   chain: string; // Map from networkId
   network?: string; // Optional alias for chain
-  rate?: number | string | null;
+  rate?: string;
+  reference?: string;
+  narration?: string;
+  description?: string;
+  receiveAmount?: number;
+  receiveCurrency?: string;
+  estimatedFiatAmount?: number;
+  country?: string | null;
 
   // Banking & Recipient Info
   bankId?: string; // database UUID for a saved bank
   bankDetail?: {
-    bankName?: string;
+    id?: string;
+    bankName: string;
     accountNumber: string;
-    bankCode: string;
     accountName: string;
-    provider?: string | null;
-    country?: string | null;
+    bankCode?: string;
+    swift?: string;
+    routingNumber?: string;
+    iban?: string;
   };
   recipient?: string | object; // Email, phone, or complex object
 
@@ -123,11 +134,7 @@ async function post(
 ): Promise<ApiResponse<OfframpResponse>> {
   const candidates = Array.isArray(endpoints) ? endpoints : [endpoints];
   let lastResponse: Response | null = null;
-
-  console.log("[offramp] payload →");
-  Object.entries(body).forEach(([key, value]) => {
-    console.log(`  ${key}:`, value);
-  });
+  const requestBody = sanitizeOfframpPayload(body);
 
   for (const endpoint of candidates) {
     const res = await apiFetch(endpoint, {
@@ -136,7 +143,7 @@ async function post(
         "Content-Type": "application/json",
         "x-platform": typeof window !== "undefined" ? "web" : "mobile",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(requestBody),
     });
 
     if (res.status !== 404 || endpoint === candidates[candidates.length - 1]) {
@@ -147,4 +154,24 @@ async function post(
   }
 
   return handleResponse(lastResponse as Response);
+}
+
+function sanitizeOfframpPayload(
+  body: OfframpInitRequest,
+): Record<string, unknown> {
+  const payload = Object.fromEntries(
+    Object.entries(body).filter(
+      ([key, value]) => key !== "fiatAmount" && value !== undefined,
+    ),
+  );
+
+  if (body.bankDetail) {
+    payload.bankDetail = Object.fromEntries(
+      Object.entries(body.bankDetail).filter(
+        ([, value]) => value !== undefined,
+      ),
+    );
+  }
+
+  return payload;
 }

@@ -116,6 +116,7 @@ const SIGNED_ROUTE_PREFIXES = [
   "/api/v1/onramp",
   "/api/v1/offramp",
   "/api/v1/invoices",
+  "/api/v1/gifts",
   "/api/v1/banks",
   "/api/v1/kyc",
   "/api/v1/cards",

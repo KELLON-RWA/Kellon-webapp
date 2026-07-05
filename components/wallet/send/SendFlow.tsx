@@ -41,13 +41,12 @@ export default function SendFlow({ profile }: SendFlowProps) {
     recipientKind,
     recipientLookupMessage,
     selectedAsset,
+    selectRecentRecipient,
     sendableAssets,
     setAmount,
     setIsAddFundsOpen,
-    setRecipientInput,
     setSelectedAssetId,
     setStep,
-    setVerifiedRecipient,
     selfRecipientError,
     step,
     submitTransfer,
@@ -137,10 +136,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
         <div className="flex min-w-0 flex-col gap-5">
           <RecentsPanel
             recentRecipients={recentRecipients}
-            recipientForm={recipientForm}
-            setRecipientInput={setRecipientInput}
-            setVerifiedRecipient={setVerifiedRecipient}
-            setStep={setStep}
+            onSelectRecipient={selectRecentRecipient}
           />
 
           <FlowActionFooter

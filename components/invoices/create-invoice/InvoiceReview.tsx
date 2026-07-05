@@ -14,12 +14,10 @@ interface InvoiceReviewProps {
   selectedAsset?: InvoiceAssetOption;
   selectedAssetSymbol: string;
   watchedAmount: string;
-  watchedCustomerName?: string;
   watchedDescription?: string;
   watchedExpiryPreset: InvoiceFormValues["expiryPreset"];
   selectedExpiry?: (typeof EXPIRY_PRESETS)[number];
   verifiedCustomer: TransferRecipient | null;
-  customerContact: string;
   customerContactValue: string;
   customerContactLabel: string;
 }
@@ -28,12 +26,10 @@ export function InvoiceReview({
   selectedAsset,
   selectedAssetSymbol,
   watchedAmount,
-  watchedCustomerName,
   watchedDescription,
   watchedExpiryPreset,
   selectedExpiry,
   verifiedCustomer,
-  customerContact,
   customerContactValue,
   customerContactLabel,
 }: InvoiceReviewProps) {
@@ -60,9 +56,7 @@ export function InvoiceReview({
           />
           <FlowReviewRow
             label="Customer"
-            value={
-              verifiedCustomer?.name || watchedCustomerName || customerContact
-            }
+            value={verifiedCustomer?.name || "Verified customer"}
           />
           <FlowReviewRow
             label={customerContactLabel}

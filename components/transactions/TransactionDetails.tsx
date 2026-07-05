@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { getChainLabel } from "@/lib/chains";
+import {
+  getCurrencyDecimals,
+  getCurrencySymbol,
+} from "@/lib/country-currency-map";
 import { transactionService } from "@/services/api/transactions";
 import type { Transaction } from "@/types/db";
 import html2canvas from "html2canvas";
@@ -18,8 +23,18 @@ interface TransactionDetailsProps {
 function formatAssetAmount(value: number): string {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: value > 0 && value < 1 ? 2 : 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 6,
   }).format(value);
+}
+
+function formatFiatAmount(value: number, currency: string): string {
+  const decimals = getCurrencyDecimals(currency);
+  const symbol = getCurrencySymbol(currency);
+
+  return `${symbol}${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value)}`;
 }
 
 function formatDateTime(value: Date | string): string {
@@ -47,29 +62,58 @@ function getTransactionLabel(type: Transaction["type"]): string {
   }
 }
 
+function getTransactionStatusLabel(status: Transaction["status"]): string {
+  switch (status) {
+    case "COMPLETED":
+    case "PAID":
+      return "Successful";
+    case "FAILED":
+      return "Failed";
+    case "CANCELLED":
+      return "Cancelled";
+    case "PENDING":
+      return "Pending";
+    case "REFUNDED":
+      return "Refunded";
+    default:
+      return status.charAt(0) + status.slice(1).toLowerCase();
+  }
+}
+
+function getTransactionStatusBadgeClasses(
+  status: Transaction["status"],
+): string {
+  switch (status) {
+    case "COMPLETED":
+    case "PAID":
+      return "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400";
+    case "FAILED":
+      return "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400";
+    case "CANCELLED":
+    case "REFUNDED":
+      return "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300";
+    case "PENDING":
+    default:
+      return "bg-primary-95 text-primary-60 dark:bg-primary-70/10 dark:text-primary-80";
+  }
+}
+
 function isPositiveTransaction(type: Transaction["type"]): boolean {
   return ["DEPOSIT", "BUY", "TRANSFER_IN"].includes(type);
 }
 
 function formatPaidAmount(transaction: Transaction): string | null {
-  const rawValue =
-    transaction.metadata &&
-    typeof transaction.metadata === "object" &&
-    "fiatAmount" in transaction.metadata
-      ? transaction.metadata.fiatAmount
-      : null;
+  const metadata = getTransactionMetadata(transaction);
+  const fiatAmount = getNumericMetadataValue(metadata, [
+    "fiatAmount",
+    "paidAmount",
+    "amountPaid",
+    "purchaseAmount",
+  ]);
 
-  const parsed =
-    typeof rawValue === "string" || typeof rawValue === "number"
-      ? Number(rawValue)
-      : NaN;
+  if (fiatAmount === null) return null;
 
-  if (!Number.isFinite(parsed)) return null;
-
-  return `₦${new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(parsed)}`;
+  return formatFiatAmount(fiatAmount, getFiatCurrency(transaction));
 }
 
 function getPreferredCryptoSymbol(
@@ -144,16 +188,77 @@ function getProviderAmount(transaction: Transaction): number | null {
   return null;
 }
 
+function getMetadataCryptoAmount(transaction: Transaction): number | null {
+  const metadata = getTransactionMetadata(transaction);
+
+  return getNumericMetadataValue(metadata, [
+    "cryptoAmount",
+    "sendAmount",
+    "assetAmount",
+    "tokenAmount",
+    "amount",
+  ]);
+}
+
+function getFiatCurrency(transaction: Transaction): string {
+  const metadata = getTransactionMetadata(transaction);
+
+  return (
+    getStringMetadataValue(metadata, [
+      "fiatCurrency",
+      "receiveCurrency",
+      "currency",
+      "localCurrency",
+    ]) || "NGN"
+  ).toUpperCase();
+}
+
+function getFiatReceivedAmount(transaction: Transaction): number | null {
+  const metadata = getTransactionMetadata(transaction);
+
+  return getNumericMetadataValue(metadata, [
+    "receiveAmount",
+    "estimatedFiatAmount",
+    "fiatPayoutAmount",
+    "amountReceived",
+    "fiatAmount",
+  ]);
+}
+
+function getTransactionRate(transaction: Transaction): number | null {
+  const metadata = getTransactionMetadata(transaction);
+
+  return getNumericMetadataValue(metadata, ["rate", "rawRate", "exchangeRate"]);
+}
+
+function getTransactionFee(transaction: Transaction): number | null {
+  const metadata = getTransactionMetadata(transaction);
+
+  return getNumericMetadataValue(metadata, [
+    "fee",
+    "fees",
+    "feeAmount",
+    "providerFee",
+  ]);
+}
+
 function parseTransactionAmount(amount: Transaction["amount"]): number | null {
   const parsed = typeof amount === "string" ? Number(amount) : amount;
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 function getTransactionDisplayAmount(transaction: Transaction): number | null {
+  const metadataAmount = getMetadataCryptoAmount(transaction);
+  if (metadataAmount !== null) return metadataAmount;
+
   const providerAmount = getProviderAmount(transaction);
   if (providerAmount !== null) return providerAmount;
 
-  if (["TRANSFER_IN", "TRANSFER_OUT"].includes(transaction.type)) {
+  if (
+    ["TRANSFER_IN", "TRANSFER_OUT", "WITHDRAW", "SELL", "BUY", "DEPOSIT"].includes(
+      transaction.type,
+    )
+  ) {
     return parseTransactionAmount(transaction.amount);
   }
 
@@ -163,6 +268,12 @@ function getTransactionDisplayAmount(transaction: Transaction): number | null {
 function getTransactionTitle(transaction: Transaction): string {
   const type = getTransactionLabel(transaction.type);
   const symbol = getTransactionSymbol(transaction);
+  const fiatCurrency = getFiatCurrency(transaction);
+
+  if (transaction.type === "WITHDRAW") {
+    return `${fiatCurrency} Withdrawal`;
+  }
+
   return `${symbol} ${type}`;
 }
 
@@ -222,6 +333,181 @@ function getStringMetadataValue(
   return null;
 }
 
+function getNumericMetadataValue(
+  metadata: Record<string, unknown>,
+  keys: string[],
+): number | null {
+  for (const key of keys) {
+    const value = metadata[key];
+    const parsed =
+      typeof value === "string" || typeof value === "number"
+        ? Number(value)
+        : NaN;
+
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return null;
+}
+
+function getNestedStringMetadataValue(
+  metadata: Record<string, unknown>,
+  parentKey: string,
+  childKeys: string[],
+): string | null {
+  const parent = metadata[parentKey];
+
+  if (!parent || typeof parent !== "object") return null;
+
+  return getStringMetadataValue(parent as Record<string, unknown>, childKeys);
+}
+
+function getBankDetailRows(transaction: Transaction): DetailRow[] {
+  const metadata = getTransactionMetadata(transaction);
+  const bankName =
+    getNestedStringMetadataValue(metadata, "bankDetail", ["bankName"]) ||
+    getStringMetadataValue(metadata, ["bankName"]);
+  const accountName =
+    getNestedStringMetadataValue(metadata, "bankDetail", ["accountName"]) ||
+    getStringMetadataValue(metadata, ["accountName"]);
+  const accountNumber =
+    getNestedStringMetadataValue(metadata, "bankDetail", ["accountNumber"]) ||
+    getStringMetadataValue(metadata, ["accountNumber"]);
+
+  return [
+    bankName ? { label: "Bank Name", value: bankName } : null,
+    accountName ? { label: "Account Name", value: accountName } : null,
+    accountNumber ? { label: "Account Number", value: accountNumber } : null,
+  ].filter(Boolean) as DetailRow[];
+}
+
+function getRecipientDetailRows(transaction: Transaction): DetailRow[] {
+  const metadata = getTransactionMetadata(transaction);
+  const tag = getStringMetadataValue(metadata, ["recipientTag"]);
+  const email = getStringMetadataValue(metadata, ["recipientEmail"]);
+  const address = getStringMetadataValue(metadata, ["recipientAddress", "address"]);
+  const method = getStringMetadataValue(metadata, ["recipientMethod"]);
+  const addressType = getStringMetadataValue(metadata, ["recipientAddressType"]);
+
+  const rows: DetailRow[] = [];
+  
+  if (method === "tag" && tag) {
+    rows.push({ label: "Tag", value: tag });
+  } else if (method === "email" && email) {
+    rows.push({ label: "Email", value: email });
+  } else if ((addressType === "evm" || addressType === "stellar") && address) {
+    rows.push({ label: "Address", value: address, copyable: true, mono: true });
+  } else {
+    // Fallback for older transactions that might not have method/addressType
+    if (tag) {
+      rows.push({ label: "Tag", value: tag });
+    } else if (email) {
+      rows.push({ label: "Email", value: email });
+    } else if (address) {
+      rows.push({ label: "Address", value: address, copyable: true, mono: true });
+    }
+  }
+  
+  return rows;
+}
+
+interface DetailRow {
+  label: string;
+  value: string;
+  copyable?: boolean;
+  mono?: boolean;
+}
+
+interface DetailSection {
+  title?: string;
+  rows: DetailRow[];
+}
+
+function buildTransactionDetailSections(
+  transaction: Transaction,
+  amountValue: number | null,
+  symbol: string,
+  transactionNetwork: string,
+): DetailSection[] {
+  const metadata = getTransactionMetadata(transaction);
+  const fiatCurrency = getFiatCurrency(transaction);
+  const rate = getTransactionRate(transaction);
+  const fee = getTransactionFee(transaction);
+  const fiatReceived = getFiatReceivedAmount(transaction);
+  const amountText =
+    amountValue === null ? `-- ${symbol}` : `${formatAssetAmount(amountValue)} ${symbol}`;
+  const methodLabel =
+    transaction.type === "WITHDRAW"
+      ? `${fiatCurrency} Withdrawal`
+      : getTransactionTitle(transaction);
+
+  const baseRows: DetailRow[] = [
+    { label: "Method", value: methodLabel },
+    { label: "Amount", value: amountText },
+  ];
+
+  if (transaction.type === "WITHDRAW" && fiatReceived !== null) {
+    baseRows.push({
+      label: "Amount Received",
+      value: formatFiatAmount(fiatReceived, fiatCurrency),
+    });
+  } else if (transaction.type === "BUY") {
+    const paidAmount = formatPaidAmount(transaction);
+    if (paidAmount) {
+      baseRows.push({ label: "Amount Paid", value: paidAmount });
+    }
+  } else if (transaction.type === "SELL" && fiatReceived !== null) {
+    baseRows.push({
+      label: "Amount Received",
+      value: formatFiatAmount(fiatReceived, fiatCurrency),
+    });
+  }
+
+  if (fee !== null) {
+    const feeCurrency =
+      getStringMetadataValue(metadata, ["feeCurrency"]) || symbol || fiatCurrency;
+    const isFiatFee = feeCurrency === fiatCurrency;
+    baseRows.push({
+      label: "Fee",
+      value: isFiatFee
+        ? formatFiatAmount(fee, fiatCurrency)
+        : `${formatAssetAmount(fee)} ${feeCurrency}`,
+    });
+  }
+
+  if (transactionNetwork && transactionNetwork !== "Unknown") {
+    baseRows.push({ label: "Network", value: transactionNetwork });
+  }
+
+  if (rate !== null) {
+    baseRows.push({
+      label: "Rate",
+      value: `${formatFiatAmount(rate, fiatCurrency)} / ${symbol}`,
+    });
+  }
+
+  baseRows.push({
+    label: "Reference ID",
+    value: transaction.id,
+    copyable: true,
+    mono: true,
+  });
+
+  const sections: DetailSection[] = [{ rows: baseRows }];
+  const bankRows = getBankDetailRows(transaction);
+  const recipientRows = getRecipientDetailRows(transaction);
+
+  if (bankRows.length > 0) {
+    sections.push({ title: "Account Details", rows: bankRows });
+  }
+
+  if (transaction.type === "TRANSFER_OUT" && recipientRows.length > 0) {
+    sections.push({ title: "Recipient", rows: recipientRows });
+  }
+
+  return sections;
+}
+
 function getNestedMetadataValue(
   metadata: Record<string, unknown>,
   parentKey: string,
@@ -274,6 +560,23 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
   const transactionNetwork = transaction
     ? getTransactionNetwork(transaction)
     : "";
+  const detailSections = useMemo(() => {
+    if (!transaction) return [];
+    return buildTransactionDetailSections(
+      transaction,
+      amountValue,
+      symbol,
+      transactionNetwork,
+    );
+  }, [transaction, amountValue, symbol, transactionNetwork]);
+  const fiatReceivedAmount = transaction
+    ? getFiatReceivedAmount(transaction)
+    : null;
+  const fiatCurrency = transaction ? getFiatCurrency(transaction) : "NGN";
+  const secondaryAmountLabel =
+    transaction?.type === "WITHDRAW" && fiatReceivedAmount !== null
+      ? formatFiatAmount(fiatReceivedAmount, fiatCurrency)
+      : paidAmountLabel;
 
   const copyValue = async (value: string) => {
     await navigator.clipboard.writeText(value);
@@ -282,15 +585,24 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
   };
 
   const generateReceiptHTML = () => {
-    const isSuccess =
-      transaction?.status === "COMPLETED" || transaction?.status === "PAID";
-    const statusText = isSuccess
-      ? "Successful"
-      : transaction?.status === "FAILED"
-        ? "Failed"
-        : transaction?.status === "CANCELLED"
-          ? "Cancelled"
-          : transaction?.status || "Pending";
+    const statusText = transaction
+      ? getTransactionStatusLabel(transaction.status)
+      : "Pending";
+    const receiptRows = detailSections
+      .flatMap((section) => [
+        section.title
+          ? `<div class="section-title">${section.title}</div>`
+          : "",
+        ...section.rows.map(
+          (row) => `
+                <div class="detail-row">
+                  <span class="detail-label">${row.label}</span>
+                  <span class="detail-value ${row.mono ? "mono" : ""}">${row.value}</span>
+                </div>
+          `,
+        ),
+      ])
+      .join("");
 
     return `
       <!DOCTYPE html>
@@ -368,7 +680,14 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
               margin-bottom: 20px;
             }
             .status-text {
-              color: ${isSuccess ? "#10b981" : "#ef4444"};
+              color: ${
+                transaction?.status === "COMPLETED" ||
+                transaction?.status === "PAID"
+                  ? "#10b981"
+                  : transaction?.status === "FAILED"
+                    ? "#ef4444"
+                    : "#a7167f"
+              };
               font-size: 13px;
               font-weight: 700;
               line-height: 1;
@@ -400,9 +719,18 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
             .details {
               margin-bottom: 24px;
             }
+            .section-title {
+              padding: 12px 0 6px;
+              color: #9ca3af;
+              font-size: 11px;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+            }
             .detail-row {
               display: flex;
               justify-content: space-between;
+              gap: 18px;
               padding: 10px 0;
               border-bottom: 1px solid #f9fafb;
             }
@@ -452,28 +780,7 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
                 <div class="transaction-type">${getTransactionLabel(transaction!.type)}</div>
               </div>
               <div class="details">
-                <div class="detail-row">
-                  <span class="detail-label">Asset</span>
-                  <span class="detail-value">${symbol}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Network</span>
-                  <span class="detail-value" style="text-transform: capitalize;">${transactionNetwork}</span>
-                </div>
-                ${
-                  paidAmountLabel
-                    ? `
-                <div class="detail-row">
-                  <span class="detail-label">Amount</span>
-                  <span class="detail-value">${paidAmountLabel}</span>
-                </div>
-                `
-                    : ""
-                }
-                <div class="detail-row">
-                  <span class="detail-label">Transaction ID</span>
-                  <span class="detail-value mono">${transaction!.id}</span>
-                </div>
+                ${receiptRows}
               </div>
               <div class="footer">
                 <p>Powered by Kellon</p>
@@ -596,9 +903,9 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
     return (
       <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
         <div className="flex items-center justify-between mb-8 px-4 pt-4">
-          <button className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer">
+          <Button variant="iconCircle" size="icon">
             <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-          </button>
+          </Button>
           <h2 className="text-lg font-bold text-black dark:text-white">
             Transaction
           </h2>
@@ -616,12 +923,14 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
     return (
       <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
         <div className="flex items-center justify-between mb-8 px-4">
-          <button
+          <Button
+            type="button"
+            variant="iconCircle"
+            size="icon"
             onClick={() => router.back()}
-            className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-          </button>
+          </Button>
           <h2 className="text-lg font-bold text-black dark:text-white">
             Transaction
           </h2>
@@ -638,19 +947,18 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
     );
   }
 
-  const isSuccess =
-    transaction.status === "COMPLETED" || transaction.status === "PAID";
-
   return (
     <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-8 px-4">
-        <button
+        <Button
+          type="button"
+          variant="iconCircle"
+          size="icon"
           onClick={() => router.back()}
-          className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-        </button>
+        </Button>
         <h2 className="text-lg font-bold text-black dark:text-white">
           {transactionTitle}
         </h2>
@@ -663,12 +971,10 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
           <span
             className={cn(
               "rounded-full px-3 py-1 text-xs font-medium",
-              isSuccess
-                ? "bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
-                : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400",
+              getTransactionStatusBadgeClasses(transaction.status),
             )}
           >
-            {transaction.status.toLowerCase()}
+            {getTransactionStatusLabel(transaction.status)}
           </span>
         </div>
 
@@ -677,95 +983,100 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
           <p className="text-4xl font-bold text-black dark:text-white">
             {amountLabel}
           </p>
+          {secondaryAmountLabel ? (
+            <p className="mt-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+              {secondaryAmountLabel}
+            </p>
+          ) : null}
         </div>
 
         {/* Details Card */}
-        <div className="space-y-4 rounded-xl border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-secondary-50">
-          <div className="flex justify-between border-b border-black/5 pb-3 dark:border-white/5">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Date
-            </span>
-            <span className="text-sm font-medium text-black dark:text-white">
+        <div className="overflow-hidden rounded-xl border border-black/5 bg-white dark:border-white/10 dark:bg-secondary-50">
+          <div className="flex justify-between gap-4 border-b border-black/5 px-5 py-4 dark:border-white/5">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Date</span>
+            <span className="text-right text-sm font-medium text-black dark:text-white">
               {formatDateTime(transaction.createdAt)}
             </span>
           </div>
 
-          <div className="flex justify-between border-b border-black/5 pb-3 dark:border-white/5">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Asset
-            </span>
-            <span className="text-sm font-medium text-black dark:text-white">
-              {symbol}
-            </span>
-          </div>
+          {detailSections.map((section, sectionIndex) => (
+            <div key={section.title || `section-${sectionIndex}`}>
+              {section.title ? (
+                <div className="border-b border-black/5 px-5 py-3 dark:border-white/5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {section.title}
+                  </p>
+                </div>
+              ) : null}
 
-          <div className="flex justify-between border-b border-black/5 pb-3 dark:border-white/5">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Network
-            </span>
-            <span className="text-sm font-medium capitalize text-black dark:text-white">
-              {transactionNetwork}
-            </span>
-          </div>
-
-          {paidAmountLabel && (
-            <div className="flex justify-between border-b border-black/5 pb-3 dark:border-white/5">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Amount
-              </span>
-              <span className="text-sm font-medium text-black dark:text-white">
-                {paidAmountLabel}
-              </span>
+              {section.rows.map((row) => (
+                <div
+                  key={`${section.title || "main"}-${row.label}`}
+                  className="flex items-center justify-between gap-4 border-b border-black/5 px-5 py-4 last:border-b-0 dark:border-white/5"
+                >
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {row.label}
+                  </span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={cn(
+                        "truncate text-right text-sm font-medium text-black dark:text-white",
+                        row.mono &&
+                          "max-w-[180px] font-mono text-xs md:max-w-[250px]",
+                      )}
+                    >
+                      {row.value}
+                    </span>
+                    {row.copyable ? (
+                      <button
+                        type="button"
+                        onClick={() => copyValue(row.value)}
+                        className="rounded-lg p-1 transition hover:bg-gray-100 dark:hover:bg-white/10 cursor-copy"
+                        aria-label={`Copy ${row.label}`}
+                      >
+                        {copied ? (
+                          <Check className="h-3.5 w-3.5 text-green-500" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5 text-gray-400" />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-
-          <div className="flex items-center justify-between gap-2 pt-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Transaction ID
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="max-w-[180px] truncate text-right text-xs font-mono text-black dark:text-white md:max-w-[250px]">
-                {transaction.id}
-              </span>
-              <button
-                onClick={() => copyValue(transaction.id)}
-                className="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-white/10 cursor-copy"
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-green-500" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5 text-gray-400" />
-                )}
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Action Buttons - Only 2 buttons */}
         <div className="mt-6 flex gap-3">
-          <button
+          <Button
+            type="button"
+            variant="flowSecondary"
+            size="action"
             onClick={downloadAsPDF}
             disabled={isGenerating}
-            className={cn(
-              "group relative flex-1 overflow-hidden rounded-xl border border-black/5 bg-white py-3 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 active:scale-95 cursor-pointer font-bold",
-            )}
+            className="flex-1"
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
               Save as PDF
             </span>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="flow"
+            size="action"
             onClick={shareReceipt}
             disabled={isGenerating}
-            className="group relative flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95 cursor-pointer"
+            className="flex-1"
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
               Share
             </span>
 
             <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

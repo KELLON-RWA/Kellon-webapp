@@ -34,7 +34,7 @@ export function WithdrawReviewStep({
           asset={asset}
           selectedChain={selectedChain}
           amount={amount}
-          fiatCurrency={amountUnit || undefined}
+          amountCurrency={amountUnit || undefined}
         />
 
         <div className="mb-8 w-full rounded-[28px] border border-black/5 bg-white p-6 dark:border-white/10 dark:bg-secondary-50">

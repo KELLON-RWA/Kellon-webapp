@@ -1,14 +1,8 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import type { UseFormReturn } from "react-hook-form";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
-import type {
-  RecentRecipient,
-  RecipientFormValues,
-  SendStep,
-  VerifiedRecipient,
-} from "./send-types";
+import type { RecentRecipient } from "./send-types";
 import {
   getRecipientIcon,
   getRecipientKind,
@@ -17,18 +11,12 @@ import {
 
 interface RecentsPanelProps {
   recentRecipients: RecentRecipient[];
-  recipientForm: UseFormReturn<RecipientFormValues>;
-  setRecipientInput: (value: string) => void;
-  setVerifiedRecipient: (recipient: VerifiedRecipient | null) => void;
-  setStep: (step: SendStep) => void;
+  onSelectRecipient: (value: string) => void;
 }
 
 export default function RecentsPanel({
   recentRecipients,
-  recipientForm,
-  setRecipientInput,
-  setVerifiedRecipient,
-  setStep,
+  onSelectRecipient,
 }: RecentsPanelProps) {
   return (
     <aside className="w-full min-w-0 overflow-hidden rounded-[24px] border border-black/5 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/80 dark:shadow-none md:p-5">
@@ -51,16 +39,7 @@ export default function RecentsPanel({
               <button
                 key={recipient.value}
                 type="button"
-                onClick={() => {
-                  setRecipientInput(recipient.value);
-                  recipientForm.setValue("recipient", recipient.value, {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                    shouldValidate: true,
-                  });
-                  setVerifiedRecipient(null);
-                  setStep("recipient");
-                }}
+                onClick={() => onSelectRecipient(recipient.value)}
                 className="flex items-center justify-between gap-3 rounded-2xl border border-gray-80 bg-white p-3 text-left transition hover:border-primary-90 hover:bg-primary-99 dark:border-white/10 dark:bg-secondary-60/25 dark:hover:border-primary-70/30 dark:hover:bg-primary-70/10 cursor-pointer"
               >
                 <div className="flex min-w-0 items-center gap-3">
