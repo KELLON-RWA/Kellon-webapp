@@ -705,43 +705,32 @@ export function useSendFlow(profile: User) {
       setIsSubmitting(true);
       try {
         const trimmedRecipient = recipientInput.trim();
-        const response = await transferService.createInternalTransfer({
+        const chainLower = selectedAsset.chain.toLowerCase();
+
+        const transferPayload = {
           amount: amountValue,
           symbol: selectedAsset.symbol,
-          assetType: selectedAsset.assetType || ("CRYPTO" as AssetType),
-          chain: selectedAsset.chain,
           verificationCode: verification?.verificationCode,
           verificationType: verification?.verificationType,
-          recipientEmail:
-            recipientKind === "email"
-              ? trimmedRecipient.toLowerCase()
-              : undefined,
-          recipientTag:
-            recipientKind === "tag"
-              ? trimmedRecipient.replace(/^@/, "")
-              : undefined,
-          metadata:
-            recipientKind === "evm" || recipientKind === "stellar"
-              ? {
-                  chain: selectedAsset.chain,
-                  network: selectedAsset.chain,
-                  recipientAddress: trimmedRecipient,
-                  recipientAddressType: recipientKind,
-                }
-              : {
-                  chain: selectedAsset.chain,
-                  network: selectedAsset.chain,
-                  recipientMethod: recipientKind,
-                  verifiedRecipientId: verifiedRecipient.id,
-                },
-        });
+          toAddress: (recipientKind === "evm" || recipientKind === "stellar") ? trimmedRecipient : undefined,
+          recipientEmail: recipientKind === "email" ? trimmedRecipient.toLowerCase() : undefined,
+          recipientTag: recipientKind === "tag" ? trimmedRecipient.replace(/^@/, "") : undefined,
+        };
+
+        let response;
+        if (chainLower === "stellar") {
+          response = await transferService.transferStellar(transferPayload);
+        } else if (chainLower === "solana") {
+          response = await transferService.transferSolana(transferPayload);
+        } else {
+          response = await transferService.transferEVM({
+            ...transferPayload,
+            chain: selectedAsset.chain,
+          });
+        }
 
         setVerificationRequest(null);
-        toast.success(
-          response.data?.recipient?.type === "pending"
-            ? "Transfer invite created"
-            : "Transfer created",
-        );
+        toast.success(response.data?.message || "Transfer completed successfully");
         router.push("/transactions");
       } catch (error) {
         if (isTransferVerificationRequiredError(error)) {
