@@ -113,48 +113,6 @@ async function handleTransferResponse<T>(
   };
 }
 
-export interface TransferStellarPayload {
-  amount: number | string;
-  symbol: string;
-  toAddress?: string;
-  recipientEmail?: string;
-  recipientTag?: string;
-  recipientUsername?: string;
-  verificationCode?: string;
-  verificationType?: "otp" | "totp";
-}
-
-export interface TransferSolanaPayload {
-  amount: number | string;
-  symbol: string;
-  toAddress?: string;
-  recipientEmail?: string;
-  recipientTag?: string;
-  recipientUsername?: string;
-  verificationCode?: string;
-  verificationType?: "otp" | "totp";
-}
-
-export interface TransferEVMPayload {
-  amount: number | string;
-  symbol: string;
-  chain: string;
-  toAddress?: string;
-  recipientEmail?: string;
-  recipientTag?: string;
-  recipientUsername?: string;
-  verificationCode?: string;
-  verificationType?: "otp" | "totp";
-}
-
-export interface TransferCryptoPayload {
-  chain: string;
-  toAddress: string;
-  amount: number | string;
-  verificationCode?: string;
-  verificationType?: "otp" | "totp";
-}
-
 export const transferService = {
   verifyRecipient: async (
     identifier: string,
@@ -182,73 +140,10 @@ export const transferService = {
     return handleResponse(res);
   },
 
-  /**
-   * @deprecated Use transferStellar, transferSolana, or transferEVM instead.
-   */
   createInternalTransfer: async (
     body: InternalTransferPayload,
   ): Promise<ApiResponse<InternalTransferResponse>> => {
     const res = await apiFetch("/api/transfers", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-platform": getPlatformHeader(),
-      },
-      body: JSON.stringify(body),
-    });
-
-    return handleTransferResponse(res);
-  },
-
-  transferStellar: async (
-    body: TransferStellarPayload,
-  ): Promise<ApiResponse<{ hash: string; message: string }>> => {
-    const res = await apiFetch("/api/transfers/stellar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-platform": getPlatformHeader(),
-      },
-      body: JSON.stringify(body),
-    });
-
-    return handleTransferResponse(res);
-  },
-
-  transferSolana: async (
-    body: TransferSolanaPayload,
-  ): Promise<ApiResponse<{ hash: string; message: string }>> => {
-    const res = await apiFetch("/api/transfers/solana", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-platform": getPlatformHeader(),
-      },
-      body: JSON.stringify(body),
-    });
-
-    return handleTransferResponse(res);
-  },
-
-  transferEVM: async (
-    body: TransferEVMPayload,
-  ): Promise<ApiResponse<{ hash: string; message: string }>> => {
-    const res = await apiFetch("/api/transfers/evm", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-platform": getPlatformHeader(),
-      },
-      body: JSON.stringify(body),
-    });
-
-    return handleTransferResponse(res);
-  },
-
-  transferCrypto: async (
-    body: TransferCryptoPayload,
-  ): Promise<ApiResponse<{ hash: string }>> => {
-    const res = await apiFetch("/api/transfers/crypto", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

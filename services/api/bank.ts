@@ -37,7 +37,7 @@ export const bankService = {
   },
 
   /**
-   * PUT /api/banks/:id
+   * PATCH /api/banks/:id
    * Updates details for a specific bank entry.
    */
   updateBank: async (
@@ -45,7 +45,7 @@ export const bankService = {
     data: Partial<BankDetail>,
   ): Promise<ApiResponse<BankDetail>> => {
     const res = await apiFetch(`/api/banks/${id}`, {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
