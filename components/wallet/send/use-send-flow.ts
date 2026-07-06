@@ -9,6 +9,10 @@ import {
   isTransferVerificationRequiredError,
   transferService,
 } from "@/services/api/transfers"
+import { useWallets } from "@privy-io/react-auth"
+import { useSmartAccount, setStickyVerificationCode } from "@/hooks/useSmartAccount"
+import { getActiveChains } from "@/lib/chains"
+import { encodeFunctionData, erc20Abi } from "viem"
 import type { Asset, AssetType, User } from "@/types/db"
 import type {
   AmountFormValues,
@@ -131,6 +135,8 @@ export function useSendFlow(profile: User) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { wallets } = useWallets()
+  const { getSmartAccountClient } = useSmartAccount()
 
   // ── Forms ──────────────────────────────────────────────────────────────────
   const recipientForm = useForm<RecipientFormValues>({
@@ -731,12 +737,143 @@ export function useSendFlow(profile: User) {
         if (chainLower === "stellar") {
           response = await transferService.transferStellar(transferPayload)
         } else if (chainLower === "solana") {
-          response = await transferService.transferSolana(transferPayload)
-        } else {
-          response = await transferService.transferEVM({
-            ...transferPayload,
-            chain: selectedAsset.chain,
+          const prepRes = await transferService.prepareSolanaSponsored({
+            amount: amountValue,
+            symbol: selectedAsset.symbol,
+            toAddress:
+              recipientKind !== "email" && recipientKind !== "tag"
+                ? trimmedRecipient
+                : undefined,
+            recipientEmail:
+              recipientKind === "email"
+                ? trimmedRecipient.toLowerCase()
+                : undefined,
+            recipientTag:
+              recipientKind === "tag"
+                ? trimmedRecipient.replace(/^@/, "")
+                : undefined,
           })
+
+          if (!prepRes.success || !prepRes.data) {
+            throw new Error(prepRes.message || "Failed to prepare Solana transaction")
+          }
+
+          const { serializedTx, destinationAddress } = prepRes.data
+
+          const solanaWallet = wallets.find(
+            (w) => !w.address.startsWith("0x"),
+          )
+
+          if (!solanaWallet) {
+            throw new Error(
+              "Solana wallet not found. Please connect your Solana wallet via Privy.",
+            )
+          }
+
+          const binaryString = atob(serializedTx)
+          const len = binaryString.length
+          const txBytes = new Uint8Array(len)
+          for (let i = 0; i < len; i++) {
+            txBytes[i] = binaryString.charCodeAt(i)
+          }
+
+          const signedTxBytes = await (solanaWallet as any).signTransaction({
+            transaction: txBytes,
+          })
+
+          if (!signedTxBytes) {
+            throw new Error("Transaction signing was rejected or failed.")
+          }
+
+          let binary = ""
+          const signedLen = signedTxBytes.byteLength
+          for (let i = 0; i < signedLen; i++) {
+            binary += String.fromCharCode(signedTxBytes[i])
+          }
+          const signedTxBase64 = btoa(binary)
+
+          response = await transferService.submitSolanaSponsored({
+            amount: amountValue,
+            symbol: selectedAsset.symbol,
+            toAddress: destinationAddress,
+            signedTxBase64,
+            verificationCode: verification?.verificationCode,
+            verificationType: verification?.verificationType,
+          })
+        } else {
+          const evmWallet = wallets.find(
+            (w) => w.address.startsWith("0x"),
+          )
+
+          if (!evmWallet) {
+            throw new Error("Ethereum wallet not found. Please log in again.")
+          }
+
+          const smartAccountClient = await getSmartAccountClient(evmWallet, chainLower)
+          if (!smartAccountClient) {
+            throw new Error("Failed to initialize smart account client.")
+          }
+
+          let destinationAddress = trimmedRecipient
+          if (recipientKind === "email" || recipientKind === "tag") {
+            if (verifiedRecipient && verifiedRecipient.addresses) {
+              const resolvedAddr = verifiedRecipient.addresses[chainLower]
+              if (resolvedAddr) {
+                destinationAddress = resolvedAddr
+              }
+            }
+          }
+
+          const activeChains = getActiveChains()
+          const chainConfig = activeChains[chainLower as keyof typeof activeChains]
+          if (!chainConfig) {
+            throw new Error(`Unsupported EVM chain: ${selectedAsset.chain}`)
+          }
+
+          const tokenSymbol = selectedAsset.symbol.toUpperCase()
+          const tokenAddress =
+            tokenSymbol === "USDC" ? chainConfig.usdcAddress : chainConfig.usdtAddress
+
+          if (!tokenAddress) {
+            throw new Error(`Token ${tokenSymbol} not supported on ${selectedAsset.chain}`)
+          }
+
+          const isBsc = chainConfig.id === 56 || chainConfig.id === 97
+          const decimals = tokenSymbol === "USDC" && isBsc ? 18 : 6
+          const amountBigInt = BigInt(Math.round(amountValue * 10 ** decimals))
+
+          const txData = encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [destinationAddress as `0x${string}`, amountBigInt],
+          })
+
+          if (verification?.verificationCode) {
+            setStickyVerificationCode(verification.verificationCode)
+          } else {
+            setStickyVerificationCode(null)
+          }
+
+          try {
+            const txHash = await (smartAccountClient as any).sendTransaction({
+              account: smartAccountClient.account,
+              chain: smartAccountClient.chain,
+              to: tokenAddress as `0x${string}`,
+              data: txData,
+              value: 0n,
+            })
+            setStickyVerificationCode(null)
+            response = {
+              success: true,
+              data: {
+                hash: txHash,
+                message: "Transfer completed successfully",
+              },
+            }
+          } catch (err) {
+            setStickyVerificationCode(null)
+            throw err
+          }
         }
 
         setVerificationRequest(null)
