@@ -13,7 +13,7 @@ import { useWallets } from "@privy-io/react-auth"
 import { useSmartAccount, setStickyVerificationCode } from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
 import { encodeFunctionData, erc20Abi } from "viem"
-import type { Asset, AssetType, User } from "@/types/db"
+import type { Asset, User } from "@/types/db"
 import type {
   AmountFormValues,
   RecipientFormValues,
@@ -53,6 +53,22 @@ type NavAction =
       params: URLSearchParams
       sendableAssets: SendableAsset[]
     }
+
+type SolanaSigningWallet = {
+  signTransaction(args: { transaction: Uint8Array }): Promise<Uint8Array>
+}
+
+type EvmSmartAccountClient = {
+  account: unknown
+  chain: unknown
+  sendTransaction(args: {
+    account: unknown
+    chain: unknown
+    to: `0x${string}`
+    data: `0x${string}`
+    value: bigint
+  }): Promise<string>
+}
 
 function navReducer(state: NavState, action: NavAction): NavState {
   switch (action.type) {
@@ -777,9 +793,9 @@ export function useSendFlow(profile: User) {
             txBytes[i] = binaryString.charCodeAt(i)
           }
 
-          const signedTxBytes = await (solanaWallet as any).signTransaction({
-            transaction: txBytes,
-          })
+          const signedTxBytes = await (
+            solanaWallet as unknown as SolanaSigningWallet
+          ).signTransaction({ transaction: txBytes })
 
           if (!signedTxBytes) {
             throw new Error("Transaction signing was rejected or failed.")
@@ -855,7 +871,9 @@ export function useSendFlow(profile: User) {
           }
 
           try {
-            const txHash = await (smartAccountClient as any).sendTransaction({
+            const txHash = await (
+              smartAccountClient as unknown as EvmSmartAccountClient
+            ).sendTransaction({
               account: smartAccountClient.account,
               chain: smartAccountClient.chain,
               to: tokenAddress as `0x${string}`,
@@ -898,6 +916,7 @@ export function useSendFlow(profile: User) {
     },
     [
       amountValue,
+      getSmartAccountClient,
       isAmountValid,
       isCurrentRecipientVerified,
       isRecipientValid,
@@ -906,6 +925,7 @@ export function useSendFlow(profile: User) {
       router,
       selectedAsset,
       verifiedRecipient,
+      wallets,
     ],
   )
 
