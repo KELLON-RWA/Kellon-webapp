@@ -135,31 +135,6 @@ export interface TransferSolanaPayload {
   verificationType?: "otp" | "totp"
 }
 
-export interface PrepareSolanaSponsoredPayload {
-  amount: number | string
-  symbol: string
-  toAddress?: string
-  recipientEmail?: string
-  recipientTag?: string
-  recipientUsername?: string
-}
-
-export interface PrepareSolanaSponsoredResponse {
-  success: boolean
-  serializedTx: string
-  destinationAddress: string
-}
-
-export interface SubmitSolanaSponsoredPayload {
-  amount: number | string
-  symbol: string
-  toAddress: string
-  signedTxBase64: string
-  verificationCode?: string
-  verificationType?: "otp" | "totp"
-}
-
-
 export interface TransferEVMPayload {
   amount: number | string
   symbol: string
@@ -254,37 +229,6 @@ export const transferService = {
 
     return handleTransferResponse(res)
   },
-
-  prepareSolanaSponsored: async (
-    body: PrepareSolanaSponsoredPayload,
-  ): Promise<ApiResponse<PrepareSolanaSponsoredResponse>> => {
-    const res = await apiFetch("/api/transfers/solana/prepare", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-platform": getPlatformHeader(),
-      },
-      body: JSON.stringify(body),
-    })
-
-    return handleTransferResponse(res)
-  },
-
-  submitSolanaSponsored: async (
-    body: SubmitSolanaSponsoredPayload,
-  ): Promise<ApiResponse<{ hash: string; message: string }>> => {
-    const res = await apiFetch("/api/transfers/solana/submit", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-platform": getPlatformHeader(),
-      },
-      body: JSON.stringify(body),
-    })
-
-    return handleTransferResponse(res)
-  },
-
 
   transferEVM: async (
     body: TransferEVMPayload,
