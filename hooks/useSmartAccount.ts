@@ -95,7 +95,7 @@ export function useSmartAccount() {
           return existing
         }
 
-        const provider = await privyWallet.getProvider()
+        const provider = await privyWallet.getEthereumProvider()
 
         const transport = custom({
           async request({ method, params, id }: any) {

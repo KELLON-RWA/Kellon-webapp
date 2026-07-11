@@ -13,7 +13,7 @@ import { useWallets } from "@privy-io/react-auth"
 import { useSmartAccount, setStickyVerificationCode } from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
 import { encodeFunctionData, erc20Abi } from "viem"
-import type { Asset, AssetType, User } from "@/types/db"
+import type { Asset, User } from "@/types/db"
 import type {
   AmountFormValues,
   RecipientFormValues,
@@ -777,6 +777,7 @@ export function useSendFlow(profile: User) {
             txBytes[i] = binaryString.charCodeAt(i)
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const signedTxBytes = await (solanaWallet as any).signTransaction({
             transaction: txBytes,
           })
@@ -855,6 +856,7 @@ export function useSendFlow(profile: User) {
           }
 
           try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const txHash = await (smartAccountClient as any).sendTransaction({
               account: smartAccountClient.account,
               chain: smartAccountClient.chain,
@@ -906,6 +908,8 @@ export function useSendFlow(profile: User) {
       router,
       selectedAsset,
       verifiedRecipient,
+      getSmartAccountClient,
+      wallets,
     ],
   )
 
