@@ -54,6 +54,22 @@ type NavAction =
       sendableAssets: SendableAsset[]
     }
 
+type SolanaSigningWallet = {
+  signTransaction(args: { transaction: Uint8Array }): Promise<Uint8Array>
+}
+
+type EvmSmartAccountClient = {
+  account: unknown
+  chain: unknown
+  sendTransaction(args: {
+    account: unknown
+    chain: unknown
+    to: `0x${string}`
+    data: `0x${string}`
+    value: bigint
+  }): Promise<string>
+}
+
 function navReducer(state: NavState, action: NavAction): NavState {
   switch (action.type) {
     case "SET_STEP":
@@ -777,10 +793,9 @@ export function useSendFlow(profile: User) {
             txBytes[i] = binaryString.charCodeAt(i)
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const signedTxBytes = await (solanaWallet as any).signTransaction({
-            transaction: txBytes,
-          })
+          const signedTxBytes = await (
+            solanaWallet as unknown as SolanaSigningWallet
+          ).signTransaction({ transaction: txBytes })
 
           if (!signedTxBytes) {
             throw new Error("Transaction signing was rejected or failed.")
@@ -856,8 +871,9 @@ export function useSendFlow(profile: User) {
           }
 
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const txHash = await (smartAccountClient as any).sendTransaction({
+            const txHash = await (
+              smartAccountClient as unknown as EvmSmartAccountClient
+            ).sendTransaction({
               account: smartAccountClient.account,
               chain: smartAccountClient.chain,
               to: tokenAddress as `0x${string}`,
@@ -900,6 +916,7 @@ export function useSendFlow(profile: User) {
     },
     [
       amountValue,
+      getSmartAccountClient,
       isAmountValid,
       isCurrentRecipientVerified,
       isRecipientValid,
@@ -908,7 +925,6 @@ export function useSendFlow(profile: User) {
       router,
       selectedAsset,
       verifiedRecipient,
-      getSmartAccountClient,
       wallets,
     ],
   )
