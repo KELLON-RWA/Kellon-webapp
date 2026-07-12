@@ -15,6 +15,26 @@ import { createSmartAccountClient, type SmartAccountClient } from "permissionles
 import { toSafeSmartAccount } from "permissionless/accounts"
 import { createPimlicoClient } from "permissionless/clients/pimlico"
 import { TransferVerificationRequiredError } from "@/services/api/transfers"
+import type { ConnectedWallet } from "@privy-io/react-auth"
+
+interface BundlerErrorResponse {
+  message?: string
+  error?: {
+    message?: string
+    code?: number
+    data?: unknown
+    availableMethods?: string[]
+  }
+}
+
+interface JsonRpcResponse {
+  error?: {
+    code?: number
+    message?: string
+    data?: unknown
+  }
+  result?: unknown
+}
 
 const entryPoint07Address = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const
 
@@ -76,7 +96,7 @@ export function useSmartAccount() {
 
   const getSmartAccountClient = useCallback(
     async (
-      privyWallet: any,
+      privyWallet: ConnectedWallet,
       chainKey: string,
     ): Promise<SmartAccountClient | null> => {
       setIsLoading(true)
@@ -98,8 +118,8 @@ export function useSmartAccount() {
         const provider = await privyWallet.getEthereumProvider()
 
         const transport = custom({
-          async request({ method, params, id }: any) {
-            const body: Record<string, any> = {
+          async request({ method, params, id }: { method: string; params?: unknown[]; id?: number | string }) {
+            const body: Record<string, unknown> = {
               jsonrpc: "2.0",
               method,
               params,
@@ -133,7 +153,7 @@ export function useSmartAccount() {
               })
 
               if (!res.ok) {
-                let errorData: any
+                let errorData: BundlerErrorResponse | null = null
                 try {
                   errorData = await res.json()
                 } catch {}
@@ -156,27 +176,28 @@ export function useSmartAccount() {
                   `HTTP error ${res.status}`
                 const err = new Error(msg)
                 if (errorData) {
-                  ;(err as any).response = { data: errorData }
+                  ;(err as Error & { response?: { data: BundlerErrorResponse | null } }).response = { data: errorData }
                 }
-                ;(err as any).status = res.status
+                ;(err as Error & { status?: number }).status = res.status
                 throw err
               }
 
-              const responseData = await res.json()
+              const responseData = (await res.json()) as JsonRpcResponse
 
               if (responseData.error) {
                 const err = new Error(responseData.error.message || "Bundler Error")
-                ;(err as any).code = responseData.error.code
-                ;(err as any).data = responseData.error.data
+                ;(err as Error & { code?: number }).code = responseData.error.code
+                ;(err as Error & { data?: unknown }).data = responseData.error.data
                 throw err
               }
 
               return responseData.result
-            } catch (e: any) {
-              console.error("[useSmartAccount] Bundler proxy error:", e)
-              const rpcError = new Error(e.message || "Unknown RPC Error")
-              ;(rpcError as any).response = e.response
-              ;(rpcError as any).status = e.status
+            } catch (e) {
+              const err = e as Error & { response?: unknown; status?: number }
+              console.error("[useSmartAccount] Bundler proxy error:", err)
+              const rpcError = new Error(err.message || "Unknown RPC Error") as Error & { response?: unknown; status?: number }
+              rpcError.response = err.response
+              rpcError.status = err.status
               throw rpcError
             }
           },
@@ -246,9 +267,10 @@ export function useSmartAccount() {
 
         clientCache.set(cacheKey, smartAccountClient)
         return smartAccountClient
-      } catch (err: any) {
-        console.error("[useSmartAccount] Error creating client:", err)
-        setError(err.message || "Failed to initialize Smart Account")
+      } catch (err) {
+        const errorObject = err as Error
+        console.error("[useSmartAccount] Error creating client:", errorObject)
+        setError(errorObject.message || "Failed to initialize Smart Account")
         return null
       } finally {
         setIsLoading(false)
