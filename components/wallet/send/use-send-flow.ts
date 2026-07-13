@@ -10,7 +10,10 @@ import {
   transferService,
 } from "@/services/api/transfers"
 import { useWallets } from "@privy-io/react-auth"
-import { useSmartAccount, setStickyVerificationCode } from "@/hooks/useSmartAccount"
+import {
+  useSmartAccount,
+  setStickyVerificationCode,
+} from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
 import { encodeFunctionData, erc20Abi } from "viem"
 import type { Asset, User } from "@/types/db"
@@ -771,14 +774,14 @@ export function useSendFlow(profile: User) {
           })
 
           if (!prepRes.success || !prepRes.data) {
-            throw new Error(prepRes.message || "Failed to prepare Solana transaction")
+            throw new Error(
+              prepRes.message || "Failed to prepare Solana transaction",
+            )
           }
 
           const { serializedTx, destinationAddress } = prepRes.data
 
-          const solanaWallet = wallets.find(
-            (w) => !w.address.startsWith("0x"),
-          )
+          const solanaWallet = wallets.find((w) => !w.address.startsWith("0x"))
 
           if (!solanaWallet) {
             throw new Error(
@@ -817,15 +820,16 @@ export function useSendFlow(profile: User) {
             verificationType: verification?.verificationType,
           })
         } else {
-          const evmWallet = wallets.find(
-            (w) => w.address.startsWith("0x"),
-          )
+          const evmWallet = wallets.find((w) => w.address.startsWith("0x"))
 
           if (!evmWallet) {
             throw new Error("Ethereum wallet not found. Please log in again.")
           }
 
-          const smartAccountClient = await getSmartAccountClient(evmWallet, chainLower)
+          const smartAccountClient = await getSmartAccountClient(
+            evmWallet,
+            chainLower,
+          )
           if (!smartAccountClient) {
             throw new Error("Failed to initialize smart account client.")
           }
@@ -841,17 +845,22 @@ export function useSendFlow(profile: User) {
           }
 
           const activeChains = getActiveChains()
-          const chainConfig = activeChains[chainLower as keyof typeof activeChains]
+          const chainConfig =
+            activeChains[chainLower as keyof typeof activeChains]
           if (!chainConfig) {
             throw new Error(`Unsupported EVM chain: ${selectedAsset.chain}`)
           }
 
           const tokenSymbol = selectedAsset.symbol.toUpperCase()
           const tokenAddress =
-            tokenSymbol === "USDC" ? chainConfig.usdcAddress : chainConfig.usdtAddress
+            tokenSymbol === "USDC"
+              ? chainConfig.usdcAddress
+              : chainConfig.usdtAddress
 
           if (!tokenAddress) {
-            throw new Error(`Token ${tokenSymbol} not supported on ${selectedAsset.chain}`)
+            throw new Error(
+              `Token ${tokenSymbol} not supported on ${selectedAsset.chain}`,
+            )
           }
 
           const isBsc = chainConfig.id === 56 || chainConfig.id === 97
