@@ -836,12 +836,15 @@ export function useSendFlow(profile: User) {
 
           let destinationAddress = trimmedRecipient
           if (recipientKind === "email" || recipientKind === "tag") {
-            if (verifiedRecipient && verifiedRecipient.addresses) {
-              const resolvedAddr = verifiedRecipient.addresses[chainLower]
-              if (resolvedAddr) {
-                destinationAddress = resolvedAddr
-              }
+            const resolvedAddr =
+              verifiedRecipient?.addresses?.smartAccounts?.[chainLower] ||
+              verifiedRecipient?.addresses?.evm
+            if (!resolvedAddr) {
+              throw new Error(
+                `The recipient has not set up a wallet on ${selectedAsset.chain} yet.`,
+              )
             }
+            destinationAddress = resolvedAddr
           }
 
           const activeChains = getActiveChains()

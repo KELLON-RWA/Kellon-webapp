@@ -29,7 +29,13 @@ export interface TransferRecipient {
   found: boolean
   id?: string
   name?: string | null
-  addresses?: Record<string, string | null | undefined> | null
+  addresses?: {
+    stellar?: string | null
+    solana?: string | null
+    evm?: string | null
+    smartAccount?: string | null
+    smartAccounts?: Record<string, string | null> | null
+  } | null
 }
 
 export interface SponsorUserOperationPayload {
