@@ -10,20 +10,8 @@ import {
   type Chain,
   fallback,
 } from "viem"
-import {
-  base,
-  celo,
-  polygon,
-  bsc,
-  baseSepolia,
-  celoAlfajores,
-  polygonAmoy,
-  bscTestnet,
-} from "viem/chains"
-import {
-  createSmartAccountClient,
-  type SmartAccountClient,
-} from "permissionless"
+import { base, celo, polygon, bsc, baseSepolia, celoAlfajores, polygonAmoy, bscTestnet } from "viem/chains"
+import { createSmartAccountClient, type SmartAccountClient } from "permissionless"
 import { toSafeSmartAccount } from "permissionless/accounts"
 import { createPimlicoClient } from "permissionless/clients/pimlico"
 import { TransferVerificationRequiredError } from "@/services/api/transfers"
@@ -48,8 +36,7 @@ interface JsonRpcResponse {
   result?: unknown
 }
 
-const entryPoint07Address =
-  "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const
+const entryPoint07Address = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const
 
 const IS_TESTNET = process.env.NEXT_PUBLIC_NETWORK_MODE === "testnet"
 
@@ -131,15 +118,7 @@ export function useSmartAccount() {
         const provider = await privyWallet.getEthereumProvider()
 
         const transport = custom({
-          async request({
-            method,
-            params,
-            id,
-          }: {
-            method: string
-            params?: unknown[]
-            id?: number | string
-          }) {
+          async request({ method, params, id }: { method: string; params?: unknown[]; id?: number | string }) {
             const body: Record<string, unknown> = {
               jsonrpc: "2.0",
               method,
@@ -164,8 +143,7 @@ export function useSmartAccount() {
               }
 
               const backendBaseUrl =
-                process.env.NEXT_PUBLIC_BACKEND_API_URL ||
-                "http://localhost:3000"
+                process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3000"
               const url = `${backendBaseUrl}/bundler/${slug}/rpc`
 
               const res = await fetch(url, {
@@ -186,15 +164,10 @@ export function useSmartAccount() {
                     errorData?.error?.code === -32000)
 
                 if (isJsonRpcMfa) {
-                  const mfaType = errorData?.error?.availableMethods?.includes(
-                    "totp",
-                  )
+                  const mfaType = errorData?.error?.availableMethods?.includes("totp")
                     ? "totp"
                     : "otp"
-                  throw new TransferVerificationRequiredError(
-                    "Verification required",
-                    mfaType,
-                  )
+                  throw new TransferVerificationRequiredError("Verification required", mfaType)
                 }
 
                 const msg =
@@ -203,11 +176,7 @@ export function useSmartAccount() {
                   `HTTP error ${res.status}`
                 const err = new Error(msg)
                 if (errorData) {
-                  ;(
-                    err as Error & {
-                      response?: { data: BundlerErrorResponse | null }
-                    }
-                  ).response = { data: errorData }
+                  ;(err as Error & { response?: { data: BundlerErrorResponse | null } }).response = { data: errorData }
                 }
                 ;(err as Error & { status?: number }).status = res.status
                 throw err
@@ -216,13 +185,9 @@ export function useSmartAccount() {
               const responseData = (await res.json()) as JsonRpcResponse
 
               if (responseData.error) {
-                const err = new Error(
-                  responseData.error.message || "Bundler Error",
-                )
-                ;(err as Error & { code?: number }).code =
-                  responseData.error.code
-                ;(err as Error & { data?: unknown }).data =
-                  responseData.error.data
+                const err = new Error(responseData.error.message || "Bundler Error")
+                ;(err as Error & { code?: number }).code = responseData.error.code
+                ;(err as Error & { data?: unknown }).data = responseData.error.data
                 throw err
               }
 
@@ -230,9 +195,7 @@ export function useSmartAccount() {
             } catch (e) {
               const err = e as Error & { response?: unknown; status?: number }
               console.error("[useSmartAccount] Bundler proxy error:", err)
-              const rpcError = new Error(
-                err.message || "Unknown RPC Error",
-              ) as Error & { response?: unknown; status?: number }
+              const rpcError = new Error(err.message || "Unknown RPC Error") as Error & { response?: unknown; status?: number }
               rpcError.response = err.response
               rpcError.status = err.status
               throw rpcError
