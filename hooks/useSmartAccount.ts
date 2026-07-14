@@ -96,10 +96,32 @@ const PUBLIC_RPC_URLS: Record<string, string[]> = {
 const clientCache = new Map<string, SmartAccountClient>()
 const cachedAddresses = new Map<string, string>()
 
-let stickyVerificationCode: string | null = null
+export interface StickyVerification {
+  type: string
+  code: string
+}
 
-export function setStickyVerificationCode(code: string | null) {
-  stickyVerificationCode = code
+export interface StickyTransferMeta {
+  amount: number | string
+  symbol: string
+  toAddress?: string
+}
+
+// The backend's MFA gate for eth_sendUserOperation verifies a {type, code} pair (same
+// shape used everywhere else in the app), not a bare code string.
+let stickyVerificationCode: StickyVerification | null = null
+
+export function setStickyVerificationCode(verification: StickyVerification | null) {
+  stickyVerificationCode = verification
+}
+
+// Backend can't decode the userOp calldata to know what's actually being sent, so the
+// caller (which already knows) attaches it here — used purely for the backend's
+// bookkeeping record, not for authorization.
+let stickyTransferMeta: StickyTransferMeta | null = null
+
+export function setStickyTransferMeta(meta: StickyTransferMeta | null) {
+  stickyTransferMeta = meta
 }
 
 export function useSmartAccount() {
@@ -147,8 +169,13 @@ export function useSmartAccount() {
               id: id || Math.floor(Math.random() * 1000000),
             }
 
-            if (method === "eth_sendUserOperation" && stickyVerificationCode) {
-              body.verificationCodes = [stickyVerificationCode]
+            if (method === "eth_sendUserOperation") {
+              if (stickyVerificationCode) {
+                body.verificationCodes = [stickyVerificationCode]
+              }
+              if (stickyTransferMeta) {
+                body.transferMeta = stickyTransferMeta
+              }
             }
 
             try {

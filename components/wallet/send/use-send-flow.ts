@@ -13,9 +13,17 @@ import { useWallets } from "@privy-io/react-auth"
 import {
   useSmartAccount,
   setStickyVerificationCode,
+  setStickyTransferMeta,
 } from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
-import { encodeFunctionData, erc20Abi } from "viem"
+import {
+  createPublicClient,
+  encodeFunctionData,
+  erc20Abi,
+  formatUnits,
+  http,
+  type Address,
+} from "viem"
 import type { Asset, User } from "@/types/db"
 import type {
   AmountFormValues,
@@ -71,6 +79,70 @@ type EvmSmartAccountClient = {
     data: `0x${string}`
     value: bigint
   }): Promise<string>
+}
+
+function decodeRevertReason(hex: string): string | null {
+  if (!hex.startsWith("0x08c379a0")) return null
+  try {
+    const data = hex.slice(10)
+    const offset = parseInt(data.slice(0, 64), 16)
+    const length = parseInt(data.slice(offset * 2, offset * 2 + 64), 16)
+    const msgHex = data.slice(offset * 2 + 64, offset * 2 + 64 + length * 2)
+    let result = ""
+    for (let i = 0; i < msgHex.length; i += 2) {
+      result += String.fromCharCode(parseInt(msgHex.slice(i, i + 2), 16))
+    }
+    return result
+  } catch {
+    return null
+  }
+}
+
+function extractRevertFromError(err: unknown): string | null {
+  if (!(err instanceof Error)) return null
+  const msg = err.message || ""
+  const hexMatch = msg.match(/0x08c379a0[0-9a-fA-F]+/)
+  if (hexMatch) return decodeRevertReason(hexMatch[0])
+  const details = (err as Error & { details?: string }).details
+  if (details) {
+    const detailMatch = details.match(/0x08c379a0[0-9a-fA-F]+/)
+    if (detailMatch) return decodeRevertReason(detailMatch[0])
+  }
+  return null
+}
+
+const BALANCE_CHECK_RPC: Record<string, string> = {
+  base: "https://mainnet.base.org",
+  celo: "https://forno.celo.org",
+  polygon: "https://polygon-rpc.com",
+  bnb: "https://bsc-dataseed.binance.org",
+  bsc: "https://bsc-dataseed.binance.org",
+}
+
+async function verifyOnChainBalance(
+  chainKey: string,
+  tokenAddress: string,
+  accountAddress: string,
+  requiredAmount: bigint,
+  symbol: string,
+  decimals: number,
+): Promise<void> {
+  const rpcUrl = BALANCE_CHECK_RPC[chainKey]
+  if (!rpcUrl) return
+  const client = createPublicClient({ transport: http(rpcUrl) })
+  const balance = await client.readContract({
+    address: tokenAddress as Address,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [accountAddress as Address],
+  })
+  if ((balance as bigint) < requiredAmount) {
+    const available = formatUnits(balance as bigint, decimals)
+    const required = formatUnits(requiredAmount, decimals)
+    throw new Error(
+      `Insufficient ${symbol} balance. You have ${available} ${symbol} but tried to send ${required} ${symbol}.`,
+    )
+  }
 }
 
 function navReducer(state: NavState, action: NavAction): NavState {
@@ -870,17 +942,38 @@ export function useSendFlow(profile: User) {
           const decimals = tokenSymbol === "USDC" && isBsc ? 18 : 6
           const amountBigInt = BigInt(Math.round(amountValue * 10 ** decimals))
 
+          const safeAddr = (smartAccountClient.account as { address?: string })
+            ?.address
+          if (safeAddr) {
+            await verifyOnChainBalance(
+              chainLower,
+              tokenAddress,
+              safeAddr,
+              amountBigInt,
+              tokenSymbol,
+              decimals,
+            )
+          }
+
           const txData = encodeFunctionData({
             abi: erc20Abi,
             functionName: "transfer",
             args: [destinationAddress as `0x${string}`, amountBigInt],
           })
 
-          if (verification?.verificationCode) {
-            setStickyVerificationCode(verification.verificationCode)
+          if (verification?.verificationCode && verification?.verificationType) {
+            setStickyVerificationCode({
+              type: verification.verificationType,
+              code: verification.verificationCode,
+            })
           } else {
             setStickyVerificationCode(null)
           }
+          setStickyTransferMeta({
+            amount: amountValue,
+            symbol: selectedAsset.symbol,
+            toAddress: destinationAddress,
+          })
 
           try {
             const txHash = await (
@@ -893,6 +986,7 @@ export function useSendFlow(profile: User) {
               value: 0n,
             })
             setStickyVerificationCode(null)
+            setStickyTransferMeta(null)
             response = {
               success: true,
               data: {
@@ -902,6 +996,20 @@ export function useSendFlow(profile: User) {
             }
           } catch (err) {
             setStickyVerificationCode(null)
+            setStickyTransferMeta(null)
+            const revertReason = extractRevertFromError(err)
+            if (revertReason) {
+              const lower = revertReason.toLowerCase()
+              if (
+                lower.includes("exceeds balance") ||
+                lower.includes("insufficient")
+              ) {
+                throw new Error(
+                  `Insufficient ${selectedAsset.symbol} balance to complete this transfer.`,
+                )
+              }
+              throw new Error(revertReason)
+            }
             throw err
           }
         }
