@@ -939,7 +939,7 @@ export function useSendFlow(profile: User) {
           }
 
           const isBsc = chainConfig.id === 56 || chainConfig.id === 97
-          const decimals = tokenSymbol === "USDC" && isBsc ? 18 : 6
+          const decimals = isBsc ? 18 : 6
           const amountBigInt = BigInt(Math.round(amountValue * 10 ** decimals))
 
           const safeAddr = (smartAccountClient.account as { address?: string })
