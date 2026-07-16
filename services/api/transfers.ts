@@ -78,10 +78,33 @@ export class TransferVerificationRequiredError extends Error {
   }
 }
 
+// Smart-account sends route this error through viem/permissionless, which
+// rewraps any thrown error in its own BaseError classes (UnknownRpcError ->
+// UnknownBundlerError -> UserOperationExecutionError) before it reaches the
+// caller. Each layer preserves the original via the standard `cause` chain,
+// so a flat `instanceof` on the top-level error never matches — walk the
+// chain to find the original instance wherever it ended up.
+export function findTransferVerificationRequiredError(
+  error: unknown,
+): TransferVerificationRequiredError | null {
+  let current: unknown = error
+  const seen = new Set<unknown>()
+  while (
+    current &&
+    typeof current === "object" &&
+    !seen.has(current)
+  ) {
+    if (current instanceof TransferVerificationRequiredError) return current
+    seen.add(current)
+    current = (current as { cause?: unknown }).cause
+  }
+  return null
+}
+
 export function isTransferVerificationRequiredError(
   error: unknown,
 ): error is TransferVerificationRequiredError {
-  return error instanceof TransferVerificationRequiredError
+  return findTransferVerificationRequiredError(error) !== null
 }
 
 function getPlatformHeader(): string {
