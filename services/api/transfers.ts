@@ -86,21 +86,7 @@ export class TransferVerificationRequiredError extends Error {
   }
 }
 
-// Smart-account sends route this error through viem/permissionless, which
-// rewraps any thrown error in its own BaseError classes (UnknownRpcError ->
-// UnknownBundlerError -> UserOperationExecutionError) before it reaches the
-// caller. Each layer preserves the original via the standard `cause` chain,
-// so a flat `instanceof` on the top-level error never matches — walk the
-// chain to find the original instance wherever it ended up.
-//
-// Subtlety: viem's BaseError copies the innermost cause's message into its
-// own "Details: <message>" text at EVERY wrapping layer, so a string match on
-// "Verification required" / "VERIFICATION_REQUIRED" succeeds on the very
-// outermost wrapper too — before we ever reach the actual instance or any
-// structured availableMethods data further down. So a string match alone
-// can't short-circuit the walk; keep going until we find the real instance or
-// real structured data, only falling back to the string-matched guess once
-// the chain is exhausted.
+// Walk the viem cause chain to find the original MFA error instance.
 export function findTransferVerificationRequiredError(
   error: unknown,
 ): TransferVerificationRequiredError | null {
