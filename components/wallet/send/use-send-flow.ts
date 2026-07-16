@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
-  isTransferVerificationRequiredError,
+  findTransferVerificationRequiredError,
   transferService,
 } from "@/services/api/transfers"
 import { useWallets } from "@privy-io/react-auth"
@@ -1020,9 +1020,10 @@ export function useSendFlow(profile: User) {
         )
         router.push("/transactions")
       } catch (error) {
-        if (isTransferVerificationRequiredError(error)) {
+        const verificationError = findTransferVerificationRequiredError(error)
+        if (verificationError) {
           setVerificationRequest({
-            verificationType: error.verificationType,
+            verificationType: verificationError.verificationType,
           })
           toast.info("Enter your verification code to continue.")
           return

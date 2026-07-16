@@ -255,6 +255,15 @@ export function useSmartAccount() {
 
               return responseData.result
             } catch (e) {
+              // Preserve special error types (e.g. MFA-required) thrown above —
+              // the generic wrap-and-rethrow below would otherwise strip the
+              // subclass identity that isTransferVerificationRequiredError()
+              // relies on (`instanceof`), causing the OTP/TOTP modal to never
+              // open and a raw viem UnknownRpcError dump to surface instead.
+              if (e instanceof TransferVerificationRequiredError) {
+                throw e
+              }
+
               const err = e as Error & { response?: unknown; status?: number }
               console.error("[useSmartAccount] Bundler proxy error:", err)
               const rpcError = new Error(
