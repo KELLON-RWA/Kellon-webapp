@@ -221,6 +221,7 @@ export function useSmartAccount() {
                   throw new TransferVerificationRequiredError(
                     "Verification required",
                     mfaType,
+                    errorData?.error?.availableMethods,
                   )
                 }
 
