@@ -59,46 +59,95 @@ type TransferErrorBody = {
   message?: string
   code?: string
   verificationType?: "otp" | "totp"
+  availableMethods?: string[]
   error?:
     | string
     | {
         message?: string
         code?: string
         verificationType?: "otp" | "totp"
+        availableMethods?: string[]
       }
 }
 
 export class TransferVerificationRequiredError extends Error {
   verificationType: "otp" | "totp"
+  availableMethods?: string[]
 
-  constructor(message: string, verificationType: "otp" | "totp" = "otp") {
+  constructor(
+    message: string,
+    verificationType: "otp" | "totp" = "otp",
+    availableMethods?: string[],
+  ) {
     super(message)
     this.name = "TransferVerificationRequiredError"
     this.verificationType = verificationType
+    this.availableMethods = availableMethods
   }
 }
 
-// Smart-account sends route this error through viem/permissionless, which
-// rewraps any thrown error in its own BaseError classes (UnknownRpcError ->
-// UnknownBundlerError -> UserOperationExecutionError) before it reaches the
-// caller. Each layer preserves the original via the standard `cause` chain,
-// so a flat `instanceof` on the top-level error never matches — walk the
-// chain to find the original instance wherever it ended up.
+// Walk the viem cause chain to find the original MFA error instance.
 export function findTransferVerificationRequiredError(
   error: unknown,
 ): TransferVerificationRequiredError | null {
-  let current: unknown = error
+  let current: any = error
   const seen = new Set<unknown>()
+  let fallback: TransferVerificationRequiredError | null = null
+
   while (
     current &&
     typeof current === "object" &&
     !seen.has(current)
   ) {
     if (current instanceof TransferVerificationRequiredError) return current
+    if (
+      current.name === "TransferVerificationRequiredError" &&
+      current.verificationType
+    ) {
+      return current as TransferVerificationRequiredError
+    }
+
+    const isMfa =
+      current.status === 403 ||
+      current.response?.status === 403 ||
+      current.message?.includes("Verification required") ||
+      current.message?.includes("VERIFICATION_REQUIRED") ||
+      current.details?.includes("Verification required") ||
+      current.details?.includes("VERIFICATION_REQUIRED")
+
+    if (isMfa) {
+      const hasTotp =
+        JSON.stringify(current).toLowerCase().includes("totp") ||
+        (current.message && current.message.toLowerCase().includes("totp"))
+      const mfaType = hasTotp ? "totp" : "otp"
+
+      const availableMethods =
+        current.availableMethods ||
+        current.error?.availableMethods ||
+        current.response?.data?.availableMethods ||
+        current.response?.data?.error?.availableMethods
+
+      if (availableMethods) {
+        return new TransferVerificationRequiredError(
+          "Verification required",
+          mfaType,
+          availableMethods,
+        )
+      }
+
+      if (!fallback) {
+        fallback = new TransferVerificationRequiredError(
+          "Verification required",
+          mfaType,
+          availableMethods,
+        )
+      }
+    }
+
     seen.add(current)
-    current = (current as { cause?: unknown }).cause
+    current = current.cause
   }
-  return null
+  return fallback
 }
 
 export function isTransferVerificationRequiredError(
@@ -128,9 +177,15 @@ async function handleTransferResponse<T>(
       "Unable to process transfer"
     const verificationType =
       nestedError?.verificationType || body.verificationType || "otp"
+    const availableMethods =
+      body.availableMethods || nestedError?.availableMethods
 
     if (res.status === 403 && code === "VERIFICATION_REQUIRED") {
-      throw new TransferVerificationRequiredError(message, verificationType)
+      throw new TransferVerificationRequiredError(
+        message,
+        verificationType,
+        availableMethods,
+      )
     }
 
     throw new Error(message)
@@ -374,6 +429,22 @@ export const transferService = {
         "x-platform": getPlatformHeader(),
       },
       body: JSON.stringify(body),
+    })
+
+    return handleTransferResponse(res)
+  },
+
+  requestOTP: async (
+    action: string,
+    channel: "email" | "sms" = "email",
+  ): Promise<ApiResponse<{ success: boolean; message: string; maskedDestination?: string }>> => {
+    const res = await apiFetch("/api/security/otp/request", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-platform": getPlatformHeader(),
+      },
+      body: JSON.stringify({ action, channel }),
     })
 
     return handleTransferResponse(res)

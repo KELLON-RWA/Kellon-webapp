@@ -1025,7 +1025,23 @@ export function useSendFlow(profile: User) {
           setVerificationRequest({
             verificationType: verificationError.verificationType,
           })
-          toast.info("Enter your verification code to continue.")
+          
+          if (verificationError.verificationType === "otp") {
+            const hasSms = verificationError.availableMethods?.includes("sms_otp")
+            const channel = hasSms ? "sms" : "email"
+            transferService
+              .requestOTP("transfer", channel)
+              .then((res) => {
+                if (res.success && res.message) {
+                  toast.success(res.message)
+                }
+              })
+              .catch((err) => {
+                toast.error(err.message || "Failed to send verification code")
+              })
+          } else {
+            toast.info("Enter your verification code to continue.")
+          }
           return
         }
         toast.error(

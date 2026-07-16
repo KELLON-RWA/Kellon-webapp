@@ -221,6 +221,7 @@ export function useSmartAccount() {
                   throw new TransferVerificationRequiredError(
                     "Verification required",
                     mfaType,
+                    errorData?.error?.availableMethods,
                   )
                 }
 
@@ -255,11 +256,7 @@ export function useSmartAccount() {
 
               return responseData.result
             } catch (e) {
-              // Preserve special error types (e.g. MFA-required) thrown above —
-              // the generic wrap-and-rethrow below would otherwise strip the
-              // subclass identity that isTransferVerificationRequiredError()
-              // relies on (`instanceof`), causing the OTP/TOTP modal to never
-              // open and a raw viem UnknownRpcError dump to surface instead.
+              // Preserve MFA errors so the verification modal triggers correctly.
               if (e instanceof TransferVerificationRequiredError) {
                 throw e
               }
