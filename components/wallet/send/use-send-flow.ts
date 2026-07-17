@@ -516,16 +516,24 @@ export function useSendFlow(profile: User) {
   const updateUrl_Step = useCallback(
     (nextStep: SendStep, asset?: SendableAsset | null) => {
       if (nextStep === "recipient") {
-        updateUrl({ step: nextStep, asset: null, network: null, amount: null })
+        updateUrl({
+          step: nextStep,
+          recipient: null,
+          asset: null,
+          network: null,
+          amount: null,
+        })
       } else {
         updateUrl({
           step: nextStep,
+          recipient: recipientInput || null,
           asset: asset?.symbol ?? null,
           network: asset?.chain ?? null,
+          amount: nav.amount || null,
         })
       }
     },
-    [updateUrl],
+    [updateUrl, nav.amount, recipientInput],
   )
 
   // Internal helper: navigate to asset step, optionally pre-selecting an asset.
