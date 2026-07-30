@@ -216,6 +216,21 @@ async function hmacSha256Hex(secret: string, message: string): Promise<string> {
     .join("");
 }
 
+export async function createWebauthnAttestation(): Promise<string> {
+  const apiSecret = getStoredValue(API_SECRET_STORAGE_KEY);
+  const deviceId = getStoredValue(DEVICE_TOKEN_STORAGE_KEY);
+
+  if (!apiSecret || !deviceId) {
+    throw new Error("Secure device credentials are missing. Please log in again.");
+  }
+
+  const timestamp = Date.now().toString();
+  const payload = `biometric_attestation:${timestamp}:${deviceId}`;
+  const signature = await hmacSha256Hex(apiSecret, payload);
+
+  return `${timestamp}:${signature}`;
+}
+
 function normalizeRequestBody(body: RequestInit["body"]): {
   body: RequestInit["body"];
   rawBody: string;

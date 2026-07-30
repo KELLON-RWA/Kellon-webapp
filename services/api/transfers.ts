@@ -90,6 +90,8 @@ export class TransferVerificationRequiredError extends Error {
 export function findTransferVerificationRequiredError(
   error: unknown,
 ): TransferVerificationRequiredError | null {
+  // Provider and viem wrappers expose different recursive error shapes.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let current: any = error
   const seen = new Set<unknown>()
   let fallback: TransferVerificationRequiredError | null = null
@@ -435,7 +437,7 @@ export const transferService = {
   },
 
   requestOTP: async (
-    action: string,
+    context: string,
     channel: "email" | "sms" = "email",
   ): Promise<ApiResponse<{ success: boolean; message: string; maskedDestination?: string }>> => {
     const res = await apiFetch("/api/security/otp/request", {
@@ -444,7 +446,7 @@ export const transferService = {
         "Content-Type": "application/json",
         "x-platform": getPlatformHeader(),
       },
-      body: JSON.stringify({ action, channel }),
+      body: JSON.stringify({ context, channel }),
     })
 
     return handleTransferResponse(res)
