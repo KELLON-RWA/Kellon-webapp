@@ -42,6 +42,14 @@ export interface PaycrestAccountVerificationRequest {
   accountName?: string;
 }
 
+export interface PaycrestWebhookDeliveriesQuery {
+  status?: string;
+  event?: string;
+  orderId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 /**
  * --- Strict Response Interfaces ---
  * Defined based on backend controller property access
@@ -68,17 +76,20 @@ export type ProviderFeesResponse = Record<string, ProviderFee>;
 export interface PaycrestRateResponse {
   buy?: {
     rate: string; // e.g. "1381.57"
+    price?: number | string;
     providerIds: string[];
     orderType: string;
     refundTimeoutMinutes: number;
   };
   sell?: {
     rate: string;
+    price?: number | string;
     providerIds: string[];
     orderType: string;
     refundTimeoutMinutes: number;
   };
   rate?: number | string;
+  price?: number | string;
   sendAmount?: string;
   sendCurrency?: string;
   fiatAmount?: number;
@@ -88,6 +99,7 @@ export interface PaycrestRateResponse {
   receiveCurrency?: string;
   data?: {
     rate?: number | string;
+    price?: number | string;
     [key: string]: unknown;
   };
 }
@@ -140,6 +152,31 @@ export interface PaycrestAccountData {
   institutionName?: string;
   bankName?: string;
   raw?: unknown;
+  [key: string]: unknown;
+}
+
+export interface PaycrestMarket {
+  [key: string]: unknown;
+}
+
+export interface PaycrestWebhookDelivery {
+  id?: string;
+  status?: string;
+  event?: string;
+  orderId?: string;
+  [key: string]: unknown;
+}
+
+export interface PaycrestWebhookDeliveriesResponse {
+  deliveries?: PaycrestWebhookDelivery[];
+  items?: PaycrestWebhookDelivery[];
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  [key: string]: unknown;
+}
+
+export interface PaycrestWebhookRetryResponse {
   [key: string]: unknown;
 }
 
@@ -450,5 +487,64 @@ export const providerService = {
         bankName: body.bankName,
       }),
     };
+  },
+
+  /**
+   * GET /api/providers/paycrest/markets
+   * controller: getPaycrestMarketsHandler
+   */
+  getPaycrestMarkets: async (): Promise<ApiResponse<PaycrestMarket[]>> => {
+    const res = await fetch("/api/providers/paycrest/markets", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+    return handleResponse(res);
+  },
+
+  /**
+   * GET /api/providers/paycrest/webhook-deliveries
+   * controller: listPaycrestWebhookDeliveriesHandler
+   */
+  listPaycrestWebhookDeliveries: async (
+    params: PaycrestWebhookDeliveriesQuery = {},
+  ): Promise<ApiResponse<PaycrestWebhookDeliveriesResponse>> => {
+    const query = buildQuery({
+      status: params.status,
+      event: params.event,
+      orderId: params.orderId,
+      page: params.page,
+      pageSize: params.pageSize,
+    });
+    const endpoint = query
+      ? `/api/providers/paycrest/webhook-deliveries?${query}`
+      : "/api/providers/paycrest/webhook-deliveries";
+
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+    return handleResponse(res);
+  },
+
+  /**
+   * POST /api/providers/paycrest/webhook-deliveries/:id/retry
+   * controller: retryPaycrestWebhookDeliveryHandler
+   */
+  retryPaycrestWebhookDelivery: async (
+    id: string,
+    sync = true,
+  ): Promise<ApiResponse<PaycrestWebhookRetryResponse>> => {
+    const query = buildQuery({ sync: String(sync) });
+    const res = await fetch(
+      `/api/providers/paycrest/webhook-deliveries/${encodeURIComponent(id)}/retry?${query}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      },
+    );
+    return handleResponse(res);
   },
 };

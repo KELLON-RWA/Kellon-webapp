@@ -83,10 +83,14 @@ export function useProviderRates({
             let rawRate: number | null = null;
 
             if (provider.name.toLowerCase() === "paycrest") {
+              // Paycrest's amount parameter is denominated in the token, while
+              // the buy flow amount is fiat. Fetch a one-token base rate and
+              // calculate the user's fiat quote locally, as the mobile app does.
+              const paycrestQuoteAmount = side === "buy" ? 1 : amount;
               const res = await providerService.getPaycrestRate(
                 {
                   token: asset,
-                  amount,
+                  amount: paycrestQuoteAmount,
                   currency: currency,
                   network: networkName,
                   side,
@@ -96,9 +100,16 @@ export function useProviderRates({
 
               const paycrestRate =
                 parseNumber(res.data?.rate) ??
+                parseNumber(res.data?.price) ??
                 parseNumber(res.data?.data?.rate) ??
+                parseNumber(res.data?.data?.price) ??
                 parseNumber(
                   side === "sell" ? res.data?.sell?.rate : res.data?.buy?.rate,
+                ) ??
+                parseNumber(
+                  side === "sell"
+                    ? res.data?.sell?.price
+                    : res.data?.buy?.price,
                 );
 
               if (res.success && paycrestRate) {
