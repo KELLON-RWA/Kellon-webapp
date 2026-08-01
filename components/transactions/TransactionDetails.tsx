@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Copy } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Circle,
+  Copy,
+  Loader2,
+  RotateCcw,
+  Wallet,
+} from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { getChainLabel } from "@/lib/chains";
@@ -12,7 +21,7 @@ import {
   getCurrencySymbol,
 } from "@/lib/country-currency-map";
 import { transactionService } from "@/services/api/transactions";
-import type { Transaction } from "@/types/db";
+import { TransactionStatus, type Transaction } from "@/types/db";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -62,11 +71,15 @@ function getTransactionLabel(type: Transaction["type"]): string {
   }
 }
 
-function getTransactionStatusLabel(status: Transaction["status"]): string {
+function getTransactionStatusLabel(
+  status: Transaction["status"],
+  type?: Transaction["type"],
+): string {
   switch (status) {
     case "COMPLETED":
-    case "PAID":
       return "Successful";
+    case "PAID":
+      return type === "BUY" ? "Delivering crypto" : "Successful";
     case "FAILED":
       return "Failed";
     case "CANCELLED":
@@ -82,11 +95,15 @@ function getTransactionStatusLabel(status: Transaction["status"]): string {
 
 function getTransactionStatusBadgeClasses(
   status: Transaction["status"],
+  type?: Transaction["type"],
 ): string {
   switch (status) {
     case "COMPLETED":
-    case "PAID":
       return "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400";
+    case "PAID":
+      return type === "BUY"
+        ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
+        : "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400";
     case "FAILED":
       return "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400";
     case "CANCELLED":
@@ -96,6 +113,76 @@ function getTransactionStatusBadgeClasses(
     default:
       return "bg-primary-95 text-primary-60 dark:bg-primary-70/10 dark:text-primary-80";
   }
+}
+
+const ONRAMP_TERMINAL_STATUSES: Transaction["status"][] = [
+  TransactionStatus.COMPLETED,
+  TransactionStatus.FAILED,
+  TransactionStatus.CANCELLED,
+  TransactionStatus.REFUNDED,
+];
+
+function OnrampProgress({ status }: { status: Transaction["status"] }) {
+  const steps = [
+    "Order created",
+    status === "PAID" || status === "COMPLETED"
+      ? "Payment confirmed"
+      : "Confirming payment",
+    "Delivering crypto",
+    "Completed",
+  ];
+  const activeIndex =
+    status === "COMPLETED" ? steps.length - 1 : status === "PAID" ? 2 : 1;
+
+  return (
+    <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-secondary-50">
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-black dark:text-white">
+          {status === "COMPLETED"
+            ? "Funds delivered"
+            : status === "PAID"
+              ? "Delivering your crypto"
+              : "Confirming your payment"}
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+          {status === "COMPLETED"
+            ? "Your crypto has been delivered and your receipt is ready."
+            : "You can safely leave this page. Your transaction will continue in the background."}
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {steps.map((label, index) => {
+          const isComplete = index < activeIndex || status === "COMPLETED";
+          const isActive = index === activeIndex && status !== "COMPLETED";
+
+          return (
+            <div key={label} className="flex items-center gap-3">
+              {isComplete ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+              ) : isActive ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary-60" />
+              ) : (
+                <Circle className="h-4 w-4 shrink-0 text-gray-300 dark:text-gray-600" />
+              )}
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  isComplete
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : isActive
+                      ? "text-black dark:text-white"
+                      : "text-gray-400",
+                )}
+              >
+                {label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function isPositiveTransaction(type: Transaction["type"]): boolean {
@@ -255,9 +342,14 @@ function getTransactionDisplayAmount(transaction: Transaction): number | null {
   if (providerAmount !== null) return providerAmount;
 
   if (
-    ["TRANSFER_IN", "TRANSFER_OUT", "WITHDRAW", "SELL", "BUY", "DEPOSIT"].includes(
-      transaction.type,
-    )
+    [
+      "TRANSFER_IN",
+      "TRANSFER_OUT",
+      "WITHDRAW",
+      "SELL",
+      "BUY",
+      "DEPOSIT",
+    ].includes(transaction.type)
   ) {
     return parseTransactionAmount(transaction.amount);
   }
@@ -385,12 +477,17 @@ function getRecipientDetailRows(transaction: Transaction): DetailRow[] {
   const metadata = getTransactionMetadata(transaction);
   const tag = getStringMetadataValue(metadata, ["recipientTag"]);
   const email = getStringMetadataValue(metadata, ["recipientEmail"]);
-  const address = getStringMetadataValue(metadata, ["recipientAddress", "address"]);
+  const address = getStringMetadataValue(metadata, [
+    "recipientAddress",
+    "address",
+  ]);
   const method = getStringMetadataValue(metadata, ["recipientMethod"]);
-  const addressType = getStringMetadataValue(metadata, ["recipientAddressType"]);
+  const addressType = getStringMetadataValue(metadata, [
+    "recipientAddressType",
+  ]);
 
   const rows: DetailRow[] = [];
-  
+
   if (method === "tag" && tag) {
     rows.push({ label: "Tag", value: tag });
   } else if (method === "email" && email) {
@@ -404,10 +501,15 @@ function getRecipientDetailRows(transaction: Transaction): DetailRow[] {
     } else if (email) {
       rows.push({ label: "Email", value: email });
     } else if (address) {
-      rows.push({ label: "Address", value: address, copyable: true, mono: true });
+      rows.push({
+        label: "Address",
+        value: address,
+        copyable: true,
+        mono: true,
+      });
     }
   }
-  
+
   return rows;
 }
 
@@ -435,7 +537,9 @@ function buildTransactionDetailSections(
   const fee = getTransactionFee(transaction);
   const fiatReceived = getFiatReceivedAmount(transaction);
   const amountText =
-    amountValue === null ? `-- ${symbol}` : `${formatAssetAmount(amountValue)} ${symbol}`;
+    amountValue === null
+      ? `-- ${symbol}`
+      : `${formatAssetAmount(amountValue)} ${symbol}`;
   const methodLabel =
     transaction.type === "WITHDRAW"
       ? `${fiatCurrency} Withdrawal`
@@ -465,7 +569,9 @@ function buildTransactionDetailSections(
 
   if (fee !== null) {
     const feeCurrency =
-      getStringMetadataValue(metadata, ["feeCurrency"]) || symbol || fiatCurrency;
+      getStringMetadataValue(metadata, ["feeCurrency"]) ||
+      symbol ||
+      fiatCurrency;
     const isFiatFee = feeCurrency === fiatCurrency;
     baseRows.push({
       label: "Fee",
@@ -524,6 +630,7 @@ function getNestedMetadataValue(
 
 export default function TransactionDetails({ id }: TransactionDetailsProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -533,9 +640,42 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
       const response = await transactionService.getTransaction(id);
       return response.data;
     },
+    refetchInterval: (query) => {
+      const currentTransaction = query.state.data;
+
+      if (
+        !currentTransaction ||
+        currentTransaction.type !== "BUY" ||
+        ONRAMP_TERMINAL_STATUSES.includes(currentTransaction.status)
+      ) {
+        return false;
+      }
+
+      return 5000;
+    },
+    refetchIntervalInBackground: true,
   });
 
   const transaction = data;
+  const isOnramp = transaction?.type === "BUY";
+  const isOnrampTracking = Boolean(
+    isOnramp &&
+      transaction &&
+      ["PENDING", "PAID", "COMPLETED"].includes(transaction.status),
+  );
+  const canGenerateReceipt = Boolean(
+    transaction &&
+      (!isOnramp ||
+        transaction.status === "COMPLETED" ||
+        transaction.status === "REFUNDED"),
+  );
+
+  useEffect(() => {
+    if (!isOnramp || transaction?.status !== "COMPLETED") return;
+
+    void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    void queryClient.invalidateQueries({ queryKey: ["user-session"] });
+  }, [isOnramp, queryClient, transaction?.status]);
 
   const amountValue = useMemo(() => {
     if (!transaction) return null;
@@ -586,7 +726,7 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
 
   const generateReceiptHTML = () => {
     const statusText = transaction
-      ? getTransactionStatusLabel(transaction.status)
+      ? getTransactionStatusLabel(transaction.status, transaction.type)
       : "Pending";
     const receiptRows = detailSections
       .flatMap((section) => [
@@ -682,7 +822,7 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
             .status-text {
               color: ${
                 transaction?.status === "COMPLETED" ||
-                transaction?.status === "PAID"
+                (transaction?.status === "PAID" && transaction?.type !== "BUY")
                   ? "#10b981"
                   : transaction?.status === "FAILED"
                     ? "#ef4444"
@@ -838,6 +978,8 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
   };
 
   const downloadAsPDF = async () => {
+    if (!canGenerateReceipt) return;
+
     setIsGenerating(true);
     try {
       const canvas = await captureReceipt();
@@ -863,6 +1005,8 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
   };
 
   const shareReceipt = async () => {
+    if (!canGenerateReceipt) return;
+
     setIsGenerating(true);
     try {
       const canvas = await captureReceipt();
@@ -966,15 +1110,49 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
       </div>
 
       <div className="mx-auto max-w-2xl px-4">
+        {isOnrampTracking && transaction ? (
+          <OnrampProgress status={transaction.status} />
+        ) : null}
+
+        {isOnramp &&
+        ["FAILED", "CANCELLED", "REFUNDED"].includes(transaction.status) ? (
+          <div
+            className={cn(
+              "mb-6 rounded-2xl border p-4",
+              transaction.status === "FAILED"
+                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
+                : "border-gray-200 bg-gray-50 text-gray-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-300",
+            )}
+          >
+            <p className="text-sm font-bold">
+              {transaction.status === "FAILED"
+                ? "Transaction failed"
+                : transaction.status === "REFUNDED"
+                  ? "Payment refunded"
+                  : "Transaction cancelled"}
+            </p>
+            <p className="mt-1 text-xs leading-5 opacity-80">
+              {transaction.status === "FAILED"
+                ? "Your transaction could not be completed. Keep the reference below when contacting support."
+                : transaction.status === "REFUNDED"
+                  ? "Your refund has been processed. You can save the refund receipt below."
+                  : "This order is no longer active."}
+            </p>
+          </div>
+        ) : null}
+
         {/* Status Badge - Now matches the component styling */}
         <div className="mb-6 flex justify-center">
           <span
             className={cn(
               "rounded-full px-3 py-1 text-xs font-medium",
-              getTransactionStatusBadgeClasses(transaction.status),
+              getTransactionStatusBadgeClasses(
+                transaction.status,
+                transaction.type,
+              ),
             )}
           >
-            {getTransactionStatusLabel(transaction.status)}
+            {getTransactionStatusLabel(transaction.status, transaction.type)}
           </span>
         </div>
 
@@ -993,7 +1171,9 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
         {/* Details Card */}
         <div className="overflow-hidden rounded-xl border border-black/5 bg-white dark:border-white/10 dark:bg-secondary-50">
           <div className="flex justify-between gap-4 border-b border-black/5 px-5 py-4 dark:border-white/5">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Date</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Date
+            </span>
             <span className="text-right text-sm font-medium text-black dark:text-white">
               {formatDateTime(transaction.createdAt)}
             </span>
@@ -1048,14 +1228,21 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
           ))}
         </div>
 
-        {/* Action Buttons - Only 2 buttons */}
+        {!canGenerateReceipt && isOnramp ? (
+          <p className="mt-5 text-center text-xs leading-5 text-gray-500 dark:text-gray-400">
+            {transaction.status === "PENDING" || transaction.status === "PAID"
+              ? "Your receipt will be available after the crypto is delivered."
+              : "A successful receipt is unavailable because this transaction did not complete."}
+          </p>
+        ) : null}
+
         <div className="mt-6 flex gap-3">
           <Button
             type="button"
             variant="flowSecondary"
             size="action"
             onClick={downloadAsPDF}
-            disabled={isGenerating}
+            disabled={isGenerating || !canGenerateReceipt}
             className="flex-1"
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
@@ -1068,7 +1255,7 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
             variant="flow"
             size="action"
             onClick={shareReceipt}
-            disabled={isGenerating}
+            disabled={isGenerating || !canGenerateReceipt}
             className="flex-1"
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
@@ -1078,6 +1265,31 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
             <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
           </Button>
         </div>
+
+        {isOnramp && transaction.status === "COMPLETED" ? (
+          <div className="mt-3 flex gap-3">
+            <Button
+              type="button"
+              variant="flow"
+              size="action"
+              onClick={() => router.push("/")}
+              className="flex-1"
+            >
+              <Wallet className="h-4 w-4" />
+              Go to wallet
+            </Button>
+            <Button
+              type="button"
+              variant="flowSecondary"
+              size="action"
+              onClick={() => router.push("/buy")}
+              className="flex-1"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Buy more
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
