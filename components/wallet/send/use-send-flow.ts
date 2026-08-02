@@ -516,16 +516,24 @@ export function useSendFlow(profile: User) {
   const updateUrl_Step = useCallback(
     (nextStep: SendStep, asset?: SendableAsset | null) => {
       if (nextStep === "recipient") {
-        updateUrl({ step: nextStep, asset: null, network: null, amount: null })
+        updateUrl({
+          step: nextStep,
+          recipient: null,
+          asset: null,
+          network: null,
+          amount: null,
+        })
       } else {
         updateUrl({
           step: nextStep,
+          recipient: recipientInput || null,
           asset: asset?.symbol ?? null,
           network: asset?.chain ?? null,
+          amount: nav.amount || null,
         })
       }
     },
-    [updateUrl],
+    [updateUrl, nav.amount, recipientInput],
   )
 
   // Internal helper: navigate to asset step, optionally pre-selecting an asset.
@@ -1028,17 +1036,17 @@ export function useSendFlow(profile: User) {
           
           if (verificationError.verificationType === "otp") {
             const hasSms = verificationError.availableMethods?.includes("sms_otp")
-            const channel = hasSms ? "sms" : "email"
-            transferService
-              .requestOTP("transfer", channel)
-              .then((res) => {
-                if (res.success && res.message) {
-                  toast.success(res.message)
-                }
-              })
-              .catch((err) => {
-                toast.error(err.message || "Failed to send verification code")
-              })
+            const hasEmail =
+              !verificationError.availableMethods ||
+              verificationError.availableMethods.includes("email_otp") ||
+              verificationError.availableMethods.includes("otp")
+            toast.info(
+              hasEmail
+                ? "We sent a verification code to your email. Enter it to continue."
+                : hasSms
+                  ? "We sent a verification code to your phone. Enter it to continue."
+                  : "Enter your verification code to continue.",
+            )
           } else {
             toast.info("Enter your verification code to continue.")
           }
