@@ -26,6 +26,7 @@ import {
 import EarnActionDialog from "./EarnActionDialog";
 import {
   formatApy,
+  formatMetricUsd,
   formatTokenAmount,
   formatUsd,
   getMaxUsableBalance,
@@ -106,8 +107,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
       const stickyOffset = window.matchMedia("(min-width: 768px)").matches
         ? 64
         : 0;
-      const nextIsStuck =
-        toolbar.getBoundingClientRect().top <= stickyOffset;
+      const nextIsStuck = toolbar.getBoundingClientRect().top <= stickyOffset;
 
       setIsSearchToolbarStuck((current) =>
         current === nextIsStuck ? current : nextIsStuck,
@@ -139,9 +139,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
   const activePositions = useMemo(
     () =>
-      positions.filter(
-        (position) => position.status !== PositionStatus.CLOSED,
-      ),
+      positions.filter((position) => position.status !== PositionStatus.CLOSED),
     [positions],
   );
   const totalSupplied = activePositions.reduce(
@@ -176,8 +174,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const averageApy =
     totalSupplied > 0
       ? currentPositionMetrics.reduce(
-          (total, position) =>
-            total + position.amount * position.apy,
+          (total, position) => total + position.amount * position.apy,
           0,
         ) / totalSupplied
       : 0;
@@ -221,8 +218,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
     label: month === 0 ? "Now" : `Month ${month}`,
     value:
       totalSupplied > 0
-        ? totalSupplied *
-          (Math.pow(1 + averageApy / 100, month / 12) - 1)
+        ? totalSupplied * (Math.pow(1 + averageApy / 100, month / 12) - 1)
         : 0,
   }));
   const filteredOpportunities = useMemo(() => {
@@ -261,20 +257,25 @@ export default function EarnPage({ profile }: EarnPageProps) {
         </Button>
       </header>
 
-      <section className="relative mb-8 grid min-h-44 overflow-hidden rounded-xl border border-white/70 bg-white/70 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:min-h-52 md:grid-cols-3 dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_18%_0%,rgba(138,22,133,0.16),transparent_42%),linear-gradient(115deg,rgba(255,255,255,0.72),rgba(246,232,242,0.5)_44%,rgba(255,255,255,0.24))] dark:hidden md:h-52" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-44 dark:block dark:bg-[radial-gradient(circle_at_20%_0%,rgba(193,92,165,0.45),transparent_48%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,0.14),transparent_38%)] md:h-52" />
+      <section className="relative mb-8 grid min-h-44 grid-cols-3! overflow-hidden rounded-xl border border-white/70 bg-white/70 shadow-sm shadow-primary-90/30 backdrop-blur-xl lg:min-h-52 dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_18%_0%,rgba(138,22,133,0.16),transparent_42%),linear-gradient(115deg,rgba(255,255,255,0.72),rgba(246,232,242,0.5)_44%,rgba(255,255,255,0.24))] dark:hidden lg:h-52" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-44 dark:block dark:bg-[radial-gradient(circle_at_20%_0%,rgba(193,92,165,0.45),transparent_48%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,0.14),transparent_38%)] lg:h-52" />
 
-        <div className="relative flex flex-col justify-between border-b border-gray-80 p-5 md:border-b-0 md:border-r dark:border-white/10">
-          <div>
-            <p className="flex items-center justify-between gap-3 text-xs font-medium text-gray-30 dark:text-gray-40">
+        <div className="relative flex min-h-44 min-w-0 flex-col justify-between border-r border-gray-80 p-3 lg:min-h-52 lg:p-5 dark:border-white/10">
+          <div className="min-w-0">
+            <p className="text-[9px] leading-tight font-medium text-gray-30 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:text-xs dark:text-gray-40">
               <span>Total supplied</span>
-              <span className="text-[9px] font-semibold uppercase">
+              <span className="hidden text-[9px] font-semibold uppercase lg:inline">
                 Position history
               </span>
             </p>
-            <p className="mt-1 text-2xl font-bold text-cryptoNight dark:text-white">
-              {formatUsd(totalSupplied)}
+            <p className="mt-1 max-w-full whitespace-nowrap text-xs leading-tight font-bold text-cryptoNight tabular-nums lg:text-xl dark:text-white">
+              <span className="lg:hidden">
+                {formatMetricUsd(totalSupplied)}
+              </span>
+              <span className="hidden lg:inline">
+                {formatUsd(totalSupplied)}
+              </span>
             </p>
           </div>
           <EarnMetricSparkline
@@ -282,18 +283,18 @@ export default function EarnPage({ profile }: EarnPageProps) {
             label="Cumulative supplied position history in US dollars"
             tone="primary"
             formatValue={formatUsd}
-            className="-mx-5 -mb-5 mt-4 w-[calc(100%+2.5rem)]"
+            className="-mx-3 -mb-3 mt-4 w-[calc(100%+1.5rem)] lg:-mx-5 lg:-mb-5 lg:w-[calc(100%+2.5rem)]"
           />
         </div>
-        <div className="relative flex flex-col justify-between border-b border-gray-80 p-5 md:border-b-0 md:border-r dark:border-white/10">
+        <div className="relative flex min-h-44 min-w-0 flex-col justify-between border-r border-gray-80 p-3 lg:min-h-52 lg:p-5 dark:border-white/10">
           <div>
-            <p className="flex items-center justify-between gap-3 text-xs font-medium text-gray-30 dark:text-gray-40">
+            <p className="text-[9px] leading-tight font-medium text-gray-30 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:text-xs dark:text-gray-40">
               <span>Average APY</span>
-              <span className="text-[9px] font-semibold uppercase">
+              <span className="hidden text-[9px] font-semibold uppercase lg:inline">
                 Current rates
               </span>
             </p>
-            <p className="mt-1 text-2xl font-bold text-cryptoNight dark:text-white">
+            <p className="mt-1 text-base font-bold text-cryptoNight tabular-nums lg:text-2xl dark:text-white">
               {averageApy.toFixed(2)}%
             </p>
           </div>
@@ -302,19 +303,25 @@ export default function EarnPage({ profile }: EarnPageProps) {
             label="Current APY by active position in percent"
             tone="positive"
             formatValue={(value) => `${value.toFixed(2)}%`}
-            className="-mx-5 -mb-5 mt-4 w-[calc(100%+2.5rem)]"
+            className="-mx-3 -mb-3 mt-4 w-[calc(100%+1.5rem)] lg:-mx-5 lg:-mb-5 lg:w-[calc(100%+2.5rem)]"
           />
         </div>
-        <div className="relative flex flex-col justify-between p-5">
-          <div>
-            <p className="flex items-center justify-between gap-3 text-xs font-medium text-gray-30 dark:text-gray-40">
-              <span>Est. annual yield</span>
-              <span className="text-[9px] font-semibold uppercase">
+        <div className="relative flex min-h-44 min-w-0 flex-col justify-between p-3 lg:min-h-52 lg:p-5">
+          <div className="min-w-0">
+            <p className="text-[9px] leading-tight font-medium text-gray-30 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:text-xs dark:text-gray-40">
+              <span className="lg:hidden">Annual yield</span>
+              <span className="hidden lg:inline">Est. annual yield</span>
+              <span className="hidden text-[9px] font-semibold uppercase lg:inline">
                 12 months
               </span>
             </p>
-            <p className="mt-1 text-2xl font-bold text-cryptoNight dark:text-white">
-              {formatUsd(estimatedAnnualYield)}
+            <p className="mt-1 max-w-full whitespace-nowrap text-xs leading-tight font-bold text-cryptoNight tabular-nums lg:text-xl dark:text-white">
+              <span className="lg:hidden">
+                {formatMetricUsd(estimatedAnnualYield)}
+              </span>
+              <span className="hidden lg:inline">
+                {formatUsd(estimatedAnnualYield)}
+              </span>
             </p>
           </div>
           <EarnMetricSparkline
@@ -322,7 +329,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
             label="Twelve month estimated yield projection in US dollars"
             tone="info"
             formatValue={formatUsd}
-            className="-mx-5 -mb-5 mt-4 w-[calc(100%+2.5rem)]"
+            className="-mx-3 -mb-3 mt-4 w-[calc(100%+1.5rem)] lg:-mx-5 lg:-mb-5 lg:w-[calc(100%+2.5rem)]"
           />
         </div>
       </section>
@@ -566,9 +573,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     }
                   >
                     <span className="relative z-10 flex items-center justify-center gap-2">
-                      {available > 0
-                        ? "Start earning"
-                        : "No available balance"}
+                      {available > 0 ? "Start earning" : "No available balance"}
                       {available > 0 ? (
                         <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
                       ) : null}

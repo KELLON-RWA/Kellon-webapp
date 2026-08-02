@@ -26,6 +26,17 @@ export function formatUsd(value: number): string {
   }).format(value);
 }
 
+export function formatMetricUsd(value: number): string {
+  const showCents = Math.abs(value) < 1_000;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: showCents ? 2 : 0,
+    maximumFractionDigits: showCents ? 2 : 0,
+  }).format(value);
+}
+
 export function formatApy(value: number | string): string {
   return `${toNumber(value).toFixed(2)}%`;
 }
