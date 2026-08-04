@@ -7,7 +7,9 @@ import { ApiResponse, apiFetch, handleResponse } from "./index";
  */
 export interface OfframpInitRequest {
   fiatCurrency: string;
+  fiatAmount?: number;
   cryptoAmount: number;
+  amount?: number;
   cryptoCurrency: string;
   cryptoCurrencyCode?: string; // Compatibility with the current controller aliases
   cryptocurrency?: string;
@@ -15,7 +17,7 @@ export interface OfframpInitRequest {
   token?: string;
   chain: string; // Map from networkId
   network?: string; // Optional alias for chain
-  rate?: string;
+  rate?: string | number;
   reference?: string;
   narration?: string;
   description?: string;
@@ -26,6 +28,7 @@ export interface OfframpInitRequest {
 
   // Banking & Recipient Info
   bankId?: string; // database UUID for a saved bank
+  bankAccountId?: string; // Alias accepted by the latest controller
   bankDetail?: {
     id?: string;
     bankName: string;
@@ -79,6 +82,37 @@ export interface OfframpResponse {
   verificationType?: "otp" | "totp";
 }
 
+type OfframpErrorBody = {
+  message?: string;
+  code?: string;
+  verificationType?: "otp" | "totp";
+  availableMethods?: string[];
+  error?:
+    | string
+    | {
+        message?: string;
+        code?: string;
+        verificationType?: "otp" | "totp";
+        availableMethods?: string[];
+      };
+};
+
+export class OfframpVerificationRequiredError extends Error {
+  verificationType: "otp" | "totp";
+  availableMethods?: string[];
+
+  constructor(
+    message: string,
+    verificationType: "otp" | "totp" = "otp",
+    availableMethods?: string[],
+  ) {
+    super(message);
+    this.name = "OfframpVerificationRequiredError";
+    this.verificationType = verificationType;
+    this.availableMethods = availableMethods;
+  }
+}
+
 /**
  * --- Offramp Service ---
  */
@@ -89,8 +123,7 @@ export const offrampService = {
   initiateTransak: (body: OfframpInitRequest) =>
     post("/api/offramp/transak", body),
 
-  initiateRamp: (body: OfframpInitRequest) =>
-    post("/api/offramp/ramp", body),
+  initiateRamp: (body: OfframpInitRequest) => post("/api/offramp/ramp", body),
 
   initiatePaycrest: (body: OfframpInitRequest) =>
     post("/api/offramp/paycrest", body),
@@ -147,22 +180,76 @@ async function post(
     });
 
     if (res.status !== 404 || endpoint === candidates[candidates.length - 1]) {
-      return handleResponse(res);
+      return handleOfframpResponse(res);
     }
 
     lastResponse = res;
   }
 
-  return handleResponse(lastResponse as Response);
+  return handleOfframpResponse(lastResponse as Response);
+}
+
+async function handleOfframpResponse(
+  response: Response,
+): Promise<ApiResponse<OfframpResponse>> {
+  const json = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const body = (json || {}) as OfframpErrorBody;
+    const nestedError =
+      typeof body.error === "object" && body.error ? body.error : null;
+    const code = nestedError?.code || body.code;
+    const message =
+      body.message ||
+      nestedError?.message ||
+      (typeof body.error === "string" ? body.error : undefined) ||
+      "Unable to initialize withdrawal";
+    const availableMethods =
+      body.availableMethods || nestedError?.availableMethods;
+    const requestedVerificationType =
+      nestedError?.verificationType || body.verificationType;
+    const verificationType =
+      requestedVerificationType === "totp" ||
+      availableMethods?.some((method) => method.toLowerCase().includes("totp"))
+        ? "totp"
+        : "otp";
+    const verificationSignals = [
+      code,
+      body.message,
+      typeof body.error === "string" ? body.error : nestedError?.message,
+    ];
+    const requiresVerification =
+      response.status === 403 &&
+      (verificationSignals.some(
+        (value) =>
+          typeof value === "string" &&
+          value.toUpperCase().replaceAll(" ", "_") === "VERIFICATION_REQUIRED",
+      ) ||
+        Boolean(availableMethods?.length));
+
+    if (requiresVerification) {
+      throw new OfframpVerificationRequiredError(
+        message === "VERIFICATION_REQUIRED" ? "Verification required" : message,
+        verificationType,
+        availableMethods,
+      );
+    }
+
+    throw new Error(message);
+  }
+
+  return {
+    success: true,
+    data: json?.data !== undefined ? json.data : json,
+    message: json?.message,
+  };
 }
 
 function sanitizeOfframpPayload(
   body: OfframpInitRequest,
 ): Record<string, unknown> {
   const payload = Object.fromEntries(
-    Object.entries(body).filter(
-      ([key, value]) => key !== "fiatAmount" && value !== undefined,
-    ),
+    Object.entries(body).filter(([, value]) => value !== undefined),
   );
 
   if (body.bankDetail) {

@@ -16,10 +16,12 @@ import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries";
 import { ExitConfirmation } from "@/components/modals/ExitComfirmationModal";
 import { bankService } from "@/services/api/bank";
 import {
+  OfframpVerificationRequiredError,
   offrampService,
   type OfframpInitRequest,
   type OfframpResponse,
 } from "@/services/api/off-ramp";
+import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import { WithdrawAssetSelectionStep } from "./steps/AssetSelectionStep";
 import { WithdrawAmountEntryStep } from "./steps/AmountEntryStep";
@@ -98,6 +100,13 @@ export default function WithdrawFlow({
   const [showExitModal, setShowExitModal] = useState(false);
   const [savedBanks, setSavedBanks] = useState<BankDetail[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verificationRequest, setVerificationRequest] = useState<{
+    verificationType: "otp" | "totp";
+    request: {
+      providerName: string;
+      payload: OfframpInitRequest;
+    };
+  } | null>(null);
 
   const handleCountryDetected = useCallback(
     (detectedCountry: string, detectedCurrency: string) => {
@@ -267,7 +276,16 @@ export default function WithdrawFlow({
     else onAttemptClose(false);
   };
 
-  const initiateWithdrawal = async () => {
+  const initiateWithdrawal = async (
+    verification?: {
+      verificationCode: string;
+      verificationType: "otp" | "totp";
+    },
+    retryRequest?: {
+      providerName: string;
+      payload: OfframpInitRequest;
+    },
+  ) => {
     if (
       !selectedProvider ||
       !selectedBank ||
@@ -285,39 +303,57 @@ export default function WithdrawFlow({
     }
 
     setIsSubmitting(true);
+    let request = retryRequest;
+
     try {
-      const providerName = normalizeProviderKey(selectedProvider.name);
-      const rate = selectedProviderRawRate
-        ? String(selectedProviderRawRate)
-        : undefined;
-      const providerReference =
-        providerName === "paycrest" ? `paycrest-${Date.now()}` : undefined;
+      if (!request) {
+        const providerName = normalizeProviderKey(selectedProvider.name);
+        const rate = selectedProviderRawRate
+          ? String(selectedProviderRawRate)
+          : undefined;
+        const providerReference =
+          providerName === "paycrest" ? `paycrest-${Date.now()}` : undefined;
+
+        request = {
+          providerName,
+          payload: {
+            fiatCurrency,
+            fiatAmount: estimatedFiatAmount,
+            cryptoAmount: withdrawalCryptoAmount,
+            amount: withdrawalCryptoAmount,
+            cryptoCurrency: asset,
+            cryptoCurrencyCode: asset,
+            cryptocurrency: asset,
+            asset,
+            token: providerName === "paycrest" ? asset : undefined,
+            chain: networkName,
+            network: networkName,
+            rate,
+            reference: providerReference,
+            narration: providerName === "paycrest" ? "Withdrawal" : undefined,
+            description: providerName === "paycrest" ? "Withdrawal" : undefined,
+            receiveAmount: estimatedFiatAmount,
+            receiveCurrency: fiatCurrency,
+            estimatedFiatAmount,
+            country: payoutCountry,
+            bankId: selectedBank.id,
+            bankAccountId: selectedBank.id,
+            bankDetail: {
+              id: selectedBank.id,
+              bankName: selectedBank.bankName,
+              accountNumber: selectedBank.accountNumber,
+              accountName: selectedBank.accountName,
+              bankCode: selectedBank.bankCode || undefined,
+            },
+          },
+        };
+      }
+
+      const { providerName } = request;
       const payload: OfframpInitRequest = {
-        fiatCurrency,
-        cryptoAmount: withdrawalCryptoAmount,
-        cryptoCurrency: asset,
-        cryptoCurrencyCode: asset,
-        cryptocurrency: asset,
-        asset,
-        token: providerName === "paycrest" ? asset : undefined,
-        chain: networkName,
-        network: networkName,
-        rate,
-        reference: providerReference,
-        narration: providerName === "paycrest" ? "Withdrawal" : undefined,
-        description: providerName === "paycrest" ? "Withdrawal" : undefined,
-        receiveAmount: estimatedFiatAmount,
-        receiveCurrency: fiatCurrency,
-        estimatedFiatAmount,
-        country: payoutCountry,
-        bankId: selectedBank.id,
-        bankDetail: {
-          id: selectedBank.id,
-          bankName: selectedBank.bankName,
-          accountNumber: selectedBank.accountNumber,
-          accountName: selectedBank.accountName,
-          bankCode: selectedBank.bankCode || undefined,
-        },
+        ...request.payload,
+        verificationCode: verification?.verificationCode,
+        verificationType: verification?.verificationType,
       };
 
       let response;
@@ -354,12 +390,31 @@ export default function WithdrawFlow({
 
       const transactionId = getOfframpTransactionReference(response.data);
 
+      setVerificationRequest(null);
       toast.success(response.data?.message || "Withdrawal initialized");
 
       if (transactionId) {
         router.push(`/transactions/${transactionId}`);
       }
     } catch (error) {
+      if (error instanceof OfframpVerificationRequiredError) {
+        if (!request) {
+          toast.error("Unable to preserve the withdrawal for verification.");
+          return;
+        }
+
+        setVerificationRequest({
+          verificationType: error.verificationType,
+          request,
+        });
+        toast.info(
+          error.verificationType === "otp"
+            ? "We sent a verification code to your email. Enter it to continue."
+            : "Enter your authenticator code to continue.",
+        );
+        return;
+      }
+
       toast.error(
         error instanceof Error
           ? error.message
@@ -543,6 +598,31 @@ export default function WithdrawFlow({
         isOpen={showExitModal}
         onStay={() => setShowExitModal(false)}
         onLeave={() => onAttemptClose(true)}
+      />
+
+      <TransferVerificationModal
+        isOpen={Boolean(verificationRequest)}
+        isSubmitting={isSubmitting}
+        verificationType={verificationRequest?.verificationType || "otp"}
+        title="Verify withdrawal"
+        description={
+          verificationRequest?.verificationType === "totp"
+            ? "Enter your authenticator code to complete this withdrawal."
+            : "Enter the code sent to your email to complete this withdrawal."
+        }
+        onClose={() => {
+          if (!isSubmitting) setVerificationRequest(null);
+        }}
+        onSubmit={(verificationCode) => {
+          if (!verificationRequest) return;
+          void initiateWithdrawal(
+            {
+              verificationCode,
+              verificationType: verificationRequest.verificationType,
+            },
+            verificationRequest.request,
+          );
+        }}
       />
     </>
   );
