@@ -55,11 +55,13 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
     case "bnb":
     case "bnbchain":
     case "stellar":
+    case "solana":
       const symbolMap: Record<string, string> = {
         polygon: "matic",
         bnb: "bnb",
         bnbchain: "bnb",
         stellar: "xlm",
+        solana: "sol",
       }
 
       return (

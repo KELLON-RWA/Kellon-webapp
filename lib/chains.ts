@@ -5,8 +5,9 @@ import { Chain as ViemChain } from "viem"
  * We extend the Viem Chain type to include our custom app logic (Stellar support,
  * token addresses, and Paymaster configurations).
  */
-export interface ChainConfig extends ViemChain {
-  type: "evm" | "stellar"
+export type ChainConfig = Omit<ViemChain, "id"> & {
+  id: number | string
+  type: "evm" | "stellar" | "solana"
   usdcAddress?: string
   usdtAddress?: string
   primaryToken?: "USDC" | "USDT"
@@ -21,7 +22,13 @@ export interface ChainConfig extends ViemChain {
   }
 }
 
-export type SupportedChainKeys = "stellar" | "celo" | "polygon" | "base" | "bnb"
+export type SupportedChainKeys =
+  | "stellar"
+  | "celo"
+  | "polygon"
+  | "base"
+  | "bnb"
+  | "solana"
 
 /**
  * 2. MAINNET CONFIGURATION
@@ -68,6 +75,21 @@ export const MAINNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
       paymasterUrl: "https://api.circle.com/paymaster/v1/base/rpc",
       bundlerUrl: "https://api.circle.com/bundler/v1/base/rpc",
     },
+  },
+  solana: {
+    id: "mainnet-beta",
+    name: "Solana",
+    type: "solana",
+    nativeCurrency: { name: "SOL", symbol: "SOL", decimals: 9 },
+    rpcUrls: {
+      default: { http: ["https://api.mainnet-beta.solana.com"] },
+      public: { http: ["https://api.mainnet-beta.solana.com"] },
+    },
+    blockExplorers: { default: { name: "Solscan", url: "https://solscan.io" } },
+    usdcAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    usdtAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    primaryToken: "USDC",
+    paymaster: { enabled: true },
   },
   polygon: {
     id: 137,
@@ -136,6 +158,24 @@ export const TESTNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
     },
     usdcAddress: "GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER",
   },
+  solana: {
+    ...MAINNET_CHAINS.solana,
+    id: "devnet",
+    name: "Solana Devnet",
+    rpcUrls: {
+      default: { http: ["https://api.devnet.solana.com"] },
+      public: { http: ["https://api.devnet.solana.com"] },
+    },
+    blockExplorers: {
+      default: {
+        name: "Solscan",
+        url: "https://solscan.io?cluster=devnet",
+      },
+    },
+    // Do not advertise Solana devnet until its token mints are configured.
+    usdcAddress: undefined,
+    usdtAddress: undefined,
+  },
   base: {
     ...MAINNET_CHAINS.base,
     id: 84532,
@@ -180,13 +220,12 @@ export const TESTNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
 
 const CHAIN_LABELS: Record<string, string> = {
   stellar: "Stellar Network",
+  solana: "Solana Network",
   base: "Base Network",
   bnb: "BNB Smart Chain Network",
   celo: "Celo Network",
   polygon: "Polygon Network",
 }
-
-
 
 /**
  * 4. UI HELPERS
@@ -212,6 +251,10 @@ export const CHAIN_UI_DATA: Record<
   },
   celo: { color: "#35D07F", benefits: ["Mobile-first", "Eco-friendly"] },
   bnb: { color: "#F3BA2F", benefits: ["High performance", "Low fees"] },
+  solana: {
+    color: "#9945FF",
+    benefits: ["Fast finality", "Low fees"],
+  },
 }
 
 /**
@@ -228,21 +271,20 @@ export const getChainById = (chainId: number | string) =>
     (c) => c.id === chainId || c.id.toString() === chainId.toString(),
   )
 
-  // Helper to get networks that support a specific token
+// Helper to get networks that support a specific token
 export const getSupportedChainsForToken = (tokenSymbol: "USDC" | "USDT") => {
-  const chains = getActiveChains();
-  const key = tokenSymbol.toLowerCase() === "usdc" ? "usdcAddress" : "usdtAddress";
-  
-  return Object.values(chains).filter((chain) => !!chain[key]);
-};
+  const chains = getActiveChains()
+  const key =
+    tokenSymbol.toLowerCase() === "usdc" ? "usdcAddress" : "usdtAddress"
 
+  return Object.values(chains).filter((chain) => !!chain[key])
+}
 
 export function getChainLabel(chain?: string | null): string {
   if (!chain) return "Network"
 
   return CHAIN_LABELS[chain.toLowerCase()] || chain
 }
-
 
 export const getEVMChains = () =>
   Object.values(getActiveChains()).filter((c) => c.type === "evm")

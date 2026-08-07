@@ -20,6 +20,7 @@ export const DEFAULT_TOKEN_PRICE = 1;
 export const CHAIN_ORDER: SupportedChainKeys[] = [
   "base",
   "stellar",
+  "solana",
   "celo",
   "polygon",
   "bnb",
@@ -105,6 +106,8 @@ export function getShortChainLabel(chain: string): string {
       return "Base";
     case "stellar":
       return "Stellar";
+    case "solana":
+      return "Solana";
     case "celo":
       return "Celo";
     case "polygon":
