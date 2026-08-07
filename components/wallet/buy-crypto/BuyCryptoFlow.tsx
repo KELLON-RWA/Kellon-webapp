@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useBuyCryptoState, STEPS } from "@/hooks/use-buy-cypto-state"
 import type { Step } from "@/hooks/use-buy-cypto-state"
-import type { BankDetail } from "@/types/db"
+import type { BankDetail, Transaction } from "@/types/db"
 import { useCountryDetection } from "@/hooks/use-country-detection"
 import {
   getCurrencyForCountry,
@@ -21,6 +21,7 @@ import { useExchangeRate } from "@/hooks/use-exchange-rate"
 import { useProviders } from "@/hooks/use-provider"
 import { useProviderRates } from "@/hooks/use-provider-rates"
 import { bankService } from "@/services/api/bank"
+import { transactionService } from "@/services/api/transactions"
 import {
   onrampService,
   type OnrampInitRequest,
@@ -71,9 +72,82 @@ function getOnrampReferenceCandidates(
   }
 }
 
-function getOnrampTransactionReference(order: OnrampResponse | null): string {
-  const candidates = getOnrampReferenceCandidates(order)
-  return Object.values(candidates).find(Boolean) || ""
+function getReferenceValues(value: unknown, depth = 0): string[] {
+  if (depth > 4 || value === null || value === undefined) return []
+  if (typeof value === "string") return value.trim() ? [value.trim()] : []
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return [String(value)]
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => getReferenceValues(item, depth + 1))
+  }
+  if (typeof value !== "object") return []
+
+  return Object.values(value as Record<string, unknown>).flatMap((item) =>
+    getReferenceValues(item, depth + 1),
+  )
+}
+
+function transactionMatchesOnrampReferences(
+  transaction: Transaction,
+  references: Set<string>,
+): boolean {
+  const transactionReferences = new Set([
+    transaction.id,
+    transaction.providerReference || "",
+    transaction.userOpHash || "",
+    ...getReferenceValues(transaction.metadata),
+  ])
+
+  return [...references].some((reference) =>
+    transactionReferences.has(reference),
+  )
+}
+
+async function resolveOnrampTransactionId(
+  order: OnrampResponse | null,
+): Promise<string | null> {
+  const references = new Set(
+    Object.values(getOnrampReferenceCandidates(order)).filter(
+      (value): value is string => Boolean(value?.trim()),
+    ),
+  )
+
+  if (references.size === 0) return null
+
+  // The nested transaction ID is the only response value guaranteed to be a
+  // Kellon transaction ID. Validate it before using it in the detail route.
+  const directTransactionId = order?.transaction?.id
+  if (directTransactionId) {
+    try {
+      const response =
+        await transactionService.getTransaction(directTransactionId)
+      if (response.data?.id) return response.data.id
+    } catch {
+      // The transaction can take a moment to appear in the read API.
+    }
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await transactionService.getTransactions()
+      const match = response.data
+        ?.filter((transaction) => transaction.type === "BUY")
+        .find((transaction) =>
+          transactionMatchesOnrampReferences(transaction, references),
+        )
+
+      if (match?.id) return match.id
+    } catch {
+      // Retry briefly before falling back to transaction history.
+    }
+
+    if (attempt < 2) {
+      await new Promise((resolve) => window.setTimeout(resolve, 750))
+    }
+  }
+
+  return null
 }
 
 export default function BuyCryptoFlow({
@@ -414,18 +488,28 @@ export default function BuyCryptoFlow({
   }
 
   const confirmMoneySent = async () => {
-    const transactionId = getOnrampTransactionReference(initializedOrder)
-
-    if (!transactionId) {
-      toast.error(
-        "Payment details are missing a transaction reference. Please check your transactions or contact support.",
-      )
-      return
-    }
-
     setIsCompletingOrder(true)
-    toast.success("Payment marked as sent")
-    router.push(`/transactions/${transactionId}`)
+    try {
+      const transactionId = await resolveOnrampTransactionId(initializedOrder)
+
+      if (transactionId) {
+        toast.success("Payment marked as sent")
+        router.push(`/transactions/${encodeURIComponent(transactionId)}`)
+        return
+      }
+
+      toast.success(
+        "Payment marked as sent. Your transaction is still syncing.",
+      )
+      router.push("/transactions")
+    } catch {
+      toast.error(
+        "Payment was submitted, but we could not open its details. Check your transaction history shortly.",
+      )
+      router.push("/transactions")
+    } finally {
+      setIsCompletingOrder(false)
+    }
   }
 
   // Step navigation

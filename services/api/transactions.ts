@@ -32,6 +32,7 @@ export const transactionService = {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
+      cache: "no-store",
     })
     return handleResponse(res)
   },
@@ -45,6 +46,7 @@ export const transactionService = {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
+      cache: "no-store",
     })
     return handleResponse(res)
   },

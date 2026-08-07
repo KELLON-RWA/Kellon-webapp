@@ -115,7 +115,7 @@ export const MAINNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
       default: { name: "BscScan", url: "https://bscscan.com" },
     },
     type: "evm",
-    usdcAddress: "0x8AC76a51cc950d9822D68b83xE1Ad6dF2C52deB",
+    usdcAddress: "0x8AC76a51cc950d9822D68b83E1Ad6dF2C52deB",
     usdtAddress: "0x55d398326f99059fF775485246999027B3197955",
     primaryToken: "USDT",
     paymaster: { enabled: true, pimlicoPaymaster: true },
