@@ -6,13 +6,15 @@ export const metadata: Metadata = {
   title: "Continue",
   description:
     "Continue to Kellon and access your wallet for borderless payments and global investments.",
-  alternates: {
-    canonical: "/continue",
-  },
+  robots: { index: false, follow: false, nocache: true },
 };
 
 const page: FC = ({}) => {
-  return <Continue />;
+  return (
+    <main id="main-content" tabIndex={-1}>
+      <Continue />
+    </main>
+  );
 };
 
 export default page;

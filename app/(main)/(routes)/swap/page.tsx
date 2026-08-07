@@ -1,34 +1,36 @@
-import GridBackground from "@/components/backgrounds/GridBackground";
-import CryptoInfiniteScroll from "@/components/CryptoInfiniteScroll";
-import SwapInterface from "@/components/swap/SwapInterface";
-
-import { FC } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Swap Crypto",
-  description:
-    "Swap between supported digital assets on Kellon with a guided cross-chain flow.",
-  alternates: {
-    canonical: "/swap",
-  },
+  title: "Swap Unavailable",
+  description: "Kellon Swap is currently unavailable.",
+  robots: { index: false, follow: false, nocache: true },
 };
 
-// interface pageProps {
-
-// }
-
-const page: FC = ({}) => {
+// Swap is intentionally isolated from the production bundle until its LI.FI
+// dependency tree is upgraded and tested independently from the wallet release.
+export default function SwapUnavailablePage() {
   return (
-    <section className="h-[100dvh] flex flex-col justify-center items-center w-11/12 mx-auto ">
-      <section className="relative ">
-        <GridBackground className="z-10" />
-        <SwapInterface className="z-20 relative" />
-      </section>
-
-      <CryptoInfiniteScroll className="hidden md:block absolute bottom-0" />
+    <section
+      aria-labelledby="swap-unavailable-title"
+      className="mx-auto flex min-h-[70dvh] w-11/12 max-w-lg flex-col items-center justify-center text-center"
+    >
+      <h1
+        id="swap-unavailable-title"
+        className="text-3xl font-bold text-cryptoNight dark:text-white"
+      >
+        Swap is temporarily unavailable
+      </h1>
+      <p className="mt-4 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-300">
+        We&apos;re preparing a safer swap experience. Your wallet, payments, and
+        other Kellon services remain available.
+      </p>
+      <Link
+        href="/"
+        className="mt-8 rounded-xl bg-primary-50 px-5 py-3 text-sm font-semibold text-white outline-none transition hover:bg-primary-40 focus-visible:ring-4 focus-visible:ring-primary-70/30"
+      >
+        Return to wallet
+      </Link>
     </section>
   );
-};
-
-export default page;
+}

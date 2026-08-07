@@ -1,16 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Provider from "@/components/providers/Provider";
-import { initLifiConfig } from "@/lib/lifi-config";
+
+const siteUrl = "https://www.kellon.xyz";
+const siteDescription =
+  "Buy, hold, send, receive, withdraw, and earn with stablecoins through one secure borderless finance wallet.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.kellon.xyz"),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "Kellon - Borderless Payments. Global Investments. One Wallet",
+    default: "Kellon — Borderless Stablecoin Wallet",
     template: "%s | Kellon",
   },
-  description:
-    "Kellon Mobile enables borderless payments and global investments through one powerful financial platform. Break financial barriers with seamless cross-border transactions.",
+  description: siteDescription,
   manifest: "/manifest.json",
   applicationName: "Kellon",
   keywords: [
@@ -25,16 +27,16 @@ export const metadata: Metadata = {
     "receive crypto",
     "buy crypto",
   ],
-  alternates: {
-    canonical: "/",
-  },
+  category: "finance",
+  creator: "Kellon",
+  publisher: "Kellon",
+  formatDetection: { email: false, address: false, telephone: false },
   openGraph: {
     type: "website",
     url: "https://www.kellon.xyz/",
     siteName: "Kellon",
-    title: "Kellon - Borderless Payments. Global Investments. One Wallet",
-    description:
-      "Kellon Mobile enables borderless payments and global investments through one powerful financial platform. Break financial barriers with seamless cross-border transactions.",
+    title: "Kellon — Borderless Stablecoin Wallet",
+    description: siteDescription,
     images: [
       {
         url: "/logo.png",
@@ -45,10 +47,9 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
-    card: "summary",
-    title: "Kellon - Borderless Payments. Global Investments. One Wallet",
-    description:
-      "Kellon Mobile enables borderless payments and global investments through one powerful financial platform. Break financial barriers with seamless cross-border transactions.",
+    card: "summary_large_image",
+    title: "Kellon — Borderless Stablecoin Wallet",
+    description: siteDescription,
     images: ["/logo.png"],
   },
   appleWebApp: {
@@ -59,19 +60,27 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a"
-}
+  colorScheme: "dark light",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+  ],
+};
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await initLifiConfig();
-
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body className="antialiased">
+        <a
+          href="#main-content"
+          className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-white px-4 py-2 font-semibold text-cryptoNight shadow-lg transition-transform focus:translate-y-0 dark:bg-secondary-60 dark:text-white"
+        >
+          Skip to main content
+        </a>
         <Provider>{children}</Provider>
       </body>
     </html>

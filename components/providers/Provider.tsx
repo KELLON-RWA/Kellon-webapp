@@ -3,9 +3,6 @@ import { FC, Fragment, ReactNode } from "react"
 import { ThemeProvider } from "./theme-provider"
 
 import { CustomWagmiProvider } from "./wagmi-provider"
-// IMP END - SSR
-import "@/lib/lifi-config"
-import SDKProviders from "./LifiProvider"
 import React from "react"
 import ReactQueryProvider from "./ReactQueryProvider"
 import MyPrivyProvider from "./PrivyProvider"
@@ -27,8 +24,7 @@ const Provider: FC<ProviderProps> = async ({ children }) => {
         <MyPrivyProvider>
           <ReactQueryProvider>
             <CustomWagmiProvider>
-              <SDKProviders />
-              <main className="font-manrope text-cryptoNight dark:text-white relative min-h-screen">
+              <div className="font-manrope text-cryptoNight dark:text-white relative min-h-screen">
                 {/* Enhanced Glass Texture */}
                 <div className="fixed inset-0 z-0">
                   <div className="absolute inset-0 bg-gradient-to-br from-white1 via-gray-90 to-violet1/10 dark:from-violet1/10 dark:via-secondary-50 dark:to-secondary-40" />
@@ -38,7 +34,7 @@ const Provider: FC<ProviderProps> = async ({ children }) => {
 
                 <div className="relative z-10">{children}</div>
                 <Toaster richColors position="top-center" theme="system" />
-              </main>
+              </div>
             </CustomWagmiProvider>
           </ReactQueryProvider>
         </MyPrivyProvider>

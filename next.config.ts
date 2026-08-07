@@ -1,5 +1,9 @@
 import type { NextConfig } from "next"
-import { BASE_URL } from "./services/api"
+
+const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(
+  /\/$/,
+  "",
+)
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -229,10 +233,12 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
+    if (!backendApiUrl) return []
+
     return [
       {
         source: "/api/:path*",
-        destination: `${BASE_URL}/:path*`,
+        destination: `${backendApiUrl}/:path*`,
       },
     ]
   },
