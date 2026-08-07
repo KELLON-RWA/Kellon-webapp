@@ -110,6 +110,38 @@ export function resolveVerificationType(
   return availableMethods.includes("totp") ? "totp" : "otp"
 }
 
+function containsVerificationMarker(value: unknown): boolean {
+  if (typeof value === "string") {
+    const normalized = value.toUpperCase()
+    return (
+      normalized.includes("VERIFICATION_REQUIRED") ||
+      normalized.includes("VERIFICATION REQUIRED")
+    )
+  }
+
+  if (!value || typeof value !== "object") return false
+
+  try {
+    return containsVerificationMarker(JSON.stringify(value))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Distinguishes an MFA challenge from an ordinary forbidden/RPC response.
+ * JSON-RPC code -32000 is a generic server error, so it cannot safely trigger
+ * another verification prompt by itself.
+ */
+export function isTransferVerificationChallenge(
+  status: number | undefined,
+  error: unknown,
+  availableMethods?: string[],
+): boolean {
+  if (status !== 403) return false
+  return containsVerificationMarker(error) || Boolean(availableMethods?.length)
+}
+
 // Walk the viem cause chain to find the original MFA error instance.
 export function findTransferVerificationRequiredError(
   error: unknown,
@@ -120,11 +152,7 @@ export function findTransferVerificationRequiredError(
   const seen = new Set<unknown>()
   let fallback: TransferVerificationRequiredError | null = null
 
-  while (
-    current &&
-    typeof current === "object" &&
-    !seen.has(current)
-  ) {
+  while (current && typeof current === "object" && !seen.has(current)) {
     if (current instanceof TransferVerificationRequiredError) return current
     if (
       current.name === "TransferVerificationRequiredError" &&
@@ -133,21 +161,24 @@ export function findTransferVerificationRequiredError(
       return current as TransferVerificationRequiredError
     }
 
+    const status = current.status || current.response?.status
+    const availableMethods =
+      current.availableMethods ||
+      current.error?.availableMethods ||
+      current.response?.data?.availableMethods ||
+      current.response?.data?.error?.availableMethods
+
     const isMfa =
-      current.status === 403 ||
-      current.response?.status === 403 ||
-      current.message?.includes("Verification required") ||
-      current.message?.includes("VERIFICATION_REQUIRED") ||
-      current.details?.includes("Verification required") ||
-      current.details?.includes("VERIFICATION_REQUIRED")
+      current instanceof TransferVerificationRequiredError ||
+      containsVerificationMarker(current.message) ||
+      containsVerificationMarker(current.details) ||
+      isTransferVerificationChallenge(
+        status,
+        current.error || current.response?.data,
+        availableMethods,
+      )
 
     if (isMfa) {
-      const availableMethods =
-        current.availableMethods ||
-        current.error?.availableMethods ||
-        current.response?.data?.availableMethods ||
-        current.response?.data?.error?.availableMethods
-
       const action =
         current.action ||
         current.error?.action ||
@@ -285,7 +316,6 @@ export interface SubmitSolanaSponsoredPayload {
   verificationType?: "otp" | "totp"
 }
 
-
 export interface TransferEVMPayload {
   amount: number | string
   symbol: string
@@ -411,7 +441,6 @@ export const transferService = {
     return handleTransferResponse(res)
   },
 
-
   transferEVM: async (
     body: TransferEVMPayload,
   ): Promise<ApiResponse<{ hash: string; message: string }>> => {
@@ -479,7 +508,13 @@ export const transferService = {
   requestOTP: async (
     context: string,
     channel: "email" | "sms" = "email",
-  ): Promise<ApiResponse<{ success: boolean; message: string; maskedDestination?: string }>> => {
+  ): Promise<
+    ApiResponse<{
+      success: boolean
+      message: string
+      maskedDestination?: string
+    }>
+  > => {
     const res = await apiFetch("/api/security/otp/request", {
       method: "POST",
       headers: {

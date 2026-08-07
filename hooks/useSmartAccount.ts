@@ -27,6 +27,7 @@ import {
 import { toSafeSmartAccount } from "permissionless/accounts"
 import { createPimlicoClient } from "permissionless/clients/pimlico"
 import {
+  isTransferVerificationChallenge,
   TransferVerificationRequiredError,
   resolveVerificationType,
 } from "@/services/api/transfers"
@@ -50,6 +51,12 @@ interface JsonRpcResponse {
     data?: unknown
   }
   result?: unknown
+}
+
+function stringifyRpcPayload(payload: unknown): string {
+  return JSON.stringify(payload, (_, value) =>
+    typeof value === "bigint" ? `0x${value.toString(16)}` : value,
+  )
 }
 
 const entryPoint07Address =
@@ -115,7 +122,9 @@ export interface StickyTransferMeta {
 // shape used everywhere else in the app), not a bare code string.
 let stickyVerificationCode: StickyVerification | null = null
 
-export function setStickyVerificationCode(verification: StickyVerification | null) {
+export function setStickyVerificationCode(
+  verification: StickyVerification | null,
+) {
   stickyVerificationCode = verification
 }
 
@@ -206,7 +215,9 @@ export function useSmartAccount() {
               const res = await fetch(url, {
                 method: "POST",
                 headers,
-                body: JSON.stringify(body),
+                // Viem may leave bigint fields in a user operation. Convert them to
+                // JSON-RPC hex quantities before sending them across the network.
+                body: stringifyRpcPayload(body),
               })
 
               if (!res.ok) {
@@ -215,10 +226,11 @@ export function useSmartAccount() {
                   errorData = await res.json()
                 } catch {}
 
-                const isJsonRpcMfa =
-                  res.status === 403 &&
-                  (errorData?.error?.message === "VERIFICATION_REQUIRED" ||
-                    errorData?.error?.code === -32000)
+                const isJsonRpcMfa = isTransferVerificationChallenge(
+                  res.status,
+                  errorData,
+                  errorData?.error?.availableMethods,
+                )
 
                 if (isJsonRpcMfa) {
                   const mfaType = resolveVerificationType(
