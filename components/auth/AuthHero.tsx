@@ -28,10 +28,10 @@ const AuthHero: FC = () => {
       <div className="relative z-30 flex h-full flex-col">
         {/* HERO */}
         <div className="max-w-[420px] space-y-8 animate-in fade-in slide-in-from-top-6 duration-700">
-          <h1 className="text-6xl font-bold leading-[1] tracking-tight drop-shadow-[0_4px_18px_rgba(0,0,0,0.35)]">
+          <p className="text-6xl font-bold leading-[1] tracking-tight drop-shadow-[0_4px_18px_rgba(0,0,0,0.35)]">
             Your money. <br />
             <span className="font-extrabold text-pink-300">One app.</span>
-          </h1>
+          </p>
 
           <p className="max-w-[360px] text-[17px] leading-relaxed text-white/80 drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
             Send money, manage assets, and invest globally with a secure modern

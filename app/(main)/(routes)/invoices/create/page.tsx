@@ -20,8 +20,8 @@ export default async function CreateInvoiceRoutePage() {
   }
 
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <CreateInvoicePage profile={profile} />
-    </main>
+    </div>
   );
 }

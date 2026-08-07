@@ -21,8 +21,8 @@ export default async function InvoicesRoutePage() {
   }
 
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <InvoicesPage />
-    </main>
+    </div>
   );
 }

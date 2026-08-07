@@ -61,6 +61,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
       <div className="mb-8 flex items-center justify-between">
         <button
           type="button"
+          aria-label="Go back"
           onClick={goBack}
           className="rounded-full border border-gray-80 bg-white p-2 text-gray-20 transition hover:bg-gray-95 hover:text-cryptoNight dark:border-white/10 dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60 cursor-pointer"
         >
@@ -73,6 +74,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
 
         <button
           type="button"
+          aria-label="Close send flow"
           onClick={closeSend}
           className="rounded-full border border-gray-80 bg-white p-2 text-gray-20 transition hover:bg-gray-95 hover:text-cryptoNight dark:border-white/10 dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60 cursor-pointer"
         >

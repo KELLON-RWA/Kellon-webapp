@@ -19,8 +19,8 @@ export default async function TransactionDetailsPage({
   const { id } = await params;
 
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <TransactionDetailsClient id={id} />
-    </main>
+    </div>
   );
 }

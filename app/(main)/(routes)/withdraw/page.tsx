@@ -21,8 +21,8 @@ export default async function WithdrawPage() {
   }
 
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <WithdrawFlowManager profile={profile} />
-    </main>
+    </div>
   );
 }

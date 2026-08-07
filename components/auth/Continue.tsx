@@ -85,7 +85,7 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
               {/* Mobile Logo */}
               <div className="mb-10 flex justify-center">
                 <div className="flex items-center gap-3">
-                  <Icons.Logo className="h-11 w-11" />
+                  <Icons.Logo aria-hidden="true" className="h-11 w-11" />
 
                   <span className="text-2xl font-bold  text-cryptoNight dark:text-white ">
                     Kellon
@@ -96,9 +96,9 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
               {/* Heading */}
 
               <div className="mb-10 space-y-4 text-center">
-                <h2 className="font-bold  text-cryptoNight dark:text-white text-5xl max-w-[300px] mx-auto md:max-w-none">
+                <h1 className="font-bold text-4xl text-cryptoNight dark:text-white max-w-[340px] mx-auto md:max-w-none md:text-5xl">
                   Get started in seconds
-                </h2>
+                </h1>
 
                 <p className="mx-auto max-w-[340px] text-[15px] leading-relaxed text-gray-400 dark:text-gray-100">
                   you&apos;re one step away
@@ -108,6 +108,7 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
               {/* CTA */}
               <div className="space-y-5">
                 <Button
+                  type="button"
                   onClick={() => handleOAuthLogin("google")}
                   disabled={isBusy}
                   size="full"
@@ -115,9 +116,12 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                   className="h-[60px] rounded-2xl border hover:bg-secondary-70 dark:bg-white2 text-white dark:hover:bg-gray-200 dark:text-2xl dark:text-gray-700 "
                 >
                   {oauthLoading || isSyncing ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-white dark:text-gray-700" />
+                    <Loader2
+                      aria-hidden="true"
+                      className="h-5 w-5 animate-spin text-white dark:text-gray-700"
+                    />
                   ) : (
-                    <Icons.Google className="h-5 w-5" />
+                    <Icons.Google aria-hidden="true" className="h-5 w-5" />
                   )}
 
                   <span className="ml-3 text-[15px] font-semibold ">
@@ -133,14 +137,8 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
               {/* Footer */}
               <div className="mt-10 border-t border-neutral-100 dark:border-gray-500 pt-6">
                 <p className="text-center text-xs leading-relaxed text-gray-400 dark:text-gray-100">
-                  By continuing, you agree to our{" "}
-                  <button className="font-semibold text-cryptoNight dark:text-gray-400 hover:underline cursor-pointer">
-                    Terms
-                  </button>{" "}
-                  and{" "}
-                  <button className="font-semibold text-cryptoNight dark:text-gray-400 hover:underline cursor-pointer">
-                    Privacy Policy
-                  </button>
+                  By continuing, you agree to Kellon&apos;s Terms and Privacy
+                  Policy.
                 </p>
               </div>
             </CardContent>

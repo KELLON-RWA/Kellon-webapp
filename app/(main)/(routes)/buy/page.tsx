@@ -18,8 +18,8 @@ export default async function BuyPage() {
 
   if (!profile) redirect("/");
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <BuyCryptoFlowManager />
-    </main>
+    </div>
   );
 }

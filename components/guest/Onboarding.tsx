@@ -68,10 +68,15 @@ const WebOnboarding: FC<WebOnboardingProps> = ({ onComplete }) => {
           >
             <CardContent className="p-6 sm:p-8 md:p-12 xs:max-w-md xs:mx-auto">
               {/* Progress Dots */}
-              <div className="flex justify-center gap-2 mb-10">
+              <div
+                className="mb-10 flex justify-center gap-2"
+                role="group"
+                aria-label={`Onboarding step ${current + 1} of ${SLIDES.length}`}
+              >
                 {SLIDES.map((_, i) => (
                   <div
                     key={i}
+                    aria-current={i === current ? "step" : undefined}
                     className={cn(
                       "h-1.5 rounded-full transition-all duration-300",
                       i === current
@@ -85,11 +90,12 @@ const WebOnboarding: FC<WebOnboardingProps> = ({ onComplete }) => {
               {/* Dynamic Text Content */}
               <div
                 key={current}
+                aria-live="polite"
                 className="mb-12 text-center space-y-4 animate-in fade-in slide-in-from-right-6 duration-500 "
               >
-                <h2 className="font-bold  text-cryptoNight dark:text-white text-5xl max-w-[300px] mx-auto md:max-w-none">
+                <h1 className="font-bold text-4xl text-cryptoNight dark:text-white max-w-[340px] mx-auto md:max-w-none md:text-5xl">
                   {SLIDES[current].title}
-                </h2>
+                </h1>
                 <p className="mx-auto max-w-[340px] text-[15px] leading-relaxed text-gray-400 dark:text-gray-100">
                   {SLIDES[current].desc}
                 </p>
@@ -98,6 +104,7 @@ const WebOnboarding: FC<WebOnboardingProps> = ({ onComplete }) => {
               {/* CTA Button: Cloned from Continue.tsx */}
               <div className="space-y-6">
                 <Button
+                  type="button"
                   onClick={handleNext}
                   size="full"
                   variant="secondary"
@@ -115,6 +122,7 @@ const WebOnboarding: FC<WebOnboardingProps> = ({ onComplete }) => {
                   </p>
 
                   <button
+                    type="button"
                     onClick={onComplete}
                     className="text-xs font-semibold text-gray-400 hover:text-cryptoNight dark:hover:text-white transition-colors cursor-pointer"
                   >

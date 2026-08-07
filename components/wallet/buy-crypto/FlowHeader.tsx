@@ -17,6 +17,8 @@ export default function FlowHeader({
   return (
     <div className="flex items-center justify-between mb-8 px-4 pt-4">
       <button
+        type="button"
+        aria-label="Go back"
         onClick={onBack}
         className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none
           hover:bg-gray-200 dark:hover:bg-secondary-60 transition-colors cursor-pointer"
@@ -31,6 +33,8 @@ export default function FlowHeader({
       </div>
 
       <button
+        type="button"
+        aria-label="Close buy flow"
         onClick={() => onClose(true)}
         className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none
           hover:bg-gray-200 dark:hover:bg-secondary-60 transition-colors cursor-pointer"

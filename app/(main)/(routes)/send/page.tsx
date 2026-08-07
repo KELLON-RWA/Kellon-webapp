@@ -21,8 +21,8 @@ export default async function SendPage() {
   }
 
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <SendFlow profile={profile} />
-    </main>
+    </div>
   );
 }

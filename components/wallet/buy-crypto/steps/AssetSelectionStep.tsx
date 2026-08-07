@@ -49,6 +49,7 @@ export function AssetSelectionStep({
         {/* Country Selector */}
         <div className="flex justify-center  mb-8">
           <button
+            type="button"
             onClick={onOpenCountryModal}
             disabled={isDetectingCountry}
             className={cn(
@@ -75,6 +76,8 @@ export function AssetSelectionStep({
             {assets.map((a) => (
               <button
                 key={a.id}
+                type="button"
+                aria-pressed={asset === a.symbol}
                 onClick={() => onSelectAsset(a.symbol)}
                 className={cn(
                   "cursor-pointer",
@@ -130,6 +133,8 @@ export function AssetSelectionStep({
                 return (
                   <button
                     key={chain.id}
+                    type="button"
+                    aria-pressed={isSelected}
                     onClick={() =>
                       onSelectNetwork(chainNameLower, chain.id.toString())
                     }

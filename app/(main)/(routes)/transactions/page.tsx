@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 
 export default async function page() {
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <TransactionsPage />
-    </main>
+    </div>
   );
 }

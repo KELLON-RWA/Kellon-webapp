@@ -20,8 +20,8 @@ export default async function GiftsPage() {
   }
 
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <GiftFlow profile={profile} />
-    </main>
+    </div>
   );
 }

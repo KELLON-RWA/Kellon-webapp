@@ -470,12 +470,13 @@ export default function WithdrawFlow({
         <div className="mb-8 flex items-center justify-between px-4 pt-4">
           <button
             type="button"
+            aria-label="Go back"
             onClick={goBack}
             className="rounded-full border border-slate-200 bg-gray-100 p-2 dark:border-none dark:bg-secondary-60/50 cursor-pointer"
           >
             <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-white" />
           </button>
-          <h2 className="text-lg font-bold text-black dark:text-white">
+          <h1 className="text-lg font-bold text-black dark:text-white">
             {step === "provider"
               ? "Choose Provider"
               : step === "amount"
@@ -487,9 +488,10 @@ export default function WithdrawFlow({
                   : step === "review"
                     ? "Review Withdrawal"
                     : "Withdraw"}
-          </h2>
+          </h1>
           <button
             type="button"
+            aria-label="Close withdrawal flow"
             onClick={() =>
               hasStarted ? setShowExitModal(true) : onAttemptClose(false)
             }

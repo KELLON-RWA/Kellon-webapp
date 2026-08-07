@@ -19,9 +19,9 @@ const page: FC = async () => {
 
   const chainAccounts = profile.chainAccounts ?? [];
   return (
-    <main className="min-h-[100dvh]">
+    <div className="min-h-[100dvh]">
       <ReceiveCrypto chainAccounts={chainAccounts} />
-    </main>
+    </div>
   );
 };
 
