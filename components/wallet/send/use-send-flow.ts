@@ -11,11 +11,16 @@ import {
 } from "@/services/api/transfers"
 import { useWallets } from "@privy-io/react-auth"
 import {
+  useWallets as useSolanaWallets,
+  useSignTransaction as useSolanaSignTransaction,
+} from "@privy-io/react-auth/solana"
+import {
   useSmartAccount,
   setStickyVerificationCode,
   setStickyTransferMeta,
 } from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
+import { beginOperation, endOperation } from "@/services/api"
 import {
   createPublicClient,
   encodeFunctionData,
@@ -65,9 +70,7 @@ type NavAction =
       sendableAssets: SendableAsset[]
     }
 
-type SolanaSigningWallet = {
-  signTransaction(args: { transaction: Uint8Array }): Promise<Uint8Array>
-}
+
 
 type EvmSmartAccountClient = {
   account: unknown
@@ -226,7 +229,11 @@ export function useSendFlow(profile: User) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { wallets } = useWallets()
+  const { wallets, ready: walletsReady } = useWallets()
+  const { wallets: solanaWallets, ready: solanaWalletsReady } =
+    useSolanaWallets()
+  const { signTransaction: signSolanaTransaction } =
+    useSolanaSignTransaction()
   const { getSmartAccountClient } = useSmartAccount()
 
   // ── Forms ──────────────────────────────────────────────────────────────────
@@ -809,6 +816,9 @@ export function useSendFlow(profile: User) {
         return
 
       setIsSubmitting(true)
+      // One key for the whole send intent, so the post-MFA retry replays the same
+      // transfer rather than creating a second one.
+      beginOperation(Boolean(verification))
       try {
         const trimmedRecipient = recipientInput.trim()
         const chainLower = selectedAsset.chain.toLowerCase()
@@ -861,7 +871,13 @@ export function useSendFlow(profile: User) {
 
           const { serializedTx, destinationAddress } = prepRes.data
 
-          const solanaWallet = wallets.find((w) => !w.address.startsWith("0x"))
+          if (!solanaWalletsReady) {
+            throw new Error(
+              "Solana wallet is still loading. Please try again in a moment.",
+            )
+          }
+
+          const solanaWallet = solanaWallets[0]
 
           if (!solanaWallet) {
             throw new Error(
@@ -876,9 +892,12 @@ export function useSendFlow(profile: User) {
             txBytes[i] = binaryString.charCodeAt(i)
           }
 
-          const signedTxBytes = await (
-            solanaWallet as unknown as SolanaSigningWallet
-          ).signTransaction({ transaction: txBytes })
+          const signResult = await signSolanaTransaction({
+            transaction: txBytes,
+            wallet: solanaWallet,
+          })
+
+          const signedTxBytes = signResult.signedTransaction
 
           if (!signedTxBytes) {
             throw new Error("Transaction signing was rejected or failed.")
@@ -900,10 +919,24 @@ export function useSendFlow(profile: User) {
             verificationType: verification?.verificationType,
           })
         } else {
-          const evmWallet = wallets.find((w) => w.address.startsWith("0x"))
+          // Privy is still hydrating; `wallets` is [] until it settles, so a click
+          // straight after page load would otherwise read as "no wallet".
+          if (!walletsReady) {
+            throw new Error("Wallet is still loading. Please try again in a moment.")
+          }
+
+          // Must be the Privy embedded wallet specifically. External wallets are not
+          // disabled in PrivyProvider, so a user with a browser extension can have one in
+          // this list — and picking it by address prefix alone derives the smart account
+          // from the wrong owner EOA, pointing at a Safe that holds none of their funds.
+          const evmWallet = wallets.find(
+            (w) => w.walletClientType === "privy" && w.address.startsWith("0x"),
+          )
 
           if (!evmWallet) {
-            throw new Error("Ethereum wallet not found. Please log in again.")
+            throw new Error(
+              "Embedded wallet not found. Please log out and log in again.",
+            )
           }
 
           const smartAccountClient = await getSmartAccountClient(
@@ -1023,6 +1056,7 @@ export function useSendFlow(profile: User) {
         }
 
         setVerificationRequest(null)
+        endOperation()
         toast.success(
           response.data?.message || "Transfer completed successfully",
         )
@@ -1052,6 +1086,7 @@ export function useSendFlow(profile: User) {
           }
           return
         }
+        endOperation()
         toast.error(
           error instanceof Error ? error.message : "Unable to process transfer",
         )
@@ -1069,8 +1104,12 @@ export function useSendFlow(profile: User) {
       recipientKind,
       router,
       selectedAsset,
+      signSolanaTransaction,
+      solanaWallets,
+      solanaWalletsReady,
       verifiedRecipient,
       wallets,
+      walletsReady,
     ],
   )
 

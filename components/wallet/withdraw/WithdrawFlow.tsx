@@ -31,6 +31,8 @@ import { WithdrawReviewStep } from "./steps/ReviewStep";
 import SelectBankModal, {
   type SelectableBank,
 } from "../../modals/SelectBankModal";
+import { findTransferVerificationRequiredError } from "@/services/api/transfers";
+import { beginOperation, endOperation } from "@/services/api";
 
 function parseAssetAmount(amount: Asset["amount"]): number {
   const parsed = typeof amount === "string" ? Number(amount) : amount;
@@ -102,7 +104,7 @@ export default function WithdrawFlow({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationRequest, setVerificationRequest] = useState<{
     verificationType: "otp" | "totp";
-    request: {
+    request?: {
       providerName: string;
       payload: OfframpInitRequest;
     };
@@ -303,6 +305,9 @@ export default function WithdrawFlow({
     }
 
     setIsSubmitting(true);
+    // One key for the whole withdrawal intent, so the post-MFA retry is recognised as the
+    // same operation rather than creating a second payout order.
+    beginOperation(Boolean(verification));
     let request = retryRequest;
 
     try {
@@ -391,6 +396,7 @@ export default function WithdrawFlow({
       const transactionId = getOfframpTransactionReference(response.data);
 
       setVerificationRequest(null);
+      endOperation();
       toast.success(response.data?.message || "Withdrawal initialized");
 
       if (transactionId) {
@@ -415,6 +421,21 @@ export default function WithdrawFlow({
         return;
       }
 
+      const verificationError = findTransferVerificationRequiredError(error);
+      if (verificationError) {
+        setVerificationRequest({
+          verificationType: verificationError.verificationType,
+          request,
+        });
+        toast.info(
+          verificationError.verificationType === "otp"
+            ? "We sent a verification code to your email. Enter it to continue."
+            : "Enter your authenticator code to continue.",
+        );
+        return;
+      }
+
+      endOperation();
       toast.error(
         error instanceof Error
           ? error.message
@@ -423,6 +444,22 @@ export default function WithdrawFlow({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const submitWithdrawalVerification = (verificationCode: string) => {
+    if (!verificationRequest) return;
+    void initiateWithdrawal(
+      {
+        verificationCode,
+        verificationType: verificationRequest.verificationType,
+      },
+      verificationRequest.request,
+    );
+  };
+
+  const closeWithdrawalVerification = () => {
+    if (isSubmitting) return;
+    setVerificationRequest(null);
   };
 
   const hasStarted = Boolean(asset || amount || providerId || bankId);
@@ -604,25 +641,10 @@ export default function WithdrawFlow({
         isOpen={Boolean(verificationRequest)}
         isSubmitting={isSubmitting}
         verificationType={verificationRequest?.verificationType || "otp"}
+        onClose={closeWithdrawalVerification}
+        onSubmit={submitWithdrawalVerification}
         title="Verify withdrawal"
-        description={
-          verificationRequest?.verificationType === "totp"
-            ? "Enter your authenticator code to complete this withdrawal."
-            : "Enter the code sent to your email to complete this withdrawal."
-        }
-        onClose={() => {
-          if (!isSubmitting) setVerificationRequest(null);
-        }}
-        onSubmit={(verificationCode) => {
-          if (!verificationRequest) return;
-          void initiateWithdrawal(
-            {
-              verificationCode,
-              verificationType: verificationRequest.verificationType,
-            },
-            verificationRequest.request,
-          );
-        }}
+        actionNoun="withdrawal"
       />
     </>
   );

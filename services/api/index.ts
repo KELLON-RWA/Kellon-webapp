@@ -111,17 +111,21 @@ const DEVICE_TOKEN_STORAGE_KEY = "kellon_device_token";
 const GENERATED_DEVICE_ID_STORAGE_KEY = "kellon_generated_device_id";
 const AUTH_TOKEN_STORAGE_KEY = "kellon_auth_token";
 
-const SIGNED_ROUTE_PREFIXES = [
-  "/api/v1/transfers",
-  "/api/v1/onramp",
-  "/api/v1/offramp",
-  "/api/v1/invoices",
-  "/api/v1/gifts",
-  "/api/v1/banks",
-  "/api/v1/kyc",
-  "/api/v1/cards",
-  "/api/v1/yield",
-  "/api/v1/biometric",
+// Logical route segments, deliberately without the deployed "/api/v1" prefix: matching
+// on the full deployed path means a BASE_URL that omits (or renames) that segment
+// silently stops signing every route, which surfaces as a blanket 401 "Missing signing
+// headers" rather than as a config error.
+const SIGNED_ROUTE_SEGMENTS = [
+  "transfers",
+  "onramp",
+  "offramp",
+  "invoices",
+  "gifts",
+  "banks",
+  "kyc",
+  "cards",
+  "yield",
+  "biometric",
 ];
 
 function getStoredValue(key: string): string | undefined {
@@ -285,9 +289,8 @@ function buildCanonicalPath(url: string): string {
 }
 
 function shouldSignRequest(canonicalPath: string): boolean {
-  return SIGNED_ROUTE_PREFIXES.some((prefix) =>
-    canonicalPath.startsWith(prefix),
-  );
+  const segments = canonicalPath.split("?")[0].split("/").filter(Boolean);
+  return segments.some((segment) => SIGNED_ROUTE_SEGMENTS.includes(segment));
 }
 
 async function createSigningHeaders(
@@ -313,6 +316,38 @@ async function createSigningHeaders(
   };
 }
 
+let activeOperationKey: string | null = null;
+
+/**
+ * Marks the start of one user-intent operation (a withdrawal, a send) so every HTTP
+ * attempt it makes carries the same `Idempotency-Key`.
+ *
+ * Scoped to the intent rather than the request because the interesting retry is the MFA
+ * round trip: attempt 1 gets 403 VERIFICATION_REQUIRED, attempt 2 replays the same body
+ * plus a code. The backend's idempotency middleware already excludes verification fields
+ * from its body hash precisely so those two attempts match — but only if the client sends
+ * one stable key across both.
+ *
+ * Pass `resume: true` when re-entering a handler to satisfy a challenge; a fresh
+ * user-initiated attempt always mints a new key, so a key left behind by an abandoned
+ * operation can never be reused by the next, unrelated one.
+ */
+export function beginOperation(resume = false): string {
+  if (!resume) activeOperationKey = null;
+  if (!activeOperationKey) {
+    activeOperationKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+  return activeOperationKey;
+}
+
+/** Ends the current operation. Call on success or terminal failure — never between a challenge and its retry. */
+export function endOperation(): void {
+  activeOperationKey = null;
+}
+
 export async function apiFetch(
   input: string,
   init: RequestInit = {},
@@ -329,6 +364,14 @@ export async function apiFetch(
 
   if (body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+
+  if (
+    activeOperationKey &&
+    ["POST", "PUT", "PATCH"].includes(method) &&
+    !headers.has("Idempotency-Key")
+  ) {
+    headers.set("Idempotency-Key", activeOperationKey);
   }
 
   if (mustSign) {

@@ -17,6 +17,7 @@ interface TransferVerificationModalProps {
   onClose: () => void;
   onSubmit: (code: string) => void;
   title?: string;
+  actionNoun?: string;
   description?: string;
   onResend?: () => void;
   isResending?: boolean;
@@ -33,6 +34,7 @@ export default function TransferVerificationModal({
   onClose,
   onSubmit,
   title = "Verify transfer",
+  actionNoun = "send",
   description,
   onResend,
   isResending = false,
@@ -64,7 +66,7 @@ export default function TransferVerificationModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-[380px] rounded-[32px] border-none bg-gray-70 p-0 outline-none dark:bg-black2 [&>button]:hidden">
         <DialogHeader className="sr-only">
-          <DialogTitle>Verify transfer</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <div className="p-6 text-center">
@@ -77,7 +79,7 @@ export default function TransferVerificationModal({
           </h2>
           <p className="mx-auto mt-2 max-w-[280px] text-sm text-gray-20 dark:text-gray-40">
             {description ||
-              `Enter your ${verificationType.toUpperCase()} code to complete this send.`}
+              `Enter your ${verificationType.toUpperCase()} code to complete this ${actionNoun}.`}
           </p>
 
           {showOtpChannelPicker ? (

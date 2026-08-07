@@ -60,6 +60,7 @@ type TransferErrorBody = {
   code?: string
   verificationType?: "otp" | "totp"
   availableMethods?: string[]
+  action?: string
   error?:
     | string
     | {
@@ -67,23 +68,46 @@ type TransferErrorBody = {
         code?: string
         verificationType?: "otp" | "totp"
         availableMethods?: string[]
+        action?: string
       }
 }
 
 export class TransferVerificationRequiredError extends Error {
   verificationType: "otp" | "totp"
   availableMethods?: string[]
+  action?: string
 
   constructor(
     message: string,
     verificationType: "otp" | "totp" = "otp",
     availableMethods?: string[],
+    action?: string,
   ) {
     super(message)
     this.name = "TransferVerificationRequiredError"
     this.verificationType = verificationType
     this.availableMethods = availableMethods
+    this.action = action
   }
+}
+
+/**
+ * Picks which code the user is actually going to type.
+ *
+ * The backend auto-sends an OTP whenever an OTP channel is enabled, so if one is
+ * available that emailed/texted code is what the user has in hand — even when TOTP is
+ * *also* enabled. Choosing "totp" there sends the emailed code to a verifier that
+ * rejects every non-TOTP input. Only fall back to "totp" when no OTP channel exists.
+ */
+export function resolveVerificationType(
+  availableMethods?: string[],
+): "otp" | "totp" {
+  if (!availableMethods?.length) return "otp"
+  const hasOtpChannel = availableMethods.some((m) =>
+    ["otp", "email_otp", "sms_otp"].includes(m),
+  )
+  if (hasOtpChannel) return "otp"
+  return availableMethods.includes("totp") ? "totp" : "otp"
 }
 
 // Walk the viem cause chain to find the original MFA error instance.
@@ -118,22 +142,26 @@ export function findTransferVerificationRequiredError(
       current.details?.includes("VERIFICATION_REQUIRED")
 
     if (isMfa) {
-      const hasTotp =
-        JSON.stringify(current).toLowerCase().includes("totp") ||
-        (current.message && current.message.toLowerCase().includes("totp"))
-      const mfaType = hasTotp ? "totp" : "otp"
-
       const availableMethods =
         current.availableMethods ||
         current.error?.availableMethods ||
         current.response?.data?.availableMethods ||
         current.response?.data?.error?.availableMethods
 
+      const action =
+        current.action ||
+        current.error?.action ||
+        current.response?.data?.action ||
+        current.response?.data?.error?.action
+
+      const mfaType = resolveVerificationType(availableMethods)
+
       if (availableMethods) {
         return new TransferVerificationRequiredError(
           "Verification required",
           mfaType,
           availableMethods,
+          action,
         )
       }
 
@@ -142,6 +170,7 @@ export function findTransferVerificationRequiredError(
           "Verification required",
           mfaType,
           availableMethods,
+          action,
         )
       }
     }
@@ -162,7 +191,14 @@ function getPlatformHeader(): string {
   return typeof window !== "undefined" ? "web" : "server"
 }
 
-async function handleTransferResponse<T>(
+/**
+ * Response handler that preserves the MFA challenge instead of flattening it.
+ *
+ * `handleResponse` reduces every non-2xx to `new Error(message)`, dropping `code`,
+ * `availableMethods` and `action` — so any flow using it can only render the challenge
+ * as a toast, never as a code prompt. Every MFA-gated route must use this one.
+ */
+export async function handleTransferResponse<T>(
   res: Response,
 ): Promise<ApiResponse<T>> {
   const json = await res.json().catch(() => null)
@@ -177,16 +213,20 @@ async function handleTransferResponse<T>(
       nestedError?.message ||
       (typeof body.error === "string" ? body.error : undefined) ||
       "Unable to process transfer"
-    const verificationType =
-      nestedError?.verificationType || body.verificationType || "otp"
     const availableMethods =
       body.availableMethods || nestedError?.availableMethods
+    const verificationType =
+      nestedError?.verificationType ||
+      body.verificationType ||
+      resolveVerificationType(availableMethods)
+    const action = nestedError?.action || body.action
 
     if (res.status === 403 && code === "VERIFICATION_REQUIRED") {
       throw new TransferVerificationRequiredError(
         message,
         verificationType,
         availableMethods,
+        action,
       )
     }
 

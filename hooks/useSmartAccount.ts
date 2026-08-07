@@ -26,7 +26,10 @@ import {
 } from "permissionless"
 import { toSafeSmartAccount } from "permissionless/accounts"
 import { createPimlicoClient } from "permissionless/clients/pimlico"
-import { TransferVerificationRequiredError } from "@/services/api/transfers"
+import {
+  TransferVerificationRequiredError,
+  resolveVerificationType,
+} from "@/services/api/transfers"
 import type { ConnectedWallet } from "@privy-io/react-auth"
 
 interface BundlerErrorResponse {
@@ -36,6 +39,7 @@ interface BundlerErrorResponse {
     code?: number
     data?: unknown
     availableMethods?: string[]
+    action?: string
   }
 }
 
@@ -185,6 +189,10 @@ export function useSmartAccount() {
 
               const headers: Record<string, string> = {
                 "Content-Type": "application/json",
+                // Without this the backend falls back to UA sniffing: a phone browser
+                // reads as "mobile" and is offered webauthn-only, which this client
+                // cannot satisfy — permanently blocking mobile-browser EVM sends.
+                "x-platform": "web",
               }
               if (token) {
                 headers["Authorization"] = `Bearer ${token}`
@@ -213,15 +221,14 @@ export function useSmartAccount() {
                     errorData?.error?.code === -32000)
 
                 if (isJsonRpcMfa) {
-                  const mfaType = errorData?.error?.availableMethods?.includes(
-                    "totp",
+                  const mfaType = resolveVerificationType(
+                    errorData?.error?.availableMethods,
                   )
-                    ? "totp"
-                    : "otp"
                   throw new TransferVerificationRequiredError(
                     "Verification required",
                     mfaType,
                     errorData?.error?.availableMethods,
+                    errorData?.error?.action,
                   )
                 }
 
