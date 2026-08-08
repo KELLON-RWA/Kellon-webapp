@@ -3,7 +3,10 @@ import { TransactionStatus, type Transaction } from "../types/db"
 export const WITHDRAWAL_POLL_INTERVAL_MS = 2_000
 export const ONRAMP_POLL_INTERVAL_MS = 5_000
 export const ACTIVE_ACTIVITY_POLL_INTERVAL_MS = 5_000
-export const IDLE_ACTIVITY_POLL_INTERVAL_MS = 30_000
+export const AGING_ACTIVITY_POLL_INTERVAL_MS = 15_000
+export const IDLE_ACTIVITY_POLL_INTERVAL_MS = 60_000
+export const ACTIVE_ACTIVITY_WINDOW_MS = 2 * 60_000
+export const AGING_ACTIVITY_WINDOW_MS = 10 * 60_000
 
 const TERMINAL_STATUSES: Transaction["status"][] = [
   TransactionStatus.COMPLETED,
@@ -39,13 +42,26 @@ export function isTerminalTransactionStatus(
  * is idle. React Query shares this request across every mounted consumer.
  */
 export function getActivityRefetchInterval(
-  transactions?: Array<Pick<Transaction, "status">>,
+  transactions?: Array<
+    Pick<Transaction, "status"> & { createdAt?: Date | string }
+  >,
+  now = Date.now(),
 ): number {
-  const hasPendingActivity = transactions?.some(
-    (transaction) => !isTerminalTransactionStatus(transaction.status),
-  )
+  const pendingAges = (transactions || [])
+    .filter((transaction) => !isTerminalTransactionStatus(transaction.status))
+    .map((transaction) => {
+      if (!transaction.createdAt) return 0
+      const createdAt = new Date(transaction.createdAt).getTime()
+      return Number.isFinite(createdAt) ? Math.max(0, now - createdAt) : 0
+    })
 
-  return hasPendingActivity
-    ? ACTIVE_ACTIVITY_POLL_INTERVAL_MS
-    : IDLE_ACTIVITY_POLL_INTERVAL_MS
+  if (pendingAges.some((age) => age <= ACTIVE_ACTIVITY_WINDOW_MS)) {
+    return ACTIVE_ACTIVITY_POLL_INTERVAL_MS
+  }
+
+  if (pendingAges.some((age) => age <= AGING_ACTIVITY_WINDOW_MS)) {
+    return AGING_ACTIVITY_POLL_INTERVAL_MS
+  }
+
+  return IDLE_ACTIVITY_POLL_INTERVAL_MS
 }
