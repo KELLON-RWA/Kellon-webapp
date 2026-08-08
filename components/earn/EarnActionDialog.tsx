@@ -597,7 +597,7 @@ export default function EarnActionDialog({
               ? "Enter the one-time code sent by email."
               : "Send a one-time code to your email."
         }
-        selectedOtpChannel="email"
+        selectedMethod={verificationType === "totp" ? "totp" : "email_otp"}
         otpSent={otpSent}
         onResend={requestEarnOtp}
         isResending={isRequestingOtp}

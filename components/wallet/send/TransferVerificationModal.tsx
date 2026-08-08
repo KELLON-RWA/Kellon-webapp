@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mail, MessageSquareText, ShieldCheck } from "lucide-react";
+import { Mail, MessageSquareText, ShieldCheck, Smartphone } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { VerificationMethod } from "@/services/api/transfers";
 
 interface TransferVerificationModalProps {
   isOpen: boolean;
@@ -21,9 +22,9 @@ interface TransferVerificationModalProps {
   description?: string;
   onResend?: () => void;
   isResending?: boolean;
-  otpChannels?: Array<"email" | "sms">;
-  selectedOtpChannel?: "email" | "sms";
-  onOtpChannelChange?: (channel: "email" | "sms") => void;
+  availableMethods?: VerificationMethod[];
+  selectedMethod?: VerificationMethod;
+  onMethodChange?: (method: VerificationMethod) => void;
   otpSent?: boolean;
 }
 
@@ -38,9 +39,9 @@ export default function TransferVerificationModal({
   description,
   onResend,
   isResending = false,
-  otpChannels = [],
-  selectedOtpChannel,
-  onOtpChannelChange,
+  availableMethods,
+  selectedMethod,
+  onMethodChange,
   otpSent = true,
 }: TransferVerificationModalProps) {
   const [code, setCode] = useState("");
@@ -49,18 +50,25 @@ export default function TransferVerificationModal({
     if (!isOpen) setCode("");
   }, [isOpen]);
 
+  const activeMethod =
+    selectedMethod || (verificationType === "totp" ? "totp" : "otp");
+  const methods = availableMethods?.length ? availableMethods : [activeMethod];
+  const isOtpMethod = activeMethod !== "totp";
   const trimmedCode = code.trim();
   const canSubmit =
-    trimmedCode.length >= 4 &&
-    !isSubmitting &&
-    (verificationType !== "otp" || otpSent);
-  const showOtpChannelPicker =
-    verificationType === "otp" &&
-    otpChannels.length > 0 &&
-    selectedOtpChannel &&
-    onOtpChannelChange;
-  const isChoosingOtpChannel =
-    verificationType === "otp" && !otpSent && Boolean(onResend);
+    trimmedCode.length >= 4 && !isSubmitting && (!isOtpMethod || otpSent);
+  const showMethodPicker = methods.length > 1 && Boolean(onMethodChange);
+  const isChoosingOtpChannel = isOtpMethod && !otpSent && Boolean(onResend);
+  const methodLabel =
+    activeMethod === "sms_otp"
+      ? "SMS"
+      : activeMethod === "totp"
+        ? "Google Authenticator"
+        : "email";
+
+  useEffect(() => {
+    setCode("");
+  }, [activeMethod]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -79,50 +87,63 @@ export default function TransferVerificationModal({
           </h2>
           <p className="mx-auto mt-2 max-w-[280px] text-sm text-gray-20 dark:text-gray-40">
             {description ||
-              `Enter your ${verificationType.toUpperCase()} code to complete this ${actionNoun}.`}
+              (isOtpMethod && !otpSent
+                ? showMethodPicker
+                  ? "Choose a verification method, then request your code."
+                  : `Request your ${methodLabel} code to complete this ${actionNoun}.`
+                : `Enter your ${methodLabel} code to complete this ${actionNoun}.`)}
           </p>
 
-          {showOtpChannelPicker ? (
-            <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-gray-90 p-1 dark:bg-secondary-60">
-              {otpChannels.map((channel) => {
-                const ChannelIcon =
-                  channel === "email" ? Mail : MessageSquareText;
-                const isSelected = selectedOtpChannel === channel;
+          {showMethodPicker ? (
+            <div className="mt-5 flex flex-wrap gap-2 rounded-xl bg-gray-90 p-1 dark:bg-secondary-60">
+              {methods.map((method) => {
+                const MethodIcon =
+                  method === "sms_otp"
+                    ? MessageSquareText
+                    : method === "totp"
+                      ? Smartphone
+                      : Mail;
+                const isSelected = activeMethod === method;
+                const label =
+                  method === "sms_otp"
+                    ? "SMS"
+                    : method === "totp"
+                      ? "Authenticator"
+                      : "Email";
 
                 return (
                   <button
-                    key={channel}
+                    key={method}
                     type="button"
-                    onClick={() => onOtpChannelChange(channel)}
+                    onClick={() => onMethodChange?.(method)}
                     disabled={isSubmitting || isResending}
-                    className={`flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg text-xs font-semibold capitalize transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    className={`flex h-10 min-w-[92px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       isSelected
                         ? "bg-white text-primary-50 shadow-sm dark:bg-secondary-50 dark:text-primary-80"
                         : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                     }`}
+                    aria-pressed={isSelected}
                   >
-                    <ChannelIcon className="h-4 w-4" />
-                    {channel === "sms" ? "SMS" : "Email"}
+                    <MethodIcon className="h-4 w-4" />
+                    {label}
                   </button>
                 );
               })}
             </div>
           ) : null}
 
-          {verificationType === "otp" && onResend && otpSent ? (
+          {isOtpMethod && onResend && otpSent ? (
             <button
               type="button"
               onClick={onResend}
               disabled={isSubmitting || isResending}
               className="mt-3 cursor-pointer text-xs font-semibold text-primary-50 transition hover:text-primary-30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-80 dark:hover:text-primary-90"
             >
-              {isResending
-                ? "Sending code..."
-                : `Resend by ${selectedOtpChannel === "sms" ? "SMS" : "email"}`}
+              {isResending ? "Sending code..." : `Resend by ${methodLabel}`}
             </button>
           ) : null}
 
-          {verificationType === "totp" || otpSent ? (
+          {!isOtpMethod || otpSent ? (
             <Input
               value={code}
               onChange={(event) => setCode(event.target.value)}
@@ -146,21 +167,17 @@ export default function TransferVerificationModal({
             <button
               type="button"
               onClick={
-                isChoosingOtpChannel
-                  ? onResend
-                  : () => onSubmit(trimmedCode)
+                isChoosingOtpChannel ? onResend : () => onSubmit(trimmedCode)
               }
               disabled={
-                isChoosingOtpChannel
-                  ? isSubmitting || isResending || !selectedOtpChannel
-                  : !canSubmit
+                isChoosingOtpChannel ? isSubmitting || isResending : !canSubmit
               }
               className="h-11 rounded-xl bg-primary-50 text-sm font-semibold text-white transition hover:bg-primary-40 disabled:opacity-60 dark:bg-primary-70 dark:hover:bg-primary-80 cursor-pointer"
             >
               {isChoosingOtpChannel
                 ? isResending
                   ? "Sending..."
-                  : `Send ${selectedOtpChannel === "sms" ? "SMS" : "email"} code`
+                  : `Send ${methodLabel} code`
                 : isSubmitting
                   ? "Verifying..."
                   : "Verify code"}

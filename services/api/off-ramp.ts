@@ -1,4 +1,5 @@
 import { ApiResponse, apiFetch, handleResponse } from "./index";
+import { resolveVerificationType } from "./transfers";
 
 /**
  * --- Offramp Request Interface ---
@@ -218,11 +219,9 @@ async function handleOfframpResponse(
       body.availableMethods || nestedError?.availableMethods;
     const requestedVerificationType =
       nestedError?.verificationType || body.verificationType;
-    const verificationType =
-      requestedVerificationType === "totp" ||
-      availableMethods?.some((method) => method.toLowerCase().includes("totp"))
-        ? "totp"
-        : "otp";
+    const verificationType = requestedVerificationType
+      ? requestedVerificationType
+      : resolveVerificationType(availableMethods);
     const verificationSignals = [
       code,
       body.message,

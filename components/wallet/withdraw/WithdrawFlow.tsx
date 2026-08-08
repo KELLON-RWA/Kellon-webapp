@@ -33,7 +33,12 @@ import SelectBankModal, {
 } from "../../modals/SelectBankModal";
 import {
   findTransferVerificationRequiredError,
+  getAvailableVerificationMethods,
+  getOtpChannelForMethod,
+  getVerificationTypeForMethod,
   resolveVerificationMethod,
+  transferService,
+  type VerificationMethod,
 } from "@/services/api/transfers";
 import {
   beginOperation,
@@ -48,6 +53,10 @@ import {
 import { getWithdrawableAssets } from "@/lib/withdraw-assets";
 import { useUser } from "@/hooks/use-user";
 import { getOrCreateOfframpOrder } from "@/lib/offramp-retry";
+import {
+  getEnabledTransactionVerificationMethods,
+  securityService,
+} from "@/services/api/security";
 
 function getOfframpReferenceCandidates(
   order: OfframpResponse | null,
@@ -113,9 +122,13 @@ export default function WithdrawFlow({
   const [showExitModal, setShowExitModal] = useState(false);
   const [savedBanks, setSavedBanks] = useState<BankDetail[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [verificationRequest, setVerificationRequest] = useState<{
     verificationType: "otp" | "totp";
-    verificationMethod: string;
+    verificationMethod: VerificationMethod;
+    availableMethods: VerificationMethod[];
+    otpSent: boolean;
+    action?: string;
     request?: {
       providerName: string;
       payload: OfframpInitRequest;
@@ -252,7 +265,7 @@ export default function WithdrawFlow({
     verification?: {
       verificationCode: string;
       verificationType: "otp" | "totp";
-      verificationMethod: string;
+      verificationMethod: VerificationMethod;
     },
     retryRequest?: {
       providerName: string;
@@ -433,37 +446,57 @@ export default function WithdrawFlow({
           return;
         }
 
+        const availableMethods = getAvailableVerificationMethods(
+          error.availableMethods,
+          error.verificationType,
+        );
+        const verificationMethod = resolveVerificationMethod(
+          availableMethods,
+          error.verificationType,
+        );
         setVerificationRequest({
-          verificationType: error.verificationType,
-          verificationMethod: resolveVerificationMethod(
-            error.availableMethods,
-            error.verificationType,
-          ),
+          verificationType: getVerificationTypeForMethod(verificationMethod),
+          verificationMethod,
+          availableMethods,
+          otpSent: verificationMethod !== "totp",
+          action: "withdrawal",
           request,
         });
         toast.info(
-          error.verificationType === "otp"
-            ? "We sent a verification code to your email. Enter it to continue."
-            : "Enter your authenticator code to continue.",
+          verificationMethod === "sms_otp"
+            ? "We sent a verification code to your phone. Enter it to continue."
+            : verificationMethod === "totp"
+              ? "Enter your authenticator code to continue."
+              : "We sent a verification code to your email. Enter it to continue.",
         );
         return;
       }
 
       const verificationError = findTransferVerificationRequiredError(error);
       if (verificationError) {
+        const availableMethods = getAvailableVerificationMethods(
+          verificationError.availableMethods,
+          verificationError.verificationType,
+        );
+        const verificationMethod = resolveVerificationMethod(
+          availableMethods,
+          verificationError.verificationType,
+        );
         setVerificationRequest({
-          verificationType: verificationError.verificationType,
-          verificationMethod: resolveVerificationMethod(
-            verificationError.availableMethods,
-            verificationError.verificationType,
-          ),
+          verificationType: getVerificationTypeForMethod(verificationMethod),
+          verificationMethod,
+          availableMethods,
+          otpSent: verificationMethod !== "totp",
+          action: verificationError.action || "withdrawal",
           request,
           order: createdOrder ?? undefined,
         });
         toast.info(
-          verificationError.verificationType === "otp"
-            ? "We sent a verification code to your email. Enter it to continue."
-            : "Enter your authenticator code to continue.",
+          verificationMethod === "sms_otp"
+            ? "We sent a verification code to your phone. Enter it to continue."
+            : verificationMethod === "totp"
+              ? "Enter your authenticator code to continue."
+              : "We sent a verification code to your email. Enter it to continue.",
         );
         return;
       }
@@ -496,7 +529,9 @@ export default function WithdrawFlow({
     void initiateWithdrawal(
       {
         verificationCode,
-        verificationType: pendingVerification.verificationType,
+        verificationType: getVerificationTypeForMethod(
+          pendingVerification.verificationMethod,
+        ),
         verificationMethod: pendingVerification.verificationMethod,
       },
       pendingVerification.request,
@@ -507,6 +542,91 @@ export default function WithdrawFlow({
   const closeWithdrawalVerification = () => {
     if (isSubmitting) return;
     setVerificationRequest(null);
+  };
+
+  const prepareWithdrawalVerification = async () => {
+    if (isSubmitting || withdrawalInFlightRef.current) return;
+
+    setIsSubmitting(true);
+    try {
+      const securitySettings = await securityService.getSettings();
+      const availableMethods =
+        getEnabledTransactionVerificationMethods(securitySettings);
+
+      if (!availableMethods.length) {
+        toast.error(
+          "Enable email, SMS, or Google Authenticator in Security & Backup before withdrawing.",
+        );
+        return;
+      }
+
+      const verificationMethod = availableMethods[0];
+      setVerificationRequest({
+        verificationType: getVerificationTypeForMethod(verificationMethod),
+        verificationMethod,
+        availableMethods,
+        // TOTP is immediately available. OTP channels wait for an explicit user request.
+        otpSent: verificationMethod === "totp",
+        action: "withdrawal",
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to load your verification methods",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const requestWithdrawalOtp = async (method: VerificationMethod) => {
+    const channel = getOtpChannelForMethod(method);
+    if (!verificationRequest || !channel || isResendingVerification) return;
+
+    setIsResendingVerification(true);
+    try {
+      const response = await transferService.requestOTP(
+        verificationRequest.action || "withdrawal",
+        channel,
+      );
+      setVerificationRequest((current) =>
+        current?.verificationMethod === method
+          ? { ...current, otpSent: true }
+          : current,
+      );
+      toast.success(
+        response.message ||
+          `Verification code sent by ${channel === "sms" ? "SMS" : "email"}.`,
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send verification code",
+      );
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
+  const selectWithdrawalVerificationMethod = (method: VerificationMethod) => {
+    if (
+      !verificationRequest ||
+      method === verificationRequest.verificationMethod
+    )
+      return;
+
+    setVerificationRequest((current) =>
+      current
+        ? {
+            ...current,
+            verificationMethod: method,
+            verificationType: getVerificationTypeForMethod(method),
+            otpSent: method === "totp",
+          }
+        : current,
+    );
   };
 
   const hasStarted = Boolean(asset || amount || providerId || bankId);
@@ -647,7 +767,7 @@ export default function WithdrawFlow({
               selectedProvider={selectedProvider}
               selectedBank={selectedBank}
               isSubmitting={isSubmitting}
-              onConfirm={initiateWithdrawal}
+              onConfirm={prepareWithdrawalVerification}
             />
           ) : null}
         </div>
@@ -684,6 +804,16 @@ export default function WithdrawFlow({
         isOpen={Boolean(verificationRequest)}
         isSubmitting={isSubmitting}
         verificationType={verificationRequest?.verificationType || "otp"}
+        availableMethods={verificationRequest?.availableMethods}
+        selectedMethod={verificationRequest?.verificationMethod}
+        onMethodChange={selectWithdrawalVerificationMethod}
+        otpSent={verificationRequest?.otpSent}
+        onResend={() => {
+          if (verificationRequest) {
+            void requestWithdrawalOtp(verificationRequest.verificationMethod);
+          }
+        }}
+        isResending={isResendingVerification}
         onClose={closeWithdrawalVerification}
         onSubmit={submitWithdrawalVerification}
         title="Verify withdrawal"

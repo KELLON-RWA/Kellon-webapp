@@ -32,6 +32,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
     isAddFundsOpen,
     isAmountValid,
     isRecipientValid,
+    isResendingVerification,
     isSubmitting,
     isVerifyingRecipient,
     primaryButtonDisabled,
@@ -42,6 +43,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
     recipientLookupMessage,
     selectedAsset,
     selectRecentRecipient,
+    selectTransferVerificationMethod,
     sendableAssets,
     setAmount,
     setIsAddFundsOpen,
@@ -51,6 +53,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
     step,
     submitTransfer,
     submitTransferVerification,
+    resendTransferVerification,
     verificationRequest,
     verifiedRecipient,
     verifyRecipient,
@@ -170,6 +173,12 @@ export default function SendFlow({ profile }: SendFlowProps) {
         isOpen={Boolean(verificationRequest)}
         isSubmitting={isSubmitting}
         verificationType={verificationRequest?.verificationType || "otp"}
+        availableMethods={verificationRequest?.availableMethods}
+        selectedMethod={verificationRequest?.selectedMethod}
+        onMethodChange={selectTransferVerificationMethod}
+        otpSent={verificationRequest?.otpSent}
+        onResend={resendTransferVerification}
+        isResending={isResendingVerification}
         onClose={closeTransferVerification}
         onSubmit={submitTransferVerification}
       />

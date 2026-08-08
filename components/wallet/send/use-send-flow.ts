@@ -7,7 +7,12 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   findTransferVerificationRequiredError,
+  getAvailableVerificationMethods,
+  getOtpChannelForMethod,
+  getVerificationTypeForMethod,
+  resolveVerificationMethod,
   transferService,
+  type VerificationMethod,
 } from "@/services/api/transfers"
 import { useWallets } from "@privy-io/react-auth"
 import {
@@ -69,8 +74,6 @@ type NavAction =
       params: URLSearchParams
       sendableAssets: SendableAsset[]
     }
-
-
 
 type EvmSmartAccountClient = {
   account: unknown
@@ -232,8 +235,7 @@ export function useSendFlow(profile: User) {
   const { wallets, ready: walletsReady } = useWallets()
   const { wallets: solanaWallets, ready: solanaWalletsReady } =
     useSolanaWallets()
-  const { signTransaction: signSolanaTransaction } =
-    useSolanaSignTransaction()
+  const { signTransaction: signSolanaTransaction } = useSolanaSignTransaction()
   const { getSmartAccountClient } = useSmartAccount()
 
   // ── Forms ──────────────────────────────────────────────────────────────────
@@ -316,8 +318,13 @@ export function useSendFlow(profile: User) {
   const [recipientLookupMessage, setRecipientLookupMessage] = useState("")
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isResendingVerification, setIsResendingVerification] = useState(false)
   const [verificationRequest, setVerificationRequest] = useState<{
     verificationType: "otp" | "totp"
+    availableMethods: VerificationMethod[]
+    selectedMethod: VerificationMethod
+    action?: string
+    otpSent: boolean
   } | null>(null)
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -805,6 +812,7 @@ export function useSendFlow(profile: User) {
     async (verification?: {
       verificationCode: string
       verificationType: "otp" | "totp"
+      verificationMethod: VerificationMethod
     }) => {
       if (
         !selectedAsset ||
@@ -922,7 +930,9 @@ export function useSendFlow(profile: User) {
           // Privy is still hydrating; `wallets` is [] until it settles, so a click
           // straight after page load would otherwise read as "no wallet".
           if (!walletsReady) {
-            throw new Error("Wallet is still loading. Please try again in a moment.")
+            throw new Error(
+              "Wallet is still loading. Please try again in a moment.",
+            )
           }
 
           // Must be the Privy embedded wallet specifically. External wallets are not
@@ -1002,9 +1012,12 @@ export function useSendFlow(profile: User) {
             args: [destinationAddress as `0x${string}`, amountBigInt],
           })
 
-          if (verification?.verificationCode && verification?.verificationType) {
+          if (
+            verification?.verificationCode &&
+            verification?.verificationType
+          ) {
             setStickyVerificationCode({
-              type: verification.verificationType,
+              type: verification.verificationMethod,
               code: verification.verificationCode,
             })
           } else {
@@ -1064,25 +1077,31 @@ export function useSendFlow(profile: User) {
       } catch (error) {
         const verificationError = findTransferVerificationRequiredError(error)
         if (verificationError) {
+          const availableMethods = getAvailableVerificationMethods(
+            verificationError.availableMethods,
+            verificationError.verificationType,
+          )
+          const selectedMethod = resolveVerificationMethod(
+            availableMethods,
+            verificationError.verificationType,
+          )
           setVerificationRequest({
-            verificationType: verificationError.verificationType,
+            verificationType: getVerificationTypeForMethod(selectedMethod),
+            availableMethods,
+            selectedMethod,
+            action: verificationError.action,
+            // The backend sends the preferred OTP as part of the initial challenge.
+            otpSent: selectedMethod !== "totp",
           })
-          
-          if (verificationError.verificationType === "otp") {
-            const hasSms = verificationError.availableMethods?.includes("sms_otp")
-            const hasEmail =
-              !verificationError.availableMethods ||
-              verificationError.availableMethods.includes("email_otp") ||
-              verificationError.availableMethods.includes("otp")
+
+          if (selectedMethod !== "totp") {
             toast.info(
-              hasEmail
-                ? "We sent a verification code to your email. Enter it to continue."
-                : hasSms
-                  ? "We sent a verification code to your phone. Enter it to continue."
-                  : "Enter your verification code to continue.",
+              selectedMethod === "sms_otp"
+                ? "We sent a verification code to your phone. Enter it to continue."
+                : "We sent a verification code to your email. Enter it to continue.",
             )
           } else {
-            toast.info("Enter your verification code to continue.")
+            toast.info("Enter your authenticator code to continue.")
           }
           return
         }
@@ -1122,7 +1141,10 @@ export function useSendFlow(profile: User) {
       if (!verificationRequest) return
       void executeTransfer({
         verificationCode,
-        verificationType: verificationRequest.verificationType,
+        verificationType: getVerificationTypeForMethod(
+          verificationRequest.selectedMethod,
+        ),
+        verificationMethod: verificationRequest.selectedMethod,
       })
     },
     [executeTransfer, verificationRequest],
@@ -1133,6 +1155,66 @@ export function useSendFlow(profile: User) {
     setVerificationRequest(null)
     updateStep("review")
   }, [isSubmitting, updateStep])
+
+  const requestTransferOtp = useCallback(
+    async (method: VerificationMethod) => {
+      const channel = getOtpChannelForMethod(method)
+      if (!verificationRequest || !channel || isResendingVerification) return
+
+      setIsResendingVerification(true)
+      try {
+        const response = await transferService.requestOTP(
+          verificationRequest.action || "transfer",
+          channel,
+        )
+        setVerificationRequest((current) =>
+          current?.selectedMethod === method
+            ? { ...current, otpSent: true }
+            : current,
+        )
+        toast.success(
+          response.message ||
+            `Verification code sent by ${channel === "sms" ? "SMS" : "email"}.`,
+        )
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to send verification code",
+        )
+      } finally {
+        setIsResendingVerification(false)
+      }
+    },
+    [isResendingVerification, verificationRequest],
+  )
+
+  const selectTransferVerificationMethod = useCallback(
+    (method: VerificationMethod) => {
+      if (!verificationRequest || method === verificationRequest.selectedMethod)
+        return
+
+      const channel = getOtpChannelForMethod(method)
+      setVerificationRequest((current) =>
+        current
+          ? {
+              ...current,
+              selectedMethod: method,
+              verificationType: getVerificationTypeForMethod(method),
+              otpSent: channel === null,
+            }
+          : current,
+      )
+      if (channel) void requestTransferOtp(method)
+    },
+    [requestTransferOtp, verificationRequest],
+  )
+
+  const resendTransferVerification = useCallback(() => {
+    if (verificationRequest) {
+      void requestTransferOtp(verificationRequest.selectedMethod)
+    }
+  }, [requestTransferOtp, verificationRequest])
 
   // ── Computed UI state ──────────────────────────────────────────────────────
   const primaryButtonDisabled =
@@ -1161,6 +1243,7 @@ export function useSendFlow(profile: User) {
     isRecipientValid,
     selfRecipientError,
     isSubmitting,
+    isResendingVerification,
     isVerifyingRecipient,
     primaryButtonDisabled,
     recentRecipients,
@@ -1180,6 +1263,8 @@ export function useSendFlow(profile: User) {
     step,
     submitTransfer,
     submitTransferVerification,
+    selectTransferVerificationMethod,
+    resendTransferVerification,
     verifiedRecipient,
     verifyRecipient,
   }
