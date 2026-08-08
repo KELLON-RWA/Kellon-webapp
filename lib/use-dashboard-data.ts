@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDetectCountry } from "@/hooks/use-detect-country"
 import { useExchangeRate } from "@/hooks/use-exchange-rate"
 import {
@@ -17,23 +18,37 @@ import {
   getAssetName,
   parseAssetAmount,
 } from "./dashboard-utils"
+import { ACTIVITY_POLL_INTERVAL_MS } from "./transaction-polling"
 
 const FIAT_CURRENCIES = new Set(Object.values(COUNTRY_CURRENCY_MAP))
 
 export function useDashboardData(profile: User) {
+  const queryClient = useQueryClient()
   const { countryCode, currencyCode, flag, isDetecting } = useDetectCountry()
   const [isBalanceVisible, setIsBalanceVisible] = useState(true)
   const [displayCurrency, setDisplayCurrency] =
     useState<DisplayCurrency>("LOCAL")
   const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({})
   const [isPricesLoading, setIsPricesLoading] = useState(false)
-  const [transactions, setTransactions] = useState<Transaction[]>(
-    profile.transactions || [],
-  )
-  const [isTransactionsLoading, setIsTransactionsLoading] = useState(true)
-  const [transactionsError, setTransactionsError] = useState<string | null>(
-    null,
-  )
+  const previousActivitySignature = useRef<string | null>(null)
+
+  const {
+    data: transactions = profile.transactions || [],
+    isLoading: isTransactionsLoading,
+    error: transactionsQueryError,
+  } = useQuery<Transaction[]>({
+    queryKey: ["transactions"],
+    queryFn: async () => {
+      const response = await transactionService.getTransactions()
+      return response.data || []
+    },
+    initialData: profile.transactions || [],
+    staleTime: 0,
+    refetchInterval: ACTIVITY_POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  })
 
   const localCurrency = currencyCode || "USD"
   const { exchangeRate, isRateLoading } = useExchangeRate(localCurrency, null)
@@ -113,37 +128,34 @@ export function useDashboardData(profile: User) {
     }
   }, [assetSymbolsKey])
 
+  const activitySignature = useMemo(
+    () =>
+      transactions
+        .map((transaction) => `${transaction.id}:${transaction.status}`)
+        .sort()
+        .join("|"),
+    [transactions],
+  )
+
   useEffect(() => {
-    let isCancelled = false
-
-    const loadTransactions = async () => {
-      setIsTransactionsLoading(true)
-      setTransactionsError(null)
-
-      try {
-        const response = await transactionService.getTransactions()
-        if (isCancelled) return
-
-        setTransactions(response.data || [])
-      } catch (error) {
-        if (isCancelled) return
-
-        setTransactionsError(
-          error instanceof Error ? error.message : "Failed to load activity",
-        )
-      } finally {
-        if (!isCancelled) {
-          setIsTransactionsLoading(false)
-        }
-      }
+    if (previousActivitySignature.current === null) {
+      previousActivitySignature.current = activitySignature
+      return
     }
 
-    loadTransactions()
+    if (previousActivitySignature.current === activitySignature) return
+    previousActivitySignature.current = activitySignature
 
-    return () => {
-      isCancelled = true
-    }
-  }, [])
+    // A new activity or status change can alter holdings; refresh the profile
+    // immediately instead of waiting for the next balance polling tick.
+    void queryClient.invalidateQueries({ queryKey: ["user-session"] })
+  }, [activitySignature, queryClient])
+
+  const transactionsError = transactionsQueryError
+    ? transactionsQueryError instanceof Error
+      ? transactionsQueryError.message
+      : "Failed to load activity"
+    : null
 
   const groupedAssets = useMemo<GroupedAssetSummary[]>(() => {
     const grouped = new Map<

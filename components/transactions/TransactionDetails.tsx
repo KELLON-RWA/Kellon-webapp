@@ -21,7 +21,11 @@ import {
   getCurrencySymbol,
 } from "@/lib/country-currency-map";
 import { transactionService } from "@/services/api/transactions";
-import { TransactionStatus, type Transaction } from "@/types/db";
+import type { Transaction } from "@/types/db";
+import {
+  getTransactionRefetchInterval,
+  isTerminalTransactionStatus,
+} from "@/lib/transaction-polling";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -114,13 +118,6 @@ function getTransactionStatusBadgeClasses(
       return "bg-primary-95 text-primary-60 dark:bg-primary-70/10 dark:text-primary-80";
   }
 }
-
-const ONRAMP_TERMINAL_STATUSES: Transaction["status"][] = [
-  TransactionStatus.COMPLETED,
-  TransactionStatus.FAILED,
-  TransactionStatus.CANCELLED,
-  TransactionStatus.REFUNDED,
-];
 
 function OnrampProgress({ status }: { status: Transaction["status"] }) {
   const steps = [
@@ -640,20 +637,11 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
       const response = await transactionService.getTransaction(id);
       return response.data;
     },
-    refetchInterval: (query) => {
-      const currentTransaction = query.state.data;
-
-      if (
-        !currentTransaction ||
-        currentTransaction.type !== "BUY" ||
-        ONRAMP_TERMINAL_STATUSES.includes(currentTransaction.status)
-      ) {
-        return false;
-      }
-
-      return 5000;
-    },
+    refetchInterval: (query) => getTransactionRefetchInterval(query.state.data),
     refetchIntervalInBackground: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const transaction = data;
@@ -671,11 +659,13 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
   );
 
   useEffect(() => {
-    if (!isOnramp || transaction?.status !== "COMPLETED") return;
+    if (!transaction || !isTerminalTransactionStatus(transaction.status)) {
+      return;
+    }
 
     void queryClient.invalidateQueries({ queryKey: ["transactions"] });
     void queryClient.invalidateQueries({ queryKey: ["user-session"] });
-  }, [isOnramp, queryClient, transaction?.status]);
+  }, [queryClient, transaction]);
 
   const amountValue = useMemo(() => {
     if (!transaction) return null;

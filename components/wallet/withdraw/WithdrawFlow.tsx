@@ -117,6 +117,8 @@ export default function WithdrawFlow({
       providerName: string;
       payload: OfframpInitRequest;
     };
+    /** Present when only the on-chain funding step needs to be retried. */
+    order?: OfframpResponse;
   } | null>(null);
 
   const { fundOfframpOrder } = useOfframpFunding();
@@ -298,6 +300,7 @@ export default function WithdrawFlow({
       providerName: string;
       payload: OfframpInitRequest;
     },
+    retryOrder?: OfframpResponse,
   ) => {
     if (
       !selectedProvider ||
@@ -322,7 +325,7 @@ export default function WithdrawFlow({
       Boolean(verification) || hasActiveOperation(),
     );
     let request = retryRequest;
-    let orderCreated = false;
+    let createdOrder = retryOrder ?? null;
 
     try {
       if (!request) {
@@ -378,7 +381,12 @@ export default function WithdrawFlow({
 
       let response;
 
-      if (providerName === "moneygram") {
+      // A bundler challenge happens after the provider order exists. Reuse that
+      // order on verification retry so the new code reaches the funding gate
+      // instead of being consumed by provider initiation again.
+      if (createdOrder) {
+        response = { success: true, data: createdOrder };
+      } else if (providerName === "moneygram") {
         response = await offrampService.initiateMoneyGram(payload);
       } else if (providerName === "paychant") {
         response = await offrampService.initiatePaychant(payload);
@@ -409,7 +417,7 @@ export default function WithdrawFlow({
       }
 
       const transactionId = getOfframpTransactionReference(response.data);
-      orderCreated = true;
+      createdOrder = response.data;
 
       // The ledger is already debited but the tokens haven't moved; don't report success yet.
       const pendingDeposit = getPendingDeposit(response.data);
@@ -421,11 +429,17 @@ export default function WithdrawFlow({
           chainKey: networkName,
           symbol: asset,
           fallbackAmount: withdrawalCryptoAmount,
+          verification: verification
+            ? {
+                type: verification.verificationType,
+                code: verification.verificationCode,
+              }
+            : undefined,
         });
 
         if (fundingTxHash) {
-          transactionService
-            .annotateTransaction({
+          try {
+            await transactionService.annotateTransaction({
               txHash: fundingTxHash,
               chain: networkName.toLowerCase(),
               amount: String(
@@ -439,8 +453,10 @@ export default function WithdrawFlow({
                 depositAddress: pendingDeposit.address,
                 orderId: transactionId,
               },
-            })
-            .catch(() => {});
+            });
+          } catch {
+            // The detail page continues polling if annotation propagation is delayed.
+          }
         }
       }
 
@@ -475,6 +491,7 @@ export default function WithdrawFlow({
         setVerificationRequest({
           verificationType: verificationError.verificationType,
           request,
+          order: createdOrder ?? undefined,
         });
         toast.info(
           verificationError.verificationType === "otp"
@@ -485,7 +502,7 @@ export default function WithdrawFlow({
       }
 
       // Keep the key when an order exists so the retry replays it instead of duplicating.
-      if (!orderCreated) {
+      if (!createdOrder) {
         endOperation();
       }
 
@@ -495,7 +512,7 @@ export default function WithdrawFlow({
           : "Unable to initialize withdrawal";
 
       toast.error(
-        orderCreated
+        createdOrder
           ? `${message}. Your withdrawal order is still open — retry to complete the transfer.`
           : message,
       );
@@ -512,6 +529,7 @@ export default function WithdrawFlow({
         verificationType: verificationRequest.verificationType,
       },
       verificationRequest.request,
+      verificationRequest.order,
     );
   };
 

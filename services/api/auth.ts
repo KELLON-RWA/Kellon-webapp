@@ -91,22 +91,27 @@ export async function logout(device: string) {
 export async function getSession(
   sessionToken?: string,
 ): Promise<ApiResponse<User> | null> {
-  // 1. Retrieve the session token from the browser's request cookies
+  const isBrowser = typeof window !== "undefined";
 
-  // Early exit if no token is present to avoid unnecessary API calls
-  if (!sessionToken) return null;
+  // Server components must forward the cookie explicitly. Browser callers use
+  // the same-origin proxy so the session cookie is attached automatically.
+  if (!isBrowser && !sessionToken) return null;
 
   try {
-    const res = await fetch(`${BASE_URL}/users/me`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        // 2. Explicitly forward the auth token to the external backend
-        Cookie: `session_token=${sessionToken}`,
+    const res = await fetch(
+      isBrowser ? "/api/users/me" : `${BASE_URL}/users/me`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(!isBrowser && sessionToken
+            ? { Cookie: `session_token=${sessionToken}` }
+            : {}),
+        },
+        credentials: "include",
+        cache: "no-store",
       },
-      // 3. Prevent Next.js from caching auth data across different users
-      cache: "no-store",
-    });
+    );
 
     return await handleResponse(res);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -3,7 +3,12 @@
 import { useCallback } from "react"
 import { useWallets } from "@privy-io/react-auth"
 import { encodeFunctionData, erc20Abi, parseUnits } from "viem"
-import { useSmartAccount, setStickyTransferMeta } from "@/hooks/useSmartAccount"
+import {
+  useSmartAccount,
+  setStickyTransferMeta,
+  setStickyVerificationCode,
+  type StickyVerification,
+} from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
 
 /**
@@ -63,8 +68,10 @@ export function useOfframpFunding() {
       symbol: string
       /** Used when the provider didn't state an exact token amount. */
       fallbackAmount: number
+      /** Reuses the code that authorized order creation for the funding operation. */
+      verification?: StickyVerification
     }): Promise<string | null> => {
-      const { order, symbol, fallbackAmount } = params
+      const { order, symbol, fallbackAmount, verification } = params
       const chainKey = params.chainKey.toLowerCase()
 
       const deposit = getPendingDeposit(order)
@@ -84,7 +91,9 @@ export function useOfframpFunding() {
       }
 
       if (!walletsReady) {
-        throw new Error("Wallet is still loading. Please try again in a moment.")
+        throw new Error(
+          "Wallet is still loading. Please try again in a moment.",
+        )
       }
 
       const evmWallet = wallets.find(
@@ -124,7 +133,10 @@ export function useOfframpFunding() {
       const data = encodeFunctionData({
         abi: erc20Abi,
         functionName: "transfer",
-        args: [deposit.address as `0x${string}`, parseUnits(String(transferAmount), decimals)],
+        args: [
+          deposit.address as `0x${string}`,
+          parseUnits(String(transferAmount), decimals),
+        ],
       })
 
       setStickyTransferMeta({
@@ -132,6 +144,7 @@ export function useOfframpFunding() {
         symbol: tokenSymbol,
         toAddress: deposit.address,
       })
+      setStickyVerificationCode(verification ?? null)
 
       try {
         return (await (
@@ -146,6 +159,7 @@ export function useOfframpFunding() {
           value: 0n,
         })) as string
       } finally {
+        setStickyVerificationCode(null)
         setStickyTransferMeta(null)
       }
     },

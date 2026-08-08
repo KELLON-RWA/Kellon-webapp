@@ -12,6 +12,7 @@ import { getTransactionSymbol } from "@/lib/dashboard-utils";
 import { cn } from "@/lib/utils";
 import priceService from "@/services/price-service";
 import { transactionService } from "@/services/api/transactions";
+import { ACTIVITY_POLL_INTERVAL_MS } from "@/lib/transaction-polling";
 import type { Asset, User } from "@/types/db";
 import { AssetChainView } from "./AssetChainView";
 import { AssetDetailsHeader } from "./AssetDetailsHeader";
@@ -185,7 +186,11 @@ export default function AssetDetailsPage({
         const response = await transactionService.getTransactions();
         return response.data || [];
       },
-      staleTime: 1000 * 60 * 2,
+      staleTime: 0,
+      refetchInterval: ACTIVITY_POLL_INTERVAL_MS,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
     });
 
   const activeChainTransactions = useMemo(() => {

@@ -12,6 +12,7 @@ import DashboardHeader from "./DashboardHeader"
 import PortfolioBalanceCard from "./PortfolioBalanceCard"
 import QuickActionsPanel from "./QuickActionsPanel"
 import { useDashboardData } from "@/lib/use-dashboard-data"
+import { useUser } from "@/hooks/use-user"
 
 interface DashboardClientProps {
   profile: User
@@ -22,7 +23,9 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false)
   const [isWalletServicesOpen, setIsWalletServicesOpen] = useState(false)
   const [greeting, setGreeting] = useState("Welcome back")
-  const dashboard = useDashboardData(profile)
+  const { data: liveProfile } = useUser(profile, { live: true })
+  const activeProfile = liveProfile || profile
+  const dashboard = useDashboardData(activeProfile)
 
   useEffect(() => {
     setGreeting(getGreeting())
@@ -30,7 +33,7 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
 
   return (
     <div className="container mx-auto w-full max-w-7xl space-y-6 px-4 pb-32 pt-4 md:space-y-8 md:px-6 md:pb-12 md:pt-28">
-      <DashboardHeader greeting={greeting} profile={profile} />
+      <DashboardHeader greeting={greeting} profile={activeProfile} />
 
       <div
         className={cn(
