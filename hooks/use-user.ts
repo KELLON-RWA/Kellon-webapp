@@ -1,7 +1,6 @@
 import { getSession } from "@/services/api/auth"
 import { User } from "@/types/db"
 import { useQuery } from "@tanstack/react-query"
-import { WALLET_BALANCE_REFRESH_INTERVAL_MS } from "@/lib/transaction-polling"
 
 interface UseUserOptions {
   /** Keeps wallet balances and assets synchronized while the dashboard is open. */
@@ -30,10 +29,12 @@ export function useUser(
       }
     },
     initialData,
-    staleTime: live ? 0 : 1000 * 60 * 5,
+    staleTime: live ? 10_000 : 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30, // Keep in memory for 30 mins even if unused
-    refetchInterval: live ? WALLET_BALANCE_REFRESH_INTERVAL_MS : false,
-    refetchIntervalInBackground: live,
+    // Balances refresh when activity changes, on focus, or after a mutation.
+    // A second permanent timer here doubled dashboard network traffic.
+    refetchInterval: false,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: live,
     refetchOnReconnect: true,
     retry: 1, // Don't give up immediately on one failure

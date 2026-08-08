@@ -22,7 +22,7 @@ import {
   isPositiveTransaction,
 } from "@/lib/dashboard-utils";
 import { transactionService } from "@/services/api/transactions";
-import { ACTIVITY_POLL_INTERVAL_MS } from "@/lib/transaction-polling";
+import { getActivityRefetchInterval } from "@/lib/transaction-polling";
 import type { Transaction } from "@/types/db";
 import TransactionFilterModal, {
   type ActivityFilter,
@@ -123,9 +123,10 @@ export default function TransactionsPage() {
       const response = await transactionService.getTransactions();
       return response.data || [];
     },
-    staleTime: 0,
-    refetchInterval: ACTIVITY_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    staleTime: 5_000,
+    refetchInterval: (query) =>
+      getActivityRefetchInterval(query.state.data),
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

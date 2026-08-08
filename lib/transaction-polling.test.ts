@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { TransactionStatus, TransactionType } from "../types/db"
 import {
+  ACTIVE_ACTIVITY_POLL_INTERVAL_MS,
+  getActivityRefetchInterval,
   getTransactionRefetchInterval,
+  IDLE_ACTIVITY_POLL_INTERVAL_MS,
   ONRAMP_POLL_INTERVAL_MS,
   WITHDRAWAL_POLL_INTERVAL_MS,
 } from "./transaction-polling"
@@ -34,5 +37,20 @@ describe("transaction detail polling", () => {
     expect(
       getTransactionRefetchInterval({ type: TransactionType.WITHDRAW, status }),
     ).toBe(false)
+  })
+
+  it("uses fast activity polling only while a transaction is pending", () => {
+    expect(
+      getActivityRefetchInterval([{ status: TransactionStatus.PENDING }]),
+    ).toBe(ACTIVE_ACTIVITY_POLL_INTERVAL_MS)
+  })
+
+  it("backs off activity polling when every transaction is terminal", () => {
+    expect(
+      getActivityRefetchInterval([
+        { status: TransactionStatus.COMPLETED },
+        { status: TransactionStatus.FAILED },
+      ]),
+    ).toBe(IDLE_ACTIVITY_POLL_INTERVAL_MS)
   })
 })

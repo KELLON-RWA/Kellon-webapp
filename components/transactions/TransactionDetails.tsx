@@ -638,7 +638,7 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
       return response.data;
     },
     refetchInterval: (query) => getTransactionRefetchInterval(query.state.data),
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     staleTime: 0,

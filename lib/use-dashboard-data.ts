@@ -18,7 +18,7 @@ import {
   getAssetName,
   parseAssetAmount,
 } from "./dashboard-utils"
-import { ACTIVITY_POLL_INTERVAL_MS } from "./transaction-polling"
+import { getActivityRefetchInterval } from "./transaction-polling"
 
 const FIAT_CURRENCIES = new Set(Object.values(COUNTRY_CURRENCY_MAP))
 
@@ -43,9 +43,10 @@ export function useDashboardData(profile: User) {
       return response.data || []
     },
     initialData: profile.transactions || [],
-    staleTime: 0,
-    refetchInterval: ACTIVITY_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    staleTime: 5_000,
+    refetchInterval: (query) =>
+      getActivityRefetchInterval(query.state.data),
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   })
