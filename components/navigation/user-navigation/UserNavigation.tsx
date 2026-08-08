@@ -30,7 +30,6 @@ import { User } from "@/types/db";
 import StellarKeyRecoveryModal from "@/components/modals/StellarRecoveryModal";
 import TrustedDevicesModal from "@/components/modals/TrustedDevicesModal";
 import SocialRecoveryModal from "@/components/modals/social-recovery/SocialRevoveryModal";
-import NetworkInformationModal from "@/components/modals/NetworkInformationModal";
 import HelpSupportModal from "@/components/modals/HelpSupportModal";
 import AppearanceModal from "@/components/modals/AppearanceModal";
 import { ModalType } from "./user-navigation-types";
@@ -76,10 +75,6 @@ const UserNavigation: FC<{ profile: User }> = ({ profile }) => {
       />
       <SocialRecoveryModal
         isOpen={activeModal === "social recovery"}
-        onClose={() => setActiveModal(null)}
-      />
-      <NetworkInformationModal
-        isOpen={activeModal === "network information"}
         onClose={() => setActiveModal(null)}
       />
       <HelpSupportModal

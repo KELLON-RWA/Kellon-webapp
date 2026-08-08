@@ -1,8 +1,4 @@
 import {
-  Key,
-  TabletSmartphone,
-  Users,
-  Server,
   Bell,
   Share2,
   MessageSquare,
@@ -19,33 +15,13 @@ type Handlers = {
 
 export const MENU_SECTIONS = (handlers: Handlers) => [
   {
-    title: "Security & Backup",
+    title: "Security Center",
     items: [
       {
-        icon: <Key className="w-4 h-4" />,
-        label: "Stellar Key Recovery",
-        subLabel: "Backup your secret key",
-        action: () => handlers.openModal("stellar key recovery"),
-      },
-      {
-        icon: <TabletSmartphone className="w-4 h-4" />,
-        label: "Trusted Devices",
-        action: () => handlers.openModal("trusted devices"),
-      },
-      {
-        icon: <Users className="w-4 h-4" />,
-        label: "Social Recovery",
-        action: () => handlers.openModal("social recovery"),
-      },
-    ],
-  },
-  {
-    title: "Developer",
-    items: [
-      {
-        icon: <Server className="w-4 h-4" />,
-        label: "Network Information",
-        action: () => handlers.openModal("network information"),
+        icon: <Shield className="w-4 h-4" />,
+        label: "Security & Backup",
+        subLabel: "Verification, recovery and trusted devices",
+        href: "/settings/security",
       },
     ],
   },

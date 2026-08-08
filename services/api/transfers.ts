@@ -91,6 +91,49 @@ export class TransferVerificationRequiredError extends Error {
   }
 }
 
+export type VerificationMethod = "email_otp" | "sms_otp" | "totp" | "otp"
+
+const SUPPORTED_VERIFICATION_METHODS = new Set<VerificationMethod>([
+  "email_otp",
+  "sms_otp",
+  "totp",
+  "otp",
+])
+
+export function getAvailableVerificationMethods(
+  availableMethods?: string[],
+  fallback: "otp" | "totp" = "otp",
+): VerificationMethod[] {
+  const methods = (availableMethods || [])
+    .map((method) => method.toLowerCase())
+    .filter((method): method is VerificationMethod =>
+      SUPPORTED_VERIFICATION_METHODS.has(method as VerificationMethod),
+    )
+
+  const uniqueMethods = [...new Set(methods)]
+  const withoutDuplicateLegacyOtp = uniqueMethods.includes("email_otp")
+    ? uniqueMethods.filter((method) => method !== "otp")
+    : uniqueMethods
+
+  return withoutDuplicateLegacyOtp.length
+    ? withoutDuplicateLegacyOtp
+    : [fallback]
+}
+
+export function getVerificationTypeForMethod(
+  method: VerificationMethod,
+): "otp" | "totp" {
+  return method === "totp" ? "totp" : "otp"
+}
+
+export function getOtpChannelForMethod(
+  method: VerificationMethod,
+): "email" | "sms" | null {
+  if (method === "sms_otp") return "sms"
+  if (method === "email_otp" || method === "otp") return "email"
+  return null
+}
+
 /**
  * Picks which code the user is actually going to type.
  *
@@ -114,7 +157,7 @@ export function resolveVerificationType(
 export function resolveVerificationMethod(
   availableMethods?: string[],
   fallback: "otp" | "totp" = "otp",
-): string {
+): VerificationMethod {
   if (!availableMethods?.length) return fallback
   const methods = availableMethods.map((method) => method.toLowerCase())
   if (methods.includes("email_otp")) return "email_otp"

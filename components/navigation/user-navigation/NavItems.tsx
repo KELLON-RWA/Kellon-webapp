@@ -38,15 +38,30 @@ export const NavigationItem: FC<NavItemProps> = ({
   </button>
 )
 
-export const LinkItem: FC<LinkItemProps> = ({ icon, label, href }) => (
+export const LinkItem: FC<LinkItemProps> = ({
+  icon,
+  label,
+  subLabel,
+  href,
+  onClick,
+}) => (
   <Link
     href={href}
+    onClick={onClick}
     className="w-full flex items-center justify-between p-3 hover:bg-gray-95 dark:hover:bg-secondary-60 rounded-sm transition-colors group cursor-pointer outline-none"
-    target="_blank"
+    target={href.startsWith("/") ? undefined : "_blank"}
+    rel={href.startsWith("/") ? undefined : "noreferrer"}
   >
     <div className="flex items-center gap-3">
       <div className="text-primary-70">{icon}</div>
-      <p className="text-xs font-bold text-black dark:text-white">{label}</p>
+      <div>
+        <p className="text-xs font-bold text-black dark:text-white">{label}</p>
+        {subLabel ? (
+          <p className="text-[10px] text-gray-20 dark:text-secondary-90">
+            {subLabel}
+          </p>
+        ) : null}
+      </div>
     </div>
     <ChevronRight className="w-4 h-4 text-gray-30 group-hover:translate-x-0.5 transition-transform" />
   </Link>

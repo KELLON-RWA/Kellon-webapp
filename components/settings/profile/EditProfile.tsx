@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
-  X,
   Camera,
   User as UserIcon,
   AtSign,
@@ -108,22 +107,23 @@ const ProfilePage: FC<ProfilePageProps> = ({ initialProfile }) => {
   };
 
   return (
-    <section className="min-h-screen text-slate-900 dark:text-white pb-10 transition-colors duration-300 lg:py-20">
-      <div className="flex items-center justify-between px-6 py-5 max-w-2xl mx-auto">
-        <div
+    <section className="mx-auto min-h-[100dvh] w-full max-w-2xl px-6 pb-10 pt-5 text-slate-900 transition-colors duration-300 dark:text-white md:pt-20">
+      <div className="mb-8 flex items-center justify-between">
+        <button
+          type="button"
+          aria-label="Back to wallet"
           onClick={() => router.push("/")}
-          className="p-2 bg-white dark:bg-secondary-60/50 rounded-full shadow-sm border border-slate-200 dark:border-none hover:bg-slate-100 cursor-pointer"
+          className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 shadow-sm hover:bg-slate-100 dark:border-white/10 dark:bg-secondary-60/50 dark:hover:bg-secondary-60"
         >
-          <X className="w-6 h-6 md:hidden" />
-          <ArrowLeft className="w-6 h-6 hidden md:flex" />
-        </div>
+          <ArrowLeft className="h-6 w-6" />
+        </button>
         <h1 className="text-lg font-semibold">
           {isEditing ? "Edit Profile" : "Profile"}
         </h1>
         <div className="w-10" />
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 space-y-6">
+      <div className="space-y-6">
         {/* Profile Card */}
         <div className="bg-white dark:bg-secondary-50 rounded-[32px] p-8 flex flex-col items-center text-center space-y-4  border border-slate-100  dark:border-white/10">
           <div className="relative">

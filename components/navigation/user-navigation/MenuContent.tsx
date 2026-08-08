@@ -2,10 +2,6 @@ import { FC } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Key,
-  TabletSmartphone,
-  Users,
-  Server,
   Share2,
   MessageSquare,
   Shield,
@@ -88,33 +84,13 @@ export const MenuContent: FC<MenuContentProps> = ({
     <div className="h-[1px] bg-gray-80 dark:bg-secondary-40 my-1" />
 
     <div className="flex flex-col border rounded-md">
-      <SectionHeader label="Security & Backup" />
-      <NavigationItem
-        icon={<Key className="w-4 h-4" />}
-        label="Stellar Key Recovery"
-        subLabel="Backup your key"
-        onClick={() => onOpenModal("stellar key recovery")}
-      />
-      <NavigationItem
-        icon={<TabletSmartphone className="w-4 h-4" />}
-        label="Trusted Devices"
-        onClick={() => onOpenModal("trusted devices")}
-      />
-      <NavigationItem
-        icon={<Users className="w-4 h-4" />}
-        label="Social Recovery"
-        onClick={() => onOpenModal("social recovery")}
-      />
-    </div>
-
-    <div className="h-[1px] bg-gray-80 dark:bg-secondary-40 my-1" />
-
-    <div className="flex flex-col border rounded-md">
-      <SectionHeader label="Developer" />
-      <NavigationItem
-        icon={<Server className="w-4 h-4" />}
-        label="Network Information"
-        onClick={() => onOpenModal("network information")}
+      <SectionHeader label="Security Center" />
+      <LinkItem
+        icon={<Shield className="w-4 h-4" />}
+        label="Security & Backup"
+        subLabel="Verification, recovery and trusted devices"
+        href="/settings/security"
+        onClick={onCloseMenu}
       />
     </div>
 

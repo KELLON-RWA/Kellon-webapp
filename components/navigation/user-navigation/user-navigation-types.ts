@@ -4,7 +4,6 @@ export type ModalType =
   | "stellar key recovery"
   | "trusted devices"
   | "social recovery"
-  | "network information"
   | "notifications"
   | "help & support"
   | "appearance"
@@ -20,5 +19,7 @@ export interface NavItemProps {
 export interface LinkItemProps {
   icon: ReactNode
   label: string
+  subLabel?: string
   href: string
+  onClick?: () => void
 }

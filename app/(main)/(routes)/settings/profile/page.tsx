@@ -7,11 +7,7 @@ const page: FC = async ({}) => {
   const profile = await currentProfile();
   if (!profile) return redirect("/");
 
-  return (
-    <section className="md:pt-20">
-      <ProfilePage initialProfile={profile} />
-    </section>
-  );
+  return <ProfilePage initialProfile={profile} />;
 };
 
 export default page;
