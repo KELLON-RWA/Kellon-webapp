@@ -68,6 +68,16 @@ export interface OfframpResponse {
   provider?: string;
   status?: string;
   message?: string;
+  // Deposit-address settlement — the client moves the tokens. See hooks/useOfframpFunding.
+  depositAddress?: string;
+  depositInstructions?: {
+    address?: string;
+    memo?: string;
+    expiresAt?: string;
+  } | null;
+  requiredTokenAmount?: number | string;
+  tokenAddress?: string;
+  fundingTxHash?: string;
   transaction?: {
     id?: string;
     transactionId?: string;

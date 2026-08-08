@@ -146,7 +146,7 @@ export default function EarnActionDialog({
   onOpenChange,
   onComplete,
 }: EarnActionDialogProps) {
-  const { wallets } = useWallets();
+  const { wallets, ready: walletsReady } = useWallets();
   const { mfaMethods, promptMfa } = useMfa();
   const { getSmartAccountClient } = useSmartAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -241,7 +241,16 @@ export default function EarnActionDialog({
   const executeEvmTransactions = async (
     prepared: PreparedYieldAction,
   ): Promise<string> => {
-    const evmWallet = wallets.find((wallet) => wallet.address.startsWith("0x"));
+    // `wallets` is [] until Privy settles.
+    if (!walletsReady) {
+      throw new Error("Wallet is still loading. Please try again in a moment.");
+    }
+
+    // Must be the embedded wallet — an extension wallet here derives the wrong Safe.
+    const evmWallet = wallets.find(
+      (wallet) =>
+        wallet.walletClientType === "privy" && wallet.address.startsWith("0x"),
+    );
     if (!evmWallet) {
       throw new Error("Your EVM wallet is unavailable. Please log in again.");
     }

@@ -32,7 +32,16 @@ import SelectBankModal, {
   type SelectableBank,
 } from "../../modals/SelectBankModal";
 import { findTransferVerificationRequiredError } from "@/services/api/transfers";
-import { beginOperation, endOperation } from "@/services/api";
+import {
+  beginOperation,
+  endOperation,
+  hasActiveOperation,
+} from "@/services/api";
+import { transactionService } from "@/services/api/transactions";
+import {
+  useOfframpFunding,
+  getPendingDeposit,
+} from "@/hooks/useOfframpFunding";
 
 function parseAssetAmount(amount: Asset["amount"]): number {
   const parsed = typeof amount === "string" ? Number(amount) : amount;
@@ -109,6 +118,8 @@ export default function WithdrawFlow({
       payload: OfframpInitRequest;
     };
   } | null>(null);
+
+  const { fundOfframpOrder } = useOfframpFunding();
 
   const handleCountryDetected = useCallback(
     (detectedCountry: string, detectedCurrency: string) => {
@@ -305,10 +316,13 @@ export default function WithdrawFlow({
     }
 
     setIsSubmitting(true);
-    // One key for the whole withdrawal intent, so the post-MFA retry is recognised as the
-    // same operation rather than creating a second payout order.
-    beginOperation(Boolean(verification));
+    // One key per withdrawal intent; resumed on any retry so a funding failure can't
+    // open a second payout order.
+    const operationKey = beginOperation(
+      Boolean(verification) || hasActiveOperation(),
+    );
     let request = retryRequest;
+    let orderCreated = false;
 
     try {
       if (!request) {
@@ -316,8 +330,9 @@ export default function WithdrawFlow({
         const rate = selectedProviderRawRate
           ? String(selectedProviderRawRate)
           : undefined;
+        // Keyed to the operation, not the clock — Date.now() breaks the body hash on retry.
         const providerReference =
-          providerName === "paycrest" ? `paycrest-${Date.now()}` : undefined;
+          providerName === "paycrest" ? `paycrest-${operationKey}` : undefined;
 
         request = {
           providerName,
@@ -394,6 +409,40 @@ export default function WithdrawFlow({
       }
 
       const transactionId = getOfframpTransactionReference(response.data);
+      orderCreated = true;
+
+      // The ledger is already debited but the tokens haven't moved; don't report success yet.
+      const pendingDeposit = getPendingDeposit(response.data);
+      if (pendingDeposit) {
+        toast.info("Order created. Confirm the transfer to complete it.");
+
+        const fundingTxHash = await fundOfframpOrder({
+          order: response.data,
+          chainKey: networkName,
+          symbol: asset,
+          fallbackAmount: withdrawalCryptoAmount,
+        });
+
+        if (fundingTxHash) {
+          transactionService
+            .annotateTransaction({
+              txHash: fundingTxHash,
+              chain: networkName.toLowerCase(),
+              amount: String(
+                response.data?.requiredTokenAmount ?? withdrawalCryptoAmount,
+              ),
+              symbol: asset,
+              metadata: {
+                status: "COMPLETED",
+                type: "OFFRAMP_DEPOSIT",
+                provider: providerName,
+                depositAddress: pendingDeposit.address,
+                orderId: transactionId,
+              },
+            })
+            .catch(() => {});
+        }
+      }
 
       setVerificationRequest(null);
       endOperation();
@@ -435,11 +484,20 @@ export default function WithdrawFlow({
         return;
       }
 
-      endOperation();
-      toast.error(
+      // Keep the key when an order exists so the retry replays it instead of duplicating.
+      if (!orderCreated) {
+        endOperation();
+      }
+
+      const message =
         error instanceof Error
           ? error.message
-          : "Unable to initialize withdrawal",
+          : "Unable to initialize withdrawal";
+
+      toast.error(
+        orderCreated
+          ? `${message}. Your withdrawal order is still open — retry to complete the transfer.`
+          : message,
       );
     } finally {
       setIsSubmitting(false);

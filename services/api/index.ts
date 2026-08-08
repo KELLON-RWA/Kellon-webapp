@@ -348,6 +348,11 @@ export function endOperation(): void {
   activeOperationKey = null;
 }
 
+/** True while an operation key is live, so a retry can resume it instead of minting a new one. */
+export function hasActiveOperation(): boolean {
+  return activeOperationKey !== null;
+}
+
 export async function apiFetch(
   input: string,
   init: RequestInit = {},
