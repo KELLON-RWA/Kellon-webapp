@@ -110,6 +110,20 @@ export function resolveVerificationType(
   return availableMethods.includes("totp") ? "totp" : "otp"
 }
 
+/** Preserves the exact verification channel required by the bundler. */
+export function resolveVerificationMethod(
+  availableMethods?: string[],
+  fallback: "otp" | "totp" = "otp",
+): string {
+  if (!availableMethods?.length) return fallback
+  const methods = availableMethods.map((method) => method.toLowerCase())
+  if (methods.includes("email_otp")) return "email_otp"
+  if (methods.includes("otp")) return "otp"
+  if (methods.includes("sms_otp")) return "sms_otp"
+  if (methods.includes("totp")) return "totp"
+  return fallback
+}
+
 function containsVerificationMarker(value: unknown): boolean {
   if (typeof value === "string") {
     const normalized = value.toUpperCase()
@@ -118,9 +132,7 @@ function containsVerificationMarker(value: unknown): boolean {
       normalized.includes("VERIFICATION REQUIRED")
     )
   }
-
   if (!value || typeof value !== "object") return false
-
   try {
     return containsVerificationMarker(JSON.stringify(value))
   } catch {
@@ -128,11 +140,7 @@ function containsVerificationMarker(value: unknown): boolean {
   }
 }
 
-/**
- * Distinguishes an MFA challenge from an ordinary forbidden/RPC response.
- * JSON-RPC code -32000 is a generic server error, so it cannot safely trigger
- * another verification prompt by itself.
- */
+/** A generic JSON-RPC -32000 failure is not sufficient evidence of MFA. */
 export function isTransferVerificationChallenge(
   status: number | undefined,
   error: unknown,

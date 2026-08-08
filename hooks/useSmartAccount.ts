@@ -183,9 +183,6 @@ export function useSmartAccount() {
             }
 
             if (method === "eth_sendUserOperation") {
-              if (stickyVerificationCode) {
-                body.verificationCodes = [stickyVerificationCode]
-              }
               if (stickyTransferMeta) {
                 body.transferMeta = stickyTransferMeta
               }
@@ -206,7 +203,17 @@ export function useSmartAccount() {
               if (token) {
                 headers["Authorization"] = `Bearer ${token}`
               }
-
+              // The backend's working mobile contract carries verification as a
+              // header, and only on final submission so preparatory RPC calls cannot
+              // consume a one-time code.
+              if (
+                method === "eth_sendUserOperation" &&
+                stickyVerificationCode
+              ) {
+                headers["x-verification-codes"] = JSON.stringify([
+                  stickyVerificationCode,
+                ])
+              }
               const backendBaseUrl =
                 process.env.NEXT_PUBLIC_BACKEND_API_URL ||
                 "http://localhost:3000"

@@ -73,6 +73,7 @@ function reducer(state: State, action: Action): State {
         asset: action.asset,
         networkName: action.name,
         networkId: action.id,
+        amount: "",
         providerId: null,
         bankId: null,
       };
@@ -248,6 +249,7 @@ export function useWithdrawState() {
       updateUrl({
         asset,
         network: name,
+        amount: null,
         providerId: null,
         bankId: null,
       });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   findTransferVerificationRequiredError,
   isTransferVerificationChallenge,
+  resolveVerificationMethod,
   resolveVerificationType,
 } from "./transfers"
 
@@ -14,7 +15,14 @@ describe("transfer verification", () => {
     expect(resolveVerificationType(["totp"])).toBe("totp")
   })
 
-  it("does not treat a generic JSON-RPC -32000 response as MFA", () => {
+  it("preserves the exact OTP channel used by the bundler", () => {
+    expect(resolveVerificationMethod(["totp", "email_otp"])).toBe(
+      "email_otp",
+    )
+    expect(resolveVerificationMethod(["sms_otp"])).toBe("sms_otp")
+  })
+
+  it("does not turn a generic bundler failure into another OTP prompt", () => {
     expect(
       isTransferVerificationChallenge(403, {
         error: { code: -32000, message: "execution reverted" },
@@ -22,7 +30,7 @@ describe("transfer verification", () => {
     ).toBe(false)
   })
 
-  it("recognizes an explicit backend verification challenge", () => {
+  it("recognizes an explicit verification challenge", () => {
     expect(
       isTransferVerificationChallenge(403, {
         error: {
@@ -34,14 +42,14 @@ describe("transfer verification", () => {
     ).toBe(true)
   })
 
-  it("safely traverses structured viem details", () => {
-    const result = findTransferVerificationRequiredError({
-      status: 403,
-      details: { reason: "insufficient balance" },
-      cause: null,
-    })
-
-    expect(result).toBeNull()
+  it("safely ignores structured non-verification details", () => {
+    expect(
+      findTransferVerificationRequiredError({
+        status: 403,
+        details: { reason: "insufficient balance" },
+        cause: null,
+      }),
+    ).toBeNull()
   })
 
   it("preserves nested challenge methods and action", () => {

@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { Asset, BankDetail, User } from "@/types/db";
+import type { BankDetail, User } from "@/types/db";
 import { useWithdrawState, WITHDRAW_STEPS } from "@/hooks/use-withdraw-state";
 import { useCountryDetection } from "@/hooks/use-country-detection";
 import { getCurrencyForCountry } from "@/lib/country-currency-map";
-import { getChainById, getSupportedChainsForToken } from "@/lib/chains";
+import { getChainById } from "@/lib/chains";
 import { useProviders } from "@/hooks/use-provider";
 import { useProviderRates } from "@/hooks/use-provider-rates";
 import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal";
@@ -31,7 +31,10 @@ import { WithdrawReviewStep } from "./steps/ReviewStep";
 import SelectBankModal, {
   type SelectableBank,
 } from "../../modals/SelectBankModal";
-import { findTransferVerificationRequiredError } from "@/services/api/transfers";
+import {
+  findTransferVerificationRequiredError,
+  resolveVerificationMethod,
+} from "@/services/api/transfers";
 import {
   beginOperation,
   endOperation,
@@ -42,11 +45,9 @@ import {
   useOfframpFunding,
   getPendingDeposit,
 } from "@/hooks/useOfframpFunding";
-
-function parseAssetAmount(amount: Asset["amount"]): number {
-  const parsed = typeof amount === "string" ? Number(amount) : amount;
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+import { getWithdrawableAssets } from "@/lib/withdraw-assets";
+import { useUser } from "@/hooks/use-user";
+import { getOrCreateOfframpOrder } from "@/lib/offramp-retry";
 
 function getOfframpReferenceCandidates(
   order: OfframpResponse | null,
@@ -96,13 +97,14 @@ export default function WithdrawFlow({
     providerId,
     bankId,
     setStep,
-    setAsset,
     setAssetAndNetwork,
     setAmount,
     setCountryAndCurrency,
     setProviderId,
     setBankId,
   } = useWithdrawState();
+  const { data: liveProfile } = useUser(profile, { live: true });
+  const activeProfile = liveProfile || profile;
 
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
@@ -113,13 +115,14 @@ export default function WithdrawFlow({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationRequest, setVerificationRequest] = useState<{
     verificationType: "otp" | "totp";
+    verificationMethod: string;
     request?: {
       providerName: string;
       payload: OfframpInitRequest;
     };
-    /** Present when only the on-chain funding step needs to be retried. */
     order?: OfframpResponse;
   } | null>(null);
+  const withdrawalInFlightRef = useRef(false);
 
   const { fundOfframpOrder } = useOfframpFunding();
 
@@ -147,61 +150,10 @@ export default function WithdrawFlow({
     [networkId],
   );
 
-  const withdrawableAssets = useMemo(() => {
-    const assetMap = new Map<
-      string,
-      {
-        symbol: string;
-        name: string;
-        balance: number;
-        network: { id: string; name: string } | null;
-        usdValue: number;
-      }
-    >();
-
-    (profile.assets || []).forEach((item) => {
-      if (!item?.symbol || !item.chain) return;
-      const chainName = item.chain.toLowerCase();
-      const amount = parseAssetAmount(item.amount);
-      if (amount <= 0) return;
-
-      const symbol = item.symbol.toUpperCase();
-      if (!["USDC", "USDT"].includes(symbol)) return;
-      const current = assetMap.get(symbol) || {
-        symbol,
-        name:
-          symbol === "USDC"
-            ? "USD Coin"
-            : symbol === "USDT"
-              ? "Tether USD"
-              : symbol,
-        balance: 0,
-        network: null,
-        usdValue: 0,
-      };
-
-      current.balance += amount;
-      current.usdValue += amount;
-
-      const supportedChains = getSupportedChainsForToken(
-        symbol as "USDC" | "USDT",
-      );
-      const matchedChain = supportedChains.find(
-        (chain) => chain.name.toLowerCase() === chainName,
-      );
-
-      if (!current.network) {
-        current.network = {
-          id: matchedChain?.id ? String(matchedChain.id) : chainName,
-          name: chainName,
-        };
-      }
-
-      assetMap.set(symbol, current);
-    });
-
-    return Array.from(assetMap.values());
-  }, [profile.assets]);
+  const withdrawableAssets = useMemo(
+    () => getWithdrawableAssets(activeProfile.assets || []),
+    [activeProfile.assets],
+  );
 
   const {
     providers,
@@ -249,7 +201,12 @@ export default function WithdrawFlow({
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) || null;
   const selectedAssetDetails =
-    withdrawableAssets.find((item) => item.symbol === asset) || null;
+    withdrawableAssets.find(
+      (item) =>
+        item.symbol === asset &&
+        (item.network.id === networkId ||
+          item.network.name.toLowerCase() === networkName?.toLowerCase()),
+    ) || null;
   const selectedAssetBalance = selectedAssetDetails?.balance || 0;
   const amountValue = Number(amount);
   const isAmountValid =
@@ -295,6 +252,7 @@ export default function WithdrawFlow({
     verification?: {
       verificationCode: string;
       verificationType: "otp" | "totp";
+      verificationMethod: string;
     },
     retryRequest?: {
       providerName: string;
@@ -302,6 +260,7 @@ export default function WithdrawFlow({
     },
     retryOrder?: OfframpResponse,
   ) => {
+    if (withdrawalInFlightRef.current) return;
     if (
       !selectedProvider ||
       !selectedBank ||
@@ -318,6 +277,7 @@ export default function WithdrawFlow({
       return;
     }
 
+    withdrawalInFlightRef.current = true;
     setIsSubmitting(true);
     // One key per withdrawal intent; resumed on any retry so a funding failure can't
     // open a second payout order.
@@ -379,36 +339,36 @@ export default function WithdrawFlow({
         verificationType: verification?.verificationType,
       };
 
-      let response;
-
-      // A bundler challenge happens after the provider order exists. Reuse that
-      // order on verification retry so the new code reaches the funding gate
-      // instead of being consumed by provider initiation again.
-      if (createdOrder) {
-        response = { success: true, data: createdOrder };
-      } else if (providerName === "moneygram") {
-        response = await offrampService.initiateMoneyGram(payload);
-      } else if (providerName === "paychant") {
-        response = await offrampService.initiatePaychant(payload);
-      } else if (providerName === "paycrest") {
-        response = await offrampService.initiatePaycrest(payload);
-      } else if (providerName === "centiiv") {
-        response = await offrampService.initiateCentiiv(payload);
-      } else if (providerName === "transak") {
-        response = await offrampService.initiateTransak(payload);
-      } else if (providerName === "moonpay") {
-        response = await offrampService.initiateMoonpay(payload);
-      } else if (providerName === "quidax") {
-        response = await offrampService.initiateQuidax(payload);
-      } else {
-        response = await offrampService.initiateRamp(payload);
-      }
+      createdOrder = await getOrCreateOfframpOrder(createdOrder, async () => {
+        if (providerName === "moneygram") {
+          return (await offrampService.initiateMoneyGram(payload)).data;
+        }
+        if (providerName === "paychant") {
+          return (await offrampService.initiatePaychant(payload)).data;
+        }
+        if (providerName === "paycrest") {
+          return (await offrampService.initiatePaycrest(payload)).data;
+        }
+        if (providerName === "centiiv") {
+          return (await offrampService.initiateCentiiv(payload)).data;
+        }
+        if (providerName === "transak") {
+          return (await offrampService.initiateTransak(payload)).data;
+        }
+        if (providerName === "moonpay") {
+          return (await offrampService.initiateMoonpay(payload)).data;
+        }
+        if (providerName === "quidax") {
+          return (await offrampService.initiateQuidax(payload)).data;
+        }
+        return (await offrampService.initiateRamp(payload)).data;
+      });
 
       const redirectUrl =
-        response.data?.checkoutUrl ||
-        response.data?.paymentUrl ||
-        response.data?.redirectUrl ||
-        response.data?.url;
+        createdOrder.checkoutUrl ||
+        createdOrder.paymentUrl ||
+        createdOrder.redirectUrl ||
+        createdOrder.url;
 
       if (redirectUrl) {
         toast.success("Withdrawal initialized. Redirecting...");
@@ -416,22 +376,21 @@ export default function WithdrawFlow({
         return;
       }
 
-      const transactionId = getOfframpTransactionReference(response.data);
-      createdOrder = response.data;
+      const transactionId = getOfframpTransactionReference(createdOrder);
 
       // The ledger is already debited but the tokens haven't moved; don't report success yet.
-      const pendingDeposit = getPendingDeposit(response.data);
+      const pendingDeposit = getPendingDeposit(createdOrder);
       if (pendingDeposit) {
         toast.info("Order created. Confirm the transfer to complete it.");
 
         const fundingTxHash = await fundOfframpOrder({
-          order: response.data,
+          order: createdOrder,
           chainKey: networkName,
           symbol: asset,
           fallbackAmount: withdrawalCryptoAmount,
           verification: verification
             ? {
-                type: verification.verificationType,
+                type: verification.verificationMethod,
                 code: verification.verificationCode,
               }
             : undefined,
@@ -443,7 +402,7 @@ export default function WithdrawFlow({
               txHash: fundingTxHash,
               chain: networkName.toLowerCase(),
               amount: String(
-                response.data?.requiredTokenAmount ?? withdrawalCryptoAmount,
+                createdOrder.requiredTokenAmount ?? withdrawalCryptoAmount,
               ),
               symbol: asset,
               metadata: {
@@ -462,7 +421,7 @@ export default function WithdrawFlow({
 
       setVerificationRequest(null);
       endOperation();
-      toast.success(response.data?.message || "Withdrawal initialized");
+      toast.success(createdOrder.message || "Withdrawal initialized");
 
       if (transactionId) {
         router.push(`/transactions/${transactionId}`);
@@ -476,6 +435,10 @@ export default function WithdrawFlow({
 
         setVerificationRequest({
           verificationType: error.verificationType,
+          verificationMethod: resolveVerificationMethod(
+            error.availableMethods,
+            error.verificationType,
+          ),
           request,
         });
         toast.info(
@@ -490,6 +453,10 @@ export default function WithdrawFlow({
       if (verificationError) {
         setVerificationRequest({
           verificationType: verificationError.verificationType,
+          verificationMethod: resolveVerificationMethod(
+            verificationError.availableMethods,
+            verificationError.verificationType,
+          ),
           request,
           order: createdOrder ?? undefined,
         });
@@ -517,19 +484,23 @@ export default function WithdrawFlow({
           : message,
       );
     } finally {
+      withdrawalInFlightRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   const submitWithdrawalVerification = (verificationCode: string) => {
     if (!verificationRequest) return;
+    const pendingVerification = verificationRequest;
+    setVerificationRequest(null);
     void initiateWithdrawal(
       {
         verificationCode,
-        verificationType: verificationRequest.verificationType,
+        verificationType: pendingVerification.verificationType,
+        verificationMethod: pendingVerification.verificationMethod,
       },
-      verificationRequest.request,
-      verificationRequest.order,
+      pendingVerification.request,
+      pendingVerification.order,
     );
   };
 
@@ -586,22 +557,16 @@ export default function WithdrawFlow({
           {step === "asset" ? (
             <WithdrawAssetSelectionStep
               asset={asset}
+              networkId={networkId}
               country={country}
               isDetectingCountry={isDetectingCountry}
               assets={withdrawableAssets}
               onSelectAsset={(nextAsset) => {
-                const matchedAsset = withdrawableAssets.find(
-                  (item) => item.symbol === nextAsset,
+                setAssetAndNetwork(
+                  nextAsset.symbol,
+                  nextAsset.network.name,
+                  nextAsset.network.id,
                 );
-                if (matchedAsset?.network) {
-                  setAssetAndNetwork(
-                    nextAsset,
-                    matchedAsset.network.name,
-                    matchedAsset.network.id,
-                  );
-                  return;
-                }
-                setAsset(nextAsset);
               }}
               onOpenCountryModal={() => setIsCountryModalOpen(true)}
               onBackToWallet={() => onAttemptClose(false)}

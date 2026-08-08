@@ -6,21 +6,15 @@ import CountrySelectorButton from "@/components/wallet/shared/CountrySelectorBut
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import AssetNetworkDisplay from "@/components/wallet/shared/AssetNetworkDisplay";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
-
-interface WithdrawableAsset {
-  symbol: string;
-  name: string;
-  balance: number;
-  network: { id: string; name: string } | null;
-  usdValue: number;
-}
+import type { WithdrawableAsset } from "@/lib/withdraw-assets";
 
 interface AssetSelectionStepProps {
   asset: string | null;
+  networkId: string | null;
   country: string | null;
   isDetectingCountry: boolean;
   assets: WithdrawableAsset[];
-  onSelectAsset: (asset: string) => void;
+  onSelectAsset: (asset: WithdrawableAsset) => void;
   onOpenCountryModal: () => void;
   onBackToWallet: () => void;
   onContinue: () => void;
@@ -28,6 +22,7 @@ interface AssetSelectionStepProps {
 
 export function WithdrawAssetSelectionStep({
   asset,
+  networkId,
   country,
   isDetectingCountry,
   assets,
@@ -36,7 +31,7 @@ export function WithdrawAssetSelectionStep({
   onBackToWallet,
   onContinue,
 }: AssetSelectionStepProps) {
-  const hasValidSelection = Boolean(asset);
+  const hasValidSelection = Boolean(asset && networkId);
 
   return (
     <div className="flex h-full min-h-[calc(100dvh-200px)] flex-col md:min-h-[500px]">
@@ -55,45 +50,51 @@ export function WithdrawAssetSelectionStep({
           </h3>
           {assets.length > 0 ? (
             <div className="space-y-3">
-              {assets.map((item) => (
-                <button
-                  key={`${item.symbol}:${item.network?.id || item.network?.name || "unknown"}`}
-                  type="button"
-                  onClick={() => onSelectAsset(item.symbol)}
-                  className={cn(
-                    "cursor-pointer",
-                    "w-full overflow-hidden rounded-2xl border p-4 text-left transition-all",
-                    asset === item.symbol
-                      ? "border-primary-60 bg-primary-70/5 ring-2 ring-primary-60/20"
-                      : "border-black/5 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50",
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <AssetNetworkDisplay
-                      symbol={item.symbol}
-                      assetName={item.name}
-                      network={item.network?.name}
-                      className="flex-1 sm:gap-4"
-                      symbolClassName={cn(
-                        "font-bold",
-                        asset === item.symbol
-                          ? "text-primary-60"
-                          : "text-black dark:text-white",
-                      )}
-                      detailClassName="text-gray-500"
-                    />
+              {assets.map((item) => {
+                const isSelected =
+                  asset === item.symbol && networkId === item.network.id;
 
-                    <div className="max-w-[76px] shrink-0 text-right sm:max-w-none">
-                      <p className="truncate text-xs font-bold text-black dark:text-white sm:text-sm">
-                        {item.balance.toFixed(4)}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        ${item.usdValue.toFixed(2)}
-                      </p>
+                return (
+                  <button
+                    key={`${item.symbol}:${item.network?.id || item.network?.name || "unknown"}`}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => onSelectAsset(item)}
+                    className={cn(
+                      "cursor-pointer",
+                      "w-full overflow-hidden rounded-2xl border p-4 text-left transition-all",
+                      isSelected
+                        ? "border-primary-60 bg-primary-70/5 ring-2 ring-primary-60/20"
+                        : "border-black/5 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <AssetNetworkDisplay
+                        symbol={item.symbol}
+                        assetName={item.name}
+                        network={item.network?.name}
+                        className="flex-1 sm:gap-4"
+                        symbolClassName={cn(
+                          "font-bold",
+                          isSelected
+                            ? "text-primary-60"
+                            : "text-black dark:text-white",
+                        )}
+                        detailClassName="text-gray-500"
+                      />
+
+                      <div className="max-w-[76px] shrink-0 text-right sm:max-w-none">
+                        <p className="truncate text-xs font-bold text-black dark:text-white sm:text-sm">
+                          {item.balance.toFixed(4)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          ${item.usdValue.toFixed(2)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <FlowEmptyState

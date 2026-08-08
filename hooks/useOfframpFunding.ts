@@ -68,7 +68,6 @@ export function useOfframpFunding() {
       symbol: string
       /** Used when the provider didn't state an exact token amount. */
       fallbackAmount: number
-      /** Reuses the code that authorized order creation for the funding operation. */
       verification?: StickyVerification
     }): Promise<string | null> => {
       const { order, symbol, fallbackAmount, verification } = params
@@ -145,7 +144,6 @@ export function useOfframpFunding() {
         toAddress: deposit.address,
       })
       setStickyVerificationCode(verification ?? null)
-
       try {
         return (await (
           smartAccountClient as unknown as {
