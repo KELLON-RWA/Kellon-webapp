@@ -45,7 +45,6 @@ import {
   endOperation,
   hasActiveOperation,
 } from "@/services/api";
-import { transactionService } from "@/services/api/transactions";
 import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
 import {
   useOfframpFunding,
@@ -397,7 +396,7 @@ export default function WithdrawFlow({
       if (pendingDeposit) {
         toast.info("Order created. Confirm the transfer to complete it.");
 
-        const fundingTxHash = await fundOfframpOrder({
+        await fundOfframpOrder({
           order: createdOrder,
           chainKey: networkName,
           symbol: asset,
@@ -409,28 +408,6 @@ export default function WithdrawFlow({
               }
             : undefined,
         });
-
-        if (fundingTxHash) {
-          try {
-            await transactionService.annotateTransaction({
-              txHash: fundingTxHash,
-              chain: networkName.toLowerCase(),
-              amount: String(
-                createdOrder.requiredTokenAmount ?? withdrawalCryptoAmount,
-              ),
-              symbol: asset,
-              metadata: {
-                status: "COMPLETED",
-                type: "OFFRAMP_DEPOSIT",
-                provider: providerName,
-                depositAddress: pendingDeposit.address,
-                orderId: transactionId,
-              },
-            });
-          } catch {
-            // The detail page continues polling if annotation propagation is delayed.
-          }
-        }
       }
 
       setVerificationRequest(null);

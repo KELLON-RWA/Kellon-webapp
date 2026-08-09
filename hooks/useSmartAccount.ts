@@ -210,9 +210,15 @@ export function useSmartAccount() {
                 method === "eth_sendUserOperation" &&
                 stickyVerificationCode
               ) {
+                const verificationCode = stickyVerificationCode
                 headers["x-verification-codes"] = JSON.stringify([
-                  stickyVerificationCode,
+                  verificationCode,
                 ])
+                // WebAuthn assertions are single-use. Clear the shared value as
+                // soon as it is attached so a transport retry cannot resend it.
+                if (verificationCode.type === "webauthn") {
+                  stickyVerificationCode = null
+                }
               }
               const backendBaseUrl =
                 process.env.NEXT_PUBLIC_BACKEND_API_URL ||
