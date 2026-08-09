@@ -4,9 +4,9 @@ import {
   CreditCard,
   Landmark,
   Smartphone,
-  ChevronDown,
   ArrowRight,
 } from "lucide-react";
+import type { PaymentRail } from "@/lib/payment-rails";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -36,9 +36,8 @@ interface AmountEntryStepProps {
   exchangeRate: number;
   isRateLoading: boolean;
   isAmountValid: boolean;
-  paymentMethod: string;
+  paymentRail: PaymentRail;
   paymentMethodLabel: string;
-  onOpenPaymentModal: () => void;
   onKeypadPress: (val: string) => void;
   onContinue: () => void;
   onAmountChange?: (value: string) => void;
@@ -66,9 +65,8 @@ export function AmountEntryStep({
   fiatSymbol,
   isRateLoading,
   isAmountValid,
-  paymentMethod,
+  paymentRail,
   paymentMethodLabel,
-  onOpenPaymentModal,
   onKeypadPress,
   onContinue,
   onAmountChange,
@@ -159,29 +157,28 @@ export function AmountEntryStep({
             <QuickAmountButtons />
           </div>
 
-          {/* Payment Method Selector */}
+          {/* Informational until additional payment rails are enabled. */}
           <div className="mb-4 w-full">
-            <button
-              onClick={onOpenPaymentModal}
-              className="flex w-full items-center justify-between rounded-2xl border border-black/5 bg-white p-4 transition-transform active:scale-[0.98] hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
+            <div
+              className="flex w-full items-center justify-between rounded-2xl border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-secondary-50"
+              aria-label={`Payment method: ${paymentMethodLabel}`}
             >
               <span className="text-[11px] font-medium text-gray-500">
-                Select payment method
+                Payment method
               </span>
               <div className="flex items-center gap-2 text-xs font-bold">
-                {paymentMethod === "card" && (
+                {paymentRail === "card" && (
                   <CreditCard className="h-4 w-4 text-primary-70" />
                 )}
-                {paymentMethod === "bank" && (
+                {paymentRail === "bank_transfer" && (
                   <Landmark className="h-4 w-4 text-primary-70" />
                 )}
-                {paymentMethod === "mobile_money" && (
+                {paymentRail === "mobile_money" && (
                   <Smartphone className="h-4 w-4 text-primary-70" />
                 )}
                 {paymentMethodLabel}
-                <ChevronDown className="h-4 w-4 text-gray-400" />
               </div>
-            </button>
+            </div>
           </div>
 
           {/* Keypad */}
@@ -232,21 +229,21 @@ export function AmountEntryStep({
             </Form>
           </div>
 
-          {/* Desktop Payment Method Selector */}
+          {/* Desktop payment method display */}
           <div className="mt-4 w-full">
-            <button
-              onClick={onOpenPaymentModal}
-              className="flex w-full items-center justify-between rounded-xl border border-black/5 bg-white p-4 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
+            <div
+              className="flex w-full items-center justify-between rounded-xl border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-secondary-50"
+              aria-label={`Payment method: ${paymentMethodLabel}`}
             >
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-gray-100 p-2 dark:bg-secondary-60/60">
-                  {paymentMethod === "card" && (
+                  {paymentRail === "card" && (
                     <CreditCard className="h-4 w-4 text-primary-70" />
                   )}
-                  {paymentMethod === "bank" && (
+                  {paymentRail === "bank_transfer" && (
                     <Landmark className="h-4 w-4 text-primary-70" />
                   )}
-                  {paymentMethod === "mobile_money" && (
+                  {paymentRail === "mobile_money" && (
                     <Smartphone className="h-4 w-4 text-primary-70" />
                   )}
                 </div>
@@ -255,10 +252,7 @@ export function AmountEntryStep({
                   <p className="text-sm font-semibold">{paymentMethodLabel}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              </div>
-            </button>
+            </div>
           </div>
 
           {/* Desktop Continue Button - Below payment method */}

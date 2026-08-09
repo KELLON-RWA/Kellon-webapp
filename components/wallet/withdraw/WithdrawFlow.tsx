@@ -9,6 +9,7 @@ import { useWithdrawState, WITHDRAW_STEPS } from "@/hooks/use-withdraw-state";
 import { useCountryDetection } from "@/hooks/use-country-detection";
 import { getCurrencyForCountry } from "@/lib/country-currency-map";
 import { getChainById } from "@/lib/chains";
+import { ACTIVE_PAYMENT_RAIL } from "@/lib/payment-rails";
 import { useProviders } from "@/hooks/use-provider";
 import { useProviderRates } from "@/hooks/use-provider-rates";
 import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal";
@@ -745,6 +746,7 @@ export default function WithdrawFlow({
               selectedProvider={selectedProvider}
               selectedBank={selectedBank}
               isSubmitting={isSubmitting}
+              paymentRail={ACTIVE_PAYMENT_RAIL}
               onConfirm={prepareWithdrawalVerification}
             />
           ) : null}

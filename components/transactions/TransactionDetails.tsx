@@ -21,9 +21,15 @@ import {
   getCurrencySymbol,
 } from "@/lib/country-currency-map";
 import { transactionService } from "@/services/api/transactions";
+import { providerService } from "@/services/api/payment-providers";
 import type { Transaction } from "@/types/db";
 import { getTransactionRefetchInterval } from "@/lib/transaction-polling";
 import { shouldReturnHomeFromTransaction } from "@/lib/transaction-navigation";
+import {
+  extractTransactionBankDetails,
+  getNestedProviderNumber,
+  resolveBankNameByCode,
+} from "@/lib/transaction-detail-metadata";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -299,30 +305,45 @@ function getFiatCurrency(transaction: Transaction): string {
 function getFiatReceivedAmount(transaction: Transaction): number | null {
   const metadata = getTransactionMetadata(transaction);
 
-  return getNumericMetadataValue(metadata, [
+  const directAmount = getNumericMetadataValue(metadata, [
     "receiveAmount",
     "estimatedFiatAmount",
     "fiatPayoutAmount",
     "amountReceived",
     "fiatAmount",
   ]);
+  if (directAmount !== null) return directAmount;
+
+  if (transaction.type === "WITHDRAW" || transaction.type === "SELL") {
+    return getNestedProviderNumber(metadata, "centiivResponse", [
+      "receivableAmount",
+      "nairaValue",
+    ]);
+  }
+
+  return null;
 }
 
 function getTransactionRate(transaction: Transaction): number | null {
   const metadata = getTransactionMetadata(transaction);
 
-  return getNumericMetadataValue(metadata, ["rate", "rawRate", "exchangeRate"]);
+  return (
+    getNumericMetadataValue(metadata, ["rate", "rawRate", "exchangeRate"]) ??
+    getNestedProviderNumber(metadata, "centiivResponse", ["rate"])
+  );
 }
 
 function getTransactionFee(transaction: Transaction): number | null {
   const metadata = getTransactionMetadata(transaction);
 
-  return getNumericMetadataValue(metadata, [
-    "fee",
-    "fees",
-    "feeAmount",
-    "providerFee",
-  ]);
+  return (
+    getNumericMetadataValue(metadata, [
+      "fee",
+      "fees",
+      "feeAmount",
+      "providerFee",
+    ]) ?? getNestedProviderNumber(metadata, "centiivResponse", ["fee"])
+  );
 }
 
 function parseTransactionAmount(amount: Transaction["amount"]): number | null {
@@ -438,32 +459,21 @@ function getNumericMetadataValue(
   return null;
 }
 
-function getNestedStringMetadataValue(
-  metadata: Record<string, unknown>,
-  parentKey: string,
-  childKeys: string[],
-): string | null {
-  const parent = metadata[parentKey];
-
-  if (!parent || typeof parent !== "object") return null;
-
-  return getStringMetadataValue(parent as Record<string, unknown>, childKeys);
-}
-
-function getBankDetailRows(transaction: Transaction): DetailRow[] {
+function getBankDetailRows(
+  transaction: Transaction,
+  resolvedBankName?: string | null,
+): DetailRow[] {
   const metadata = getTransactionMetadata(transaction);
-  const bankName =
-    getNestedStringMetadataValue(metadata, "bankDetail", ["bankName"]) ||
-    getStringMetadataValue(metadata, ["bankName"]);
-  const accountName =
-    getNestedStringMetadataValue(metadata, "bankDetail", ["accountName"]) ||
-    getStringMetadataValue(metadata, ["accountName"]);
-  const accountNumber =
-    getNestedStringMetadataValue(metadata, "bankDetail", ["accountNumber"]) ||
-    getStringMetadataValue(metadata, ["accountNumber"]);
+  const { bankName, bankCode, accountName, accountNumber } =
+    extractTransactionBankDetails(metadata);
+  const displayBankName = bankName || resolvedBankName;
 
   return [
-    bankName ? { label: "Bank Name", value: bankName } : null,
+    displayBankName
+      ? { label: "Bank Name", value: displayBankName }
+      : bankCode
+        ? { label: "Bank Code", value: bankCode }
+        : null,
     accountName ? { label: "Account Name", value: accountName } : null,
     accountNumber ? { label: "Account Number", value: accountNumber } : null,
   ].filter(Boolean) as DetailRow[];
@@ -526,6 +536,7 @@ function buildTransactionDetailSections(
   amountValue: number | null,
   symbol: string,
   transactionNetwork: string,
+  resolvedBankName?: string | null,
 ): DetailSection[] {
   const metadata = getTransactionMetadata(transaction);
   const fiatCurrency = getFiatCurrency(transaction);
@@ -596,7 +607,7 @@ function buildTransactionDetailSections(
   });
 
   const sections: DetailSection[] = [{ rows: baseRows }];
-  const bankRows = getBankDetailRows(transaction);
+  const bankRows = getBankDetailRows(transaction, resolvedBankName);
   const recipientRows = getRecipientDetailRows(transaction);
 
   if (bankRows.length > 0) {
@@ -655,6 +666,36 @@ export default function TransactionDetails({
   });
 
   const transaction = data;
+  const transactionMetadata = useMemo(
+    () => (transaction ? getTransactionMetadata(transaction) : {}),
+    [transaction],
+  );
+  const transactionBankDetails = useMemo(
+    () => extractTransactionBankDetails(transactionMetadata),
+    [transactionMetadata],
+  );
+  const isCentiivTransaction = Boolean(
+    transactionMetadata.centiivResponse ||
+      (typeof transactionMetadata.provider === "string" &&
+        transactionMetadata.provider.toLowerCase() === "centiiv"),
+  );
+  const centiivBankCode =
+    isCentiivTransaction && !transactionBankDetails.bankName
+      ? transactionBankDetails.bankCode
+      : null;
+  const { data: centiivBanks = [] } = useQuery({
+    queryKey: ["providers", "centiiv", "banks"],
+    queryFn: async () => {
+      const response = await providerService.getBankList();
+      return response.data || [];
+    },
+    enabled: Boolean(centiivBankCode),
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const resolvedCentiivBankName = useMemo(() => {
+    return resolveBankNameByCode(centiivBankCode, centiivBanks);
+  }, [centiivBankCode, centiivBanks]);
   const isOnramp = transaction?.type === "BUY";
   const isOnrampTracking = Boolean(
     isOnramp &&
@@ -698,8 +739,15 @@ export default function TransactionDetails({
       amountValue,
       symbol,
       transactionNetwork,
+      resolvedCentiivBankName,
     );
-  }, [transaction, amountValue, symbol, transactionNetwork]);
+  }, [
+    transaction,
+    amountValue,
+    symbol,
+    transactionNetwork,
+    resolvedCentiivBankName,
+  ]);
   const fiatReceivedAmount = transaction
     ? getFiatReceivedAmount(transaction)
     : null;

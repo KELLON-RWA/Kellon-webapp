@@ -15,7 +15,10 @@ import {
 } from "@/lib/country-currency-map"
 import { getChainById } from "@/lib/chains"
 import { getTransactionDetailsPath } from "@/lib/transaction-navigation"
-import PaymentMethodModal from "@/components/modals/PaymentMethodModal"
+import {
+  ACTIVE_PAYMENT_RAIL,
+  getPaymentRailConfig,
+} from "@/lib/payment-rails"
 import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal"
 import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries"
 import { useExchangeRate } from "@/hooks/use-exchange-rate"
@@ -50,12 +53,6 @@ type ProviderRateSnapshot = {
   cryptoAmount: number | null
   fiatAmount: number | null
   rawRate: number | null
-}
-
-const methodLabels: Record<string, string> = {
-  card: "Debit/Credit Card",
-  bank: "Bank Transfer",
-  mobile_money: "Mobile Money",
 }
 
 function getOnrampReferenceCandidates(
@@ -181,11 +178,10 @@ export default function BuyCryptoFlow({
 
   // Local UI state
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false)
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isBankModalOpen, setIsBankModalOpen] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<
-    "card" | "bank" | "mobile_money"
-  >("card")
+  const paymentRail = ACTIVE_PAYMENT_RAIL
+  const paymentRailConfig = getPaymentRailConfig(paymentRail)
+  const paymentMethod = paymentRailConfig.apiValue
   const [savedBanks, setSavedBanks] = useState<BankDetail[]>([])
   const [selectedProviderBank, setSelectedProviderBank] =
     useState<SelectableBank | null>(null)
@@ -693,9 +689,8 @@ export default function BuyCryptoFlow({
             exchangeRate={exchangeRate}
             isRateLoading={isRateLoading}
             isAmountValid={isAmountValid}
-            paymentMethod={paymentMethod}
-            paymentMethodLabel={methodLabels[paymentMethod]}
-            onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
+            paymentRail={paymentRail}
+            paymentMethodLabel={paymentRailConfig.label}
             onKeypadPress={handleKeypadPress}
             onContinue={() => {
               if (isAmountValid) {
@@ -714,7 +709,7 @@ export default function BuyCryptoFlow({
             amount={amount}
             providers={providers}
             selectedProviderId={selectedProviderId}
-            paymentMethodLabel={methodLabels[paymentMethod]}
+            paymentMethodLabel={paymentRailConfig.label}
             onSelectProvider={setSelectedProviderId}
             onContinue={() => {
               if (!hasSelectedProviderRate) {
@@ -777,7 +772,7 @@ export default function BuyCryptoFlow({
               selectedProviderRate?.cryptoAmount || cryptoAmountValue
             }
             selectedBank={selectedBank}
-            paymentMethodLabel={methodLabels[paymentMethod]}
+            paymentRail={paymentRail}
             isSubmitting={isSubmitting}
             initializedOrder={initializedOrder}
             isCompleting={isCompletingOrder}
@@ -789,13 +784,6 @@ export default function BuyCryptoFlow({
           />
         )}
       </div>
-
-      <PaymentMethodModal
-        isOpen={isPaymentModalOpen}
-        onClose={setIsPaymentModalOpen}
-        selectedMethod={paymentMethod}
-        onSelect={setPaymentMethod}
-      />
 
       <CountrySelectorModal
         isVisible={isCountryModalOpen}

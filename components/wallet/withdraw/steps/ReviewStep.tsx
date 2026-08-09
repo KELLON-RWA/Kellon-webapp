@@ -1,10 +1,14 @@
 "use client";
 
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import ChainIcon from "@/components/wallet/ChainIcon";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import type { BankDetail } from "@/types/db";
+import {
+  getPaymentRailConfig,
+  type PaymentRail,
+} from "@/lib/payment-rails";
 
 interface ReviewStepProps {
   amount: string;
@@ -15,6 +19,7 @@ interface ReviewStepProps {
   selectedBank: BankDetail | null;
   onConfirm: () => void;
   isSubmitting: boolean;
+  paymentRail: PaymentRail;
 }
 
 export function WithdrawReviewStep({
@@ -26,7 +31,9 @@ export function WithdrawReviewStep({
   selectedBank,
   onConfirm,
   isSubmitting,
+  paymentRail,
 }: ReviewStepProps) {
+  const paymentAction = getPaymentRailConfig(paymentRail);
   return (
     <div className="flex h-full min-h-[calc(100dvh-200px)] flex-col md:min-h-[500px]">
       <div className="flex-1 animate-in fade-in slide-in-from-bottom-4">
@@ -106,13 +113,10 @@ export function WithdrawReviewStep({
           {isSubmitting ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              Initializing withdrawal
+              {paymentAction.withdrawalLoadingAction}
             </>
           ) : (
-            <>
-              <ShieldCheck className="h-6 w-6" />
-              Initialize Withdrawal
-            </>
+            paymentAction.withdrawalAction
           )}
         </FlowActionFooter>
       </div>

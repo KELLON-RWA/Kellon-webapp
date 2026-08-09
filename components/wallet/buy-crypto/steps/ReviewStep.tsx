@@ -7,7 +7,6 @@ import {
   Copy,
   Loader2,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import ChainIcon from "@/components/wallet/ChainIcon";
@@ -15,6 +14,10 @@ import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import type { BankDetail } from "@/types/db";
 import type { OnrampResponse } from "@/services/api/on-ramp";
+import {
+  getPaymentRailConfig,
+  type PaymentRail,
+} from "@/lib/payment-rails";
 
 interface ReviewStepProps {
   amount: string;
@@ -25,7 +28,7 @@ interface ReviewStepProps {
   selectedProvider: { name: string; logo?: string } | null;
   estimatedCrypto: number;
   selectedBank?: BankDetail | null;
-  paymentMethodLabel: string;
+  paymentRail: PaymentRail;
   isSubmitting?: boolean;
   initializedOrder?: OnrampResponse | null;
   isCompleting?: boolean;
@@ -44,7 +47,7 @@ export function ReviewStep({
   selectedProvider,
   estimatedCrypto,
   selectedBank,
-  paymentMethodLabel,
+  paymentRail,
   isSubmitting = false,
   initializedOrder = null,
   isCompleting = false,
@@ -67,6 +70,7 @@ export function ReviewStep({
   };
 
   const providerAccount = initializedOrder?.providerAccount;
+  const paymentAction = getPaymentRailConfig(paymentRail);
 
   useEffect(() => {
     if (!providerAccount?.validUntil) return;
@@ -374,21 +378,11 @@ export function ReviewStep({
               onClick={onConfirm}
               disabled={isSubmitting}
               showShimmer={!isSubmitting}
-              helperText={
-                <>
-                  You will be redirected to {selectedProvider?.name}&apos;s
-                  secure portal to complete your transaction via{" "}
-                  <span className="font-bold text-gray-500">
-                    {paymentMethodLabel.toLowerCase()}
-                  </span>
-                  .
-                </>
-              }
+              helperText={paymentAction.depositHelperText}
             >
-              <ShieldCheck className="h-5 w-5" />
               {isSubmitting
-                ? "Initializing Payment..."
-                : "Initialize Secure Payment"}
+                ? paymentAction.depositLoadingAction
+                : paymentAction.depositAction}
             </FlowActionFooter>
           )}
         </div>
