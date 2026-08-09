@@ -18,13 +18,14 @@ import {
   getAssetName,
   parseAssetAmount,
 } from "./dashboard-utils"
-import { getActivityRefetchInterval } from "./transaction-polling"
-import { useRealtime } from "@/components/providers/RealtimeProvider"
+import {
+  getActivityRefetchInterval,
+  isTerminalTransactionStatus,
+} from "./transaction-polling"
 
 const FIAT_CURRENCIES = new Set(Object.values(COUNTRY_CURRENCY_MAP))
 
 export function useDashboardData(profile: User) {
-  const { isConnected } = useRealtime()
   const { countryCode, currencyCode, flag, isDetecting } = useDetectCountry()
   const [isBalanceVisible, setIsBalanceVisible] = useState(true)
   const [displayCurrency, setDisplayCurrency] =
@@ -46,10 +47,14 @@ export function useDashboardData(profile: User) {
     initialData: profile.transactions || [],
     staleTime: 5_000,
     refetchInterval: (query) => {
-      // Realtime is primary; periodic polling remains a safety net for missed events.
-      return isConnected
-        ? 60_000
-        : getActivityRefetchInterval(query.state.data)
+      const transactions = query.state.data || []
+      const hasPending = transactions.some(
+        (transaction) => !isTerminalTransactionStatus(transaction.status),
+      )
+
+      // Realtime is primary. Poll only while something can still change, and
+      // progressively back off for old pending records.
+      return hasPending ? getActivityRefetchInterval(transactions) : false
     },
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,

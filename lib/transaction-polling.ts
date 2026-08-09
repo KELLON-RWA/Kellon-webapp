@@ -2,6 +2,7 @@ import { TransactionStatus, type Transaction } from "../types/db"
 
 export const WITHDRAWAL_POLL_INTERVAL_MS = 2_000
 export const ONRAMP_POLL_INTERVAL_MS = 5_000
+export const DEFAULT_PENDING_TRANSACTION_POLL_INTERVAL_MS = 5_000
 export const ACTIVE_ACTIVITY_POLL_INTERVAL_MS = 5_000
 export const AGING_ACTIVITY_POLL_INTERVAL_MS = 15_000
 export const IDLE_ACTIVITY_POLL_INTERVAL_MS = 60_000
@@ -28,7 +29,9 @@ export function getTransactionRefetchInterval(
     return transaction.status === "PAID" ? false : WITHDRAWAL_POLL_INTERVAL_MS
   }
 
-  return transaction.type === "BUY" ? ONRAMP_POLL_INTERVAL_MS : false
+  return transaction.type === "BUY"
+    ? ONRAMP_POLL_INTERVAL_MS
+    : DEFAULT_PENDING_TRANSACTION_POLL_INTERVAL_MS
 }
 
 export function isTerminalTransactionStatus(

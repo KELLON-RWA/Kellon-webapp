@@ -665,11 +665,11 @@ export default function TransactionDetails({
       const fallbackInterval = getTransactionRefetchInterval(query.state.data);
       if (fallbackInterval === false) return false;
 
-      // Realtime events are the primary update path. Retain slower polling as a
-      // safety net so a missed event cannot leave a pending receipt stuck.
-      return isConnected ? 30_000 : fallbackInterval;
+      // Realtime events are the primary update path. Poll more frequently in the
+      // background so a missed event cannot leave a pending receipt stuck.
+      return isConnected ? 15_000 : fallbackInterval;
     },
-    refetchIntervalInBackground: false,
+    refetchIntervalInBackground: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     staleTime: 0,

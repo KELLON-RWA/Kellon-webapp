@@ -5,6 +5,7 @@ import {
   ACTIVE_ACTIVITY_WINDOW_MS,
   AGING_ACTIVITY_POLL_INTERVAL_MS,
   AGING_ACTIVITY_WINDOW_MS,
+  DEFAULT_PENDING_TRANSACTION_POLL_INTERVAL_MS,
   getActivityRefetchInterval,
   getTransactionRefetchInterval,
   IDLE_ACTIVITY_POLL_INTERVAL_MS,
@@ -29,6 +30,15 @@ describe("transaction detail polling", () => {
         status: TransactionStatus.PENDING,
       }),
     ).toBe(ONRAMP_POLL_INTERVAL_MS)
+  })
+
+  it("polls other pending transaction types", () => {
+    expect(
+      getTransactionRefetchInterval({
+        type: TransactionType.TRANSFER_OUT,
+        status: TransactionStatus.PENDING,
+      }),
+    ).toBe(DEFAULT_PENDING_TRANSACTION_POLL_INTERVAL_MS)
   })
 
   it.each([
