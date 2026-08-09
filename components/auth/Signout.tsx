@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 // 1. Import your custom API logout function
 import { logout as apiLogout } from "@/services/api/auth";
+import { disableWebPush } from "@/lib/realtime/web-push";
 
 const Signout: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -21,6 +22,7 @@ const Signout: FC = () => {
     const deviceToken = Cookies.get("deviceToken");
 
     try {
+      await disableWebPush().catch(() => {});
       // Backend logout
       await apiLogout(deviceToken || "");
     } catch (error) {

@@ -19,17 +19,20 @@ import {
   parseAssetAmount,
 } from "./dashboard-utils"
 import { getActivityRefetchInterval } from "./transaction-polling"
+import { useRealtime } from "@/components/providers/RealtimeProvider"
 
 const FIAT_CURRENCIES = new Set(Object.values(COUNTRY_CURRENCY_MAP))
 
 export function useDashboardData(profile: User) {
+  const { isConnected } = useRealtime()
   const { countryCode, currencyCode, flag, isDetecting } = useDetectCountry()
   const [isBalanceVisible, setIsBalanceVisible] = useState(true)
   const [displayCurrency, setDisplayCurrency] =
     useState<DisplayCurrency>("LOCAL")
   const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({})
   const [isPricesLoading, setIsPricesLoading] = useState(false)
-
+  // Must go through React Query: this is the most-viewed activity list, and a bare
+  // useEffect fetch would never react to realtime invalidation of ["transactions"].
   const {
     data: transactions = profile.transactions || [],
     isLoading: isTransactionsLoading,
@@ -42,8 +45,12 @@ export function useDashboardData(profile: User) {
     },
     initialData: profile.transactions || [],
     staleTime: 5_000,
-    refetchInterval: (query) =>
-      getActivityRefetchInterval(query.state.data),
+    refetchInterval: (query) => {
+      // Realtime is primary; periodic polling remains a safety net for missed events.
+      return isConnected
+        ? 60_000
+        : getActivityRefetchInterval(query.state.data)
+    },
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -132,7 +139,6 @@ export function useDashboardData(profile: User) {
       ? transactionsQueryError.message
       : "Failed to load activity"
     : null
-
   const groupedAssets = useMemo<GroupedAssetSummary[]>(() => {
     const grouped = new Map<
       string,

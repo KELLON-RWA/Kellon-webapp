@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useRealtime } from "@/components/providers/RealtimeProvider";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -81,6 +82,7 @@ function EarnSkeleton({
 }
 
 export default function EarnPage({ profile }: EarnPageProps) {
+  const { isConnected } = useRealtime();
   const [selectedAction, setSelectedAction] = useState<SelectedAction>(null);
   const [opportunitySearch, setOpportunitySearch] = useState("");
   const [isSearchToolbarStuck, setIsSearchToolbarStuck] = useState(false);
@@ -94,7 +96,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
     queryKey: ["yield-opportunities"],
     queryFn: async () => (await yieldService.getOpportunities()).data,
     staleTime: 30_000,
-    refetchInterval: 30_000,
+    refetchInterval: isConnected ? 120_000 : 30_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
@@ -132,7 +134,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
     queryKey: ["yield-positions"],
     queryFn: async () => (await yieldService.getPositions()).data,
     staleTime: 30_000,
-    refetchInterval: 30_000,
+    refetchInterval: isConnected ? 120_000 : 30_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });

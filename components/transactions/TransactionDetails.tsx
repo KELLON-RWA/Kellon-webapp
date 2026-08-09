@@ -13,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { getChainLabel } from "@/lib/chains";
@@ -643,6 +644,8 @@ export default function TransactionDetails({
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const { isConnected } = useRealtime();
+
   const handleBack = () => {
     if (shouldReturnHomeFromTransaction(origin)) {
       router.replace("/");
@@ -658,7 +661,14 @@ export default function TransactionDetails({
       const response = await transactionService.getTransaction(id);
       return response.data;
     },
-    refetchInterval: (query) => getTransactionRefetchInterval(query.state.data),
+    refetchInterval: (query) => {
+      const fallbackInterval = getTransactionRefetchInterval(query.state.data);
+      if (fallbackInterval === false) return false;
+
+      // Realtime events are the primary update path. Retain slower polling as a
+      // safety net so a missed event cannot leave a pending receipt stuck.
+      return isConnected ? 30_000 : fallbackInterval;
+    },
     refetchIntervalInBackground: false,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,

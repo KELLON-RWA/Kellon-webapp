@@ -1,7 +1,7 @@
 "use client"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ReactNode, useEffect, useRef, useState } from "react"
+import { ReactNode, useEffect, useRef } from "react"
 import type { Transaction } from "@/types/db"
 import { recordTransactionStatuses } from "@/lib/transaction-status-sync"
 
@@ -38,13 +38,22 @@ function TransactionBalanceSync({ queryClient }: { queryClient: QueryClient }) {
   return null
 }
 
+/**
+ * Module-level so non-React code (the realtime handler) can invalidate. Previously this
+ * was constructed in the component body, which also meant any re-render minted a new cache.
+ * Safe in a "use client" module — it never executes server-side for another user.
+ */
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 30_000 },
+  },
+})
+
 export default function ReactQueryProvider({
   children,
 }: {
   children: ReactNode
 }) {
-  const [queryClient] = useState(() => new QueryClient())
-
   return (
     <QueryClientProvider client={queryClient}>
       <TransactionBalanceSync queryClient={queryClient} />

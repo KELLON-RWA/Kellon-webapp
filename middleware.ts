@@ -44,6 +44,8 @@ export function middleware(request: NextRequest) {
 export const config = {
   // Pattern to skip all internal Next.js paths and static files
   matcher: [
-    "/((?!_next/static|_next/image|api|favicon.ico|manifest.json|.*\\.(?:json|svg|png|jpg|jpeg|gif|webp)$).*)",
+    // sw.js must be excluded: a redirect to /onboarding would be served as the service
+    // worker script and registration would fail.
+    "/((?!_next/static|_next/image|api|favicon.ico|manifest.json|sw.js|.*\\.(?:json|svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

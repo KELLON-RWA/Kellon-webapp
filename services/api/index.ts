@@ -180,6 +180,11 @@ export function getOrCreateDeviceId(): string {
   return deviceId;
 }
 
+/** Read fresh at every connect — a captured token pins a reconnect loop into 4401. */
+export function getAuthToken(): string | undefined {
+  return getStoredValue(AUTH_TOKEN_STORAGE_KEY);
+}
+
 function getApiCredentials(): Required<ApiCredentials> {
   const token = getStoredValue(AUTH_TOKEN_STORAGE_KEY);
   const apiSecret = getStoredValue(API_SECRET_STORAGE_KEY);
