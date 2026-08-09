@@ -65,6 +65,7 @@ export interface OnrampResponse {
     validUntil?: string;
     amountToTransfer: string;
     currency: string;
+    reference?: string;
   };
   paymentDetails?: {
     accountNumber: string;
@@ -72,6 +73,160 @@ export interface OnrampResponse {
     accountName: string;
     amount: number;
     reference: string;
+    currency?: string;
+    validUntil?: string;
+  };
+  paymentInstructions?: Record<string, unknown>;
+  depositInstructions?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  raw?: Record<string, unknown>;
+}
+
+type ProviderAccount = NonNullable<OnrampResponse["providerAccount"]>;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getRecord(
+  source: Record<string, unknown> | null,
+  key: string,
+): Record<string, unknown> | null {
+  return asRecord(source?.[key]);
+}
+
+function getFirstValue(
+  source: Record<string, unknown>,
+  keys: string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return undefined;
+}
+
+/** Extracts bank instructions from the response shapes used by ramp providers. */
+export function extractOnrampTransferInstructions(
+  value: unknown,
+  fallbackCurrency: string,
+  fallbackAmount?: number | string,
+): ProviderAccount | null {
+  const root = asRecord(value);
+  if (!root) return null;
+
+  const metadata = getRecord(root, "metadata");
+  const centiivResponse = getRecord(metadata, "centiivResponse");
+  const raw = getRecord(root, "raw");
+  const candidates = [
+    getRecord(root, "providerAccount"),
+    getRecord(root, "paymentDetails"),
+    getRecord(root, "paymentInstructions"),
+    getRecord(root, "depositInstructions"),
+    getRecord(root, "virtualAccount"),
+    getRecord(root, "bankAccount"),
+    getRecord(root, "account"),
+    getRecord(root, "temporaryWallet"),
+    getRecord(raw, "temporaryWallet"),
+    getRecord(raw, "virtualAccount"),
+    getRecord(centiivResponse, "temporaryWallet"),
+    getRecord(metadata, "paymentInstructions"),
+  ].filter((candidate): candidate is Record<string, unknown> => !!candidate);
+
+  for (const candidate of candidates) {
+    const accountIdentifier = getFirstValue(candidate, [
+      "accountIdentifier",
+      "accountNumber",
+      "account_number",
+      "virtualAccountNumber",
+    ]);
+    const institution = getFirstValue(candidate, [
+      "institution",
+      "bankName",
+      "bank_name",
+      "virtualBankName",
+    ]);
+
+    if (!accountIdentifier || !institution) continue;
+
+    return {
+      institution,
+      accountIdentifier,
+      accountName:
+        getFirstValue(candidate, [
+          "accountName",
+          "account_name",
+          "virtualAccountName",
+          "beneficiaryName",
+        ]) || "Kellon App",
+      amountToTransfer:
+        getFirstValue(candidate, [
+          "amountToTransfer",
+          "amount",
+          "fiatAmount",
+        ]) || String(fallbackAmount || ""),
+      currency:
+        getFirstValue(candidate, ["currency", "fiatCurrency"]) ||
+        fallbackCurrency,
+      validUntil: getFirstValue(candidate, [
+        "validUntil",
+        "expiresAt",
+        "expires_at",
+      ]),
+      reference: getFirstValue(candidate, ["reference", "narration"]),
+    };
+  }
+
+  return null;
+}
+
+export function getCentiivPollingReferences(order: OnrampResponse): {
+  orderId?: string;
+  transactionId?: string;
+} {
+  const root = asRecord(order);
+  const metadata = getRecord(root, "metadata");
+  const centiivResponse = getRecord(metadata, "centiivResponse");
+  const transaction = getRecord(root, "transaction");
+
+  return {
+    orderId:
+      getFirstValue(centiivResponse || {}, ["id", "orderId"]) ||
+      getFirstValue(root || {}, ["orderId"]),
+    transactionId:
+      getFirstValue(metadata || {}, ["backendTransactionId"]) ||
+      getFirstValue(transaction || {}, ["id", "transactionId"]) ||
+      getFirstValue(root || {}, ["transactionId", "id"]),
+  };
+}
+
+/**
+ * Providers return bank-transfer instructions in different shapes. Normalize
+ * Centiiv's paymentDetails so the buy flow can render one instruction UI.
+ */
+export function normalizeOnrampTransferInstructions(
+  order: OnrampResponse,
+  fallbackCurrency: string,
+  fallbackAmount?: number | string,
+): OnrampResponse {
+  if (order.providerAccount) return order;
+
+  const providerAccount = extractOnrampTransferInstructions(
+    order,
+    fallbackCurrency,
+    fallbackAmount,
+  );
+  if (!providerAccount) return order;
+
+  return {
+    ...order,
+    providerAccount,
   };
 }
 
@@ -98,6 +253,16 @@ export const onrampService = {
     body: OnrampInitRequest,
   ): Promise<ApiResponse<OnrampResponse>> =>
     post("/api/onramp/centiiv/initiate", body),
+
+  getCentiivOrderStatus: async (
+    orderId: string,
+  ): Promise<ApiResponse<Record<string, unknown>>> => {
+    const res = await apiFetch(
+      `/api/onramp/centiiv/order/${encodeURIComponent(orderId)}`,
+      { cache: "no-store" },
+    );
+    return handleResponse(res);
+  },
 
   initiateMoonpay: (
     body: OnrampInitRequest,

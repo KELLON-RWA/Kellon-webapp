@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useDetectCountry } from "@/hooks/use-detect-country"
 import { useExchangeRate } from "@/hooks/use-exchange-rate"
 import {
@@ -23,14 +23,12 @@ import { getActivityRefetchInterval } from "./transaction-polling"
 const FIAT_CURRENCIES = new Set(Object.values(COUNTRY_CURRENCY_MAP))
 
 export function useDashboardData(profile: User) {
-  const queryClient = useQueryClient()
   const { countryCode, currencyCode, flag, isDetecting } = useDetectCountry()
   const [isBalanceVisible, setIsBalanceVisible] = useState(true)
   const [displayCurrency, setDisplayCurrency] =
     useState<DisplayCurrency>("LOCAL")
   const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({})
   const [isPricesLoading, setIsPricesLoading] = useState(false)
-  const previousActivitySignature = useRef<string | null>(null)
 
   const {
     data: transactions = profile.transactions || [],
@@ -128,29 +126,6 @@ export function useDashboardData(profile: User) {
       isCancelled = true
     }
   }, [assetSymbolsKey])
-
-  const activitySignature = useMemo(
-    () =>
-      transactions
-        .map((transaction) => `${transaction.id}:${transaction.status}`)
-        .sort()
-        .join("|"),
-    [transactions],
-  )
-
-  useEffect(() => {
-    if (previousActivitySignature.current === null) {
-      previousActivitySignature.current = activitySignature
-      return
-    }
-
-    if (previousActivitySignature.current === activitySignature) return
-    previousActivitySignature.current = activitySignature
-
-    // A new activity or status change can alter holdings; refresh the profile
-    // immediately instead of waiting for the next balance polling tick.
-    void queryClient.invalidateQueries({ queryKey: ["user-session"] })
-  }, [activitySignature, queryClient])
 
   const transactionsError = transactionsQueryError
     ? transactionsQueryError instanceof Error

@@ -5,6 +5,8 @@ import {
   Check,
   CheckCircle2,
   Copy,
+  Loader2,
+  RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,8 +29,11 @@ interface ReviewStepProps {
   isSubmitting?: boolean;
   initializedOrder?: OnrampResponse | null;
   isCompleting?: boolean;
+  isFetchingInstructions?: boolean;
+  instructionsError?: string | null;
   onConfirm: () => void | Promise<void>;
   onConfirmSent?: () => void | Promise<void>;
+  onRetryInstructions?: () => void;
 }
 
 export function ReviewStep({
@@ -43,8 +48,11 @@ export function ReviewStep({
   isSubmitting = false,
   initializedOrder = null,
   isCompleting = false,
+  isFetchingInstructions = false,
+  instructionsError = null,
   onConfirm,
   onConfirmSent,
+  onRetryInstructions,
 }: ReviewStepProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
@@ -223,6 +231,11 @@ export function ReviewStep({
                   )}
                 />
                 <CopyableRow
+                  label="Reference"
+                  fieldKey="provider-reference"
+                  value={providerAccount.reference}
+                />
+                <CopyableRow
                   label="Expires in"
                   fieldKey="provider-valid-until"
                   value={expiryCountdown}
@@ -231,6 +244,25 @@ export function ReviewStep({
               </div>
             </div>
           </>
+        ) : initializedOrder ? (
+          <div className="mb-8 w-full rounded-[28px] border border-black/5 bg-white p-6 dark:border-white/10 dark:bg-secondary-50">
+            <div className="flex flex-col items-center py-8 text-center">
+              {isFetchingInstructions ? (
+                <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary-60" />
+              ) : (
+                <AlertTriangle className="mb-4 h-8 w-8 text-amber-500" />
+              )}
+              <h3 className="text-base font-bold text-black dark:text-white">
+                {isFetchingInstructions
+                  ? "Preparing your transfer account"
+                  : "Transfer account is still pending"}
+              </h3>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
+                {instructionsError ||
+                  "Centiiv is assigning a temporary bank account for this payment. This usually takes a few seconds."}
+              </p>
+            </div>
+          </div>
         ) : (
           <>
             {/* 2. Detailed Transaction Card */}
@@ -318,6 +350,23 @@ export function ReviewStep({
             >
               <CheckCircle2 className="h-5 w-5" />
               {isCompleting ? "Completing Order..." : "I have Sent The Money"}
+            </FlowActionFooter>
+          ) : initializedOrder ? (
+            <FlowActionFooter
+              sticky={false}
+              onClick={onRetryInstructions}
+              disabled={isFetchingInstructions || !onRetryInstructions}
+              showShimmer={!isFetchingInstructions}
+              helperText="Retrying checks the existing payment and will not initialize another order."
+            >
+              {isFetchingInstructions ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-5 w-5" />
+              )}
+              {isFetchingInstructions
+                ? "Fetching Payment Details..."
+                : "Retry Payment Details"}
             </FlowActionFooter>
           ) : (
             <FlowActionFooter

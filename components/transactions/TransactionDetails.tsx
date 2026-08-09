@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,7 +12,7 @@ import {
   RotateCcw,
   Wallet,
 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { getChainLabel } from "@/lib/chains";
@@ -22,15 +22,14 @@ import {
 } from "@/lib/country-currency-map";
 import { transactionService } from "@/services/api/transactions";
 import type { Transaction } from "@/types/db";
-import {
-  getTransactionRefetchInterval,
-  isTerminalTransactionStatus,
-} from "@/lib/transaction-polling";
+import { getTransactionRefetchInterval } from "@/lib/transaction-polling";
+import { shouldReturnHomeFromTransaction } from "@/lib/transaction-navigation";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 interface TransactionDetailsProps {
   id: string;
+  origin?: string;
 }
 
 function formatAssetAmount(value: number): string {
@@ -625,11 +624,22 @@ function getNestedMetadataValue(
   return (parent as Record<string, unknown>)[childKey] ?? null;
 }
 
-export default function TransactionDetails({ id }: TransactionDetailsProps) {
+export default function TransactionDetails({
+  id,
+  origin,
+}: TransactionDetailsProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleBack = () => {
+    if (shouldReturnHomeFromTransaction(origin)) {
+      router.replace("/");
+      return;
+    }
+
+    router.back();
+  };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["transaction", id],
@@ -657,15 +667,6 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
         transaction.status === "COMPLETED" ||
         transaction.status === "REFUNDED"),
   );
-
-  useEffect(() => {
-    if (!transaction || !isTerminalTransactionStatus(transaction.status)) {
-      return;
-    }
-
-    void queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    void queryClient.invalidateQueries({ queryKey: ["user-session"] });
-  }, [queryClient, transaction]);
 
   const amountValue = useMemo(() => {
     if (!transaction) return null;
@@ -1035,10 +1036,16 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
-        <div className="flex items-center justify-between mb-8 px-4 pt-4">
-          <Button variant="iconCircle" size="icon">
-            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
+      <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 pt-4 md:pt-20">
+        <div className="flex items-center justify-between mb-8 px-4">
+          <Button
+            type="button"
+            variant="iconCircle"
+            size="icon"
+            onClick={handleBack}
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
           </Button>
           <h2 className="text-lg font-bold text-black dark:text-white">
             Transaction
@@ -1055,15 +1062,16 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
 
   if (error || !transaction) {
     return (
-      <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
+      <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 pt-4 md:pt-20">
         <div className="flex items-center justify-between mb-8 px-4">
           <Button
             type="button"
             variant="iconCircle"
             size="icon"
-            onClick={() => router.back()}
+            onClick={handleBack}
+            aria-label="Go back"
           >
-            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
+            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
           </Button>
           <h2 className="text-lg font-bold text-black dark:text-white">
             Transaction
@@ -1082,16 +1090,17 @@ export default function TransactionDetails({ id }: TransactionDetailsProps) {
   }
 
   return (
-    <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
+    <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 pt-4 md:pt-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-8 px-4">
         <Button
           type="button"
           variant="iconCircle"
           size="icon"
-          onClick={() => router.back()}
+          onClick={handleBack}
+          aria-label="Go back"
         >
-          <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
+          <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
         </Button>
         <h2 className="text-lg font-bold text-black dark:text-white">
           {transactionTitle}

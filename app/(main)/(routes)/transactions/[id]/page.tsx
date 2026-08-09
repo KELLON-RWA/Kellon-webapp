@@ -5,6 +5,9 @@ interface TransactionDetailsPageProps {
   params: Promise<{
     id: string;
   }>;
+  searchParams: Promise<{
+    origin?: string | string[];
+  }>;
 }
 
 export const metadata: Metadata = {
@@ -15,12 +18,17 @@ export const metadata: Metadata = {
 
 export default async function TransactionDetailsPage({
   params,
+  searchParams,
 }: TransactionDetailsPageProps) {
   const { id } = await params;
+  const { origin } = await searchParams;
 
   return (
     <div className="min-h-[100dvh]">
-      <TransactionDetailsClient id={id} />
+      <TransactionDetailsClient
+        id={id}
+        origin={Array.isArray(origin) ? origin[0] : origin}
+      />
     </div>
   );
 }

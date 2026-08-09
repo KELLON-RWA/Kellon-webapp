@@ -14,6 +14,7 @@ import {
   getCurrencyDecimals,
 } from "@/lib/country-currency-map"
 import { getChainById } from "@/lib/chains"
+import { getTransactionDetailsPath } from "@/lib/transaction-navigation"
 import PaymentMethodModal from "@/components/modals/PaymentMethodModal"
 import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal"
 import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries"
@@ -23,6 +24,9 @@ import { useProviderRates } from "@/hooks/use-provider-rates"
 import { bankService } from "@/services/api/bank"
 import { transactionService } from "@/services/api/transactions"
 import {
+  extractOnrampTransferInstructions,
+  getCentiivPollingReferences,
+  normalizeOnrampTransferInstructions,
   onrampService,
   type OnrampInitRequest,
   type OnrampResponse,
@@ -38,6 +42,8 @@ import { BuyBankSelectionStep } from "./steps/BankSelectionStep"
 import { ReviewStep } from "./steps/ReviewStep"
 
 const MIN_CRYPTO_THRESHOLD = 0.01
+const CENTIIV_POLL_INTERVAL_MS = 3_000
+const CENTIIV_MAX_POLL_ATTEMPTS = 20
 const DEFAULT_FLOW_STEPS = ["asset", "amount", "provider", "review"] as const
 type VisibleFlowStep = (typeof DEFAULT_FLOW_STEPS)[number] | Step
 type ProviderRateSnapshot = {
@@ -187,6 +193,8 @@ export default function BuyCryptoFlow({
   const [initializedOrder, setInitializedOrder] =
     useState<OnrampResponse | null>(null)
   const [isCompletingOrder, setIsCompletingOrder] = useState(false)
+  const [isFetchingInstructions, setIsFetchingInstructions] = useState(false)
+  const [instructionsError, setInstructionsError] = useState<string | null>(null)
   const [providerRateSnapshots, setProviderRateSnapshots] = useState<
     Record<string, ProviderRateSnapshot>
   >({})
@@ -319,6 +327,9 @@ export default function BuyCryptoFlow({
   )
   const currentStepIndex = Math.max(0, flowSteps.indexOf(step))
   const hasTransferInstructions = Boolean(initializedOrder?.providerAccount)
+  const isCentiivOrderInitialized = Boolean(
+    initializedOrder && selectedProvider?.name?.toLowerCase() === "centiiv",
+  )
   const stepTitle =
     step === "provider"
       ? "Choose Provider"
@@ -327,7 +338,7 @@ export default function BuyCryptoFlow({
         : step === "bank"
           ? "Refund Account"
           : step === "review"
-            ? hasTransferInstructions
+            ? hasTransferInstructions || isCentiivOrderInitialized
               ? "Transfer Instructions"
               : "Review Order"
             : "Buy Crypto"
@@ -401,6 +412,7 @@ export default function BuyCryptoFlow({
 
     setIsSubmitting(true)
     setInitializedOrder(null)
+    setInstructionsError(null)
     try {
       const payload: OnrampInitRequest = {
         fiatAmount: fiatAmountNum,
@@ -462,12 +474,27 @@ export default function BuyCryptoFlow({
         return
       }
 
-      if (response.data?.providerAccount) {
-        setInitializedOrder(response.data)
+      const initializedResponse = response.data
+        ? normalizeOnrampTransferInstructions(
+            response.data,
+            fiatCurrency,
+            fiatAmountNum,
+          )
+        : null
+
+      if (initializedResponse?.providerAccount) {
+        setInitializedOrder(initializedResponse)
         toast.success(
-          response.data.message ||
+          initializedResponse.message ||
             "Payment details ready. Send the exact amount.",
         )
+        return
+      }
+
+      if (providerName === "centiiv" && initializedResponse) {
+        setInitializedOrder(initializedResponse)
+        toast.success("Payment initialized. Fetching account details...")
+        await pollCentiivTransferInstructions(initializedResponse)
         return
       }
 
@@ -487,6 +514,82 @@ export default function BuyCryptoFlow({
     }
   }
 
+  const pollCentiivTransferInstructions = useCallback(
+    async (order: OnrampResponse): Promise<boolean> => {
+      const { orderId, transactionId } = getCentiivPollingReferences(order)
+      setIsFetchingInstructions(true)
+      setInstructionsError(null)
+
+      if (!orderId && !transactionId) {
+        setIsFetchingInstructions(false)
+        setInstructionsError(
+          "The payment was initialized, but no tracking reference was returned.",
+        )
+        return false
+      }
+
+      for (let attempt = 0; attempt < CENTIIV_MAX_POLL_ATTEMPTS; attempt++) {
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, CENTIIV_POLL_INTERVAL_MS),
+        )
+
+        let providerAccount = null
+
+        if (orderId) {
+          try {
+            const orderResponse = await onrampService.getCentiivOrderStatus(
+              orderId,
+            )
+            providerAccount = extractOnrampTransferInstructions(
+              orderResponse.data,
+              fiatCurrency,
+              fiatAmountNum,
+            )
+          } catch {
+            // The transaction record below is the fallback when order polling
+            // is temporarily unavailable or the webhook has already landed.
+          }
+        }
+
+        if (!providerAccount && transactionId) {
+          try {
+            const transactionResponse =
+              await transactionService.getTransaction(transactionId)
+            providerAccount = extractOnrampTransferInstructions(
+              transactionResponse.data,
+              fiatCurrency,
+              fiatAmountNum,
+            )
+          } catch {
+            // Keep polling: Centiiv may still be assigning the virtual account.
+          }
+        }
+
+        if (providerAccount) {
+          setInitializedOrder((currentOrder) => ({
+            ...(currentOrder || order),
+            providerAccount,
+          }))
+          setIsFetchingInstructions(false)
+          toast.success("Transfer account ready")
+          return true
+        }
+      }
+
+      setIsFetchingInstructions(false)
+      setInstructionsError(
+        "Bank details are taking longer than expected. Retry without creating another payment.",
+      )
+      return false
+    },
+    [fiatAmountNum, fiatCurrency],
+  )
+
+  const retryCentiivInstructions = useCallback(() => {
+    if (!initializedOrder || isFetchingInstructions) return
+    void pollCentiivTransferInstructions(initializedOrder)
+  }, [initializedOrder, isFetchingInstructions, pollCentiivTransferInstructions])
+
   const confirmMoneySent = async () => {
     setIsCompletingOrder(true)
     try {
@@ -494,7 +597,7 @@ export default function BuyCryptoFlow({
 
       if (transactionId) {
         toast.success("Payment marked as sent")
-        router.push(`/transactions/${encodeURIComponent(transactionId)}`)
+        router.replace(getTransactionDetailsPath(transactionId, "flow"))
         return
       }
 
@@ -678,8 +781,11 @@ export default function BuyCryptoFlow({
             isSubmitting={isSubmitting}
             initializedOrder={initializedOrder}
             isCompleting={isCompletingOrder}
+            isFetchingInstructions={isFetchingInstructions}
+            instructionsError={instructionsError}
             onConfirm={confirmPurchase}
             onConfirmSent={confirmMoneySent}
+            onRetryInstructions={retryCentiivInstructions}
           />
         )}
       </div>

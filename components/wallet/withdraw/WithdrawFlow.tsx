@@ -46,6 +46,7 @@ import {
   hasActiveOperation,
 } from "@/services/api";
 import { transactionService } from "@/services/api/transactions";
+import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
 import {
   useOfframpFunding,
   getPendingDeposit,
@@ -437,7 +438,7 @@ export default function WithdrawFlow({
       toast.success(createdOrder.message || "Withdrawal initialized");
 
       if (transactionId) {
-        router.push(`/transactions/${transactionId}`);
+        router.replace(getTransactionDetailsPath(transactionId, "flow"));
       }
     } catch (error) {
       if (error instanceof OfframpVerificationRequiredError) {
