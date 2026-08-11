@@ -133,6 +133,7 @@ export function useProviderRates({
                   fromAsset: side === "sell" ? asset : currency,
                   toAsset: side === "sell" ? currency || "USD" : asset,
                   amount,
+                  network: networkName ?? undefined,
                 },
                 abortController.signal,
               );

@@ -23,6 +23,8 @@ export interface CentiivQuoteRequest {
   fromAsset: string;
   toAsset: string;
   amount: number;
+  /** Chain key. Omitting it makes Centiiv quote STELLAR regardless of the order's chain. */
+  network?: string;
 }
 
 export interface BankVerificationRequest {
