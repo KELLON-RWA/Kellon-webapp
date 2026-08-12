@@ -20,7 +20,7 @@ export default function AssetsPanel({
   isBalanceVisible,
 }: AssetsPanelProps) {
   return (
-    <div className="order-3 flex w-full flex-col gap-4 md:h-[300px] md:overflow-hidden md:rounded-xl md:border md:border-white/70 md:bg-white/60 md:p-5 md:shadow-sm md:shadow-primary-90/20 md:backdrop-blur-xl md:dark:border-white/10 md:dark:bg-transparent md:dark:shadow-none min-[900px]:col-span-full min-[900px]:!h-[270px]">
+    <div className="order-3 flex w-full flex-col gap-4 min-[900px]:col-span-full lg:!h-[270px] lg:overflow-hidden lg:rounded-xl lg:border lg:border-white/70 lg:bg-white/60 lg:p-5 lg:shadow-sm lg:shadow-primary-90/20 lg:backdrop-blur-xl lg:dark:border-white/10 lg:dark:bg-transparent lg:dark:shadow-none">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-[15px] font-semibold leading-tight tracking-normal text-black dark:text-white md:text-base">
@@ -30,7 +30,7 @@ export default function AssetsPanel({
       </div>
 
       {groupedAssets.length > 0 ? (
-        <div className="grid min-h-0 content-start gap-3 md:max-h-full md:flex-1 md:overflow-y-auto md:overscroll-contain md:pr-1">
+        <div className="grid min-h-0 content-start gap-3 lg:max-h-full lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
           {groupedAssets.map((asset) => {
             const cardValue =
               displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;

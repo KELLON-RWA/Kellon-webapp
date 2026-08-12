@@ -32,8 +32,8 @@ export default function ActivityPanel({
   transactionsError,
 }: ActivityPanelProps) {
   return (
-    <div className="order-4 flex max-h-[420px] w-full flex-col space-y-4 overflow-hidden md:h-[360px] md:max-h-none md:overflow-hidden md:rounded-xl md:border md:border-white/70 md:bg-white/60 md:p-5 md:shadow-sm md:shadow-primary-90/20 md:backdrop-blur-xl md:dark:border-white/10 md:dark:bg-transparent md:dark:shadow-none min-[900px]:order-none min-[900px]:col-span-full min-[900px]:space-y-3 min-[900px]:p-4 lg:space-y-4 lg:p-5">
-      <div>
+    <div className="order-4 flex max-h-[420px] w-full flex-col space-y-4 overflow-hidden min-[900px]:order-none min-[900px]:col-span-full min-[900px]:space-y-3 lg:h-[360px] lg:max-h-none lg:space-y-4 lg:rounded-xl lg:border lg:border-white/70 lg:bg-white/60 lg:p-5 lg:shadow-sm lg:shadow-primary-90/20 lg:backdrop-blur-xl lg:dark:border-white/10 lg:dark:bg-transparent lg:dark:shadow-none">
+      <div className="lg:hidden">
         <Link
           href="/transactions"
           className="group inline-flex items-center gap-1 text-black dark:text-white"
@@ -45,6 +45,18 @@ export default function ActivityPanel({
             aria-hidden="true"
             className="h-5 w-5 transition-transform group-hover:translate-x-0.5"
           />
+        </Link>
+      </div>
+
+      <div className="hidden items-end justify-between lg:flex">
+        <h3 className="text-base font-semibold leading-tight tracking-normal text-black dark:text-white">
+          Recent Activity
+        </h3>
+        <Link
+          href="/transactions"
+          className="cursor-pointer text-sm text-primary-50 hover:opacity-80"
+        >
+          See All
         </Link>
       </div>
 

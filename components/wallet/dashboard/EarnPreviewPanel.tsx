@@ -24,7 +24,7 @@ export default function EarnPreviewPanel() {
   return (
     <section
       aria-labelledby="dashboard-earn-heading"
-      className="order-4 min-w-0 space-y-4 min-[900px]:order-none min-[900px]:col-span-full min-[1080px]:hidden"
+      className="order-4 min-w-0 space-y-4 min-[900px]:order-none min-[900px]:col-span-full min-[1024px]:hidden"
     >
       <Link
         href="/earn"
