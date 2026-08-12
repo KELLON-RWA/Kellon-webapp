@@ -8,7 +8,6 @@ interface AssetCardProps {
   symbol: string;
   amount: string;
   value: string;
-  subtitle?: string;
   hideBalances?: boolean;
   isValueLoading?: boolean;
   className?: string;
@@ -19,7 +18,6 @@ const AssetCard: FC<AssetCardProps> = ({
   symbol,
   amount,
   value,
-  subtitle,
   hideBalances,
   isValueLoading,
   className,
@@ -52,8 +50,8 @@ const AssetCard: FC<AssetCardProps> = ({
           <p className="truncate text-sm text-black transition-colors dark:text-white xs:text-base lg:text-lg">
             {name}
           </p>
-          <p className="truncate text-[10px] tracking-normal text-gray-500 dark:text-gray-400 lg:text-xs">
-            {subtitle || `${symbol} • Multi-chain`}
+          <p className="mt-0.5 truncate text-[10px] font-medium tracking-normal text-gray-500 dark:text-gray-400 lg:text-xs">
+            {symbol} <span aria-hidden="true">·</span> Multi-chain
           </p>
         </div>
       </div>

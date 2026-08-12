@@ -587,15 +587,15 @@ export default function EarnActionDialog({
           verificationType === "otp" && !otpSent
             ? "Email verification"
             : action === "supply"
-              ? "Verify deposit"
-              : "Verify withdrawal"
+              ? "Confirm deposit"
+              : "Confirm withdrawal"
         }
         description={
           verificationType === "totp"
             ? "Enter the code from your authenticator app to continue."
             : otpSent
               ? "Enter the one-time code sent by email."
-              : "Send a one-time code to your email."
+              : "We'll send a verification code to your email to authorize this transaction."
         }
         selectedMethod={verificationType === "totp" ? "totp" : "email_otp"}
         otpSent={otpSent}

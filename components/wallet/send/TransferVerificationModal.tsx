@@ -34,7 +34,7 @@ export default function TransferVerificationModal({
   verificationType,
   onClose,
   onSubmit,
-  title = "Verify transfer",
+  title = "Confirm transfer",
   actionNoun = "send",
   description,
   onResend,
@@ -88,7 +88,9 @@ export default function TransferVerificationModal({
           <p className="mx-auto mt-2 max-w-[280px] text-sm text-gray-20 dark:text-gray-40">
             {description ||
               (isOtpMethod && !otpSent
-                ? showMethodPicker
+                ? activeMethod === "email_otp" || activeMethod === "otp"
+                  ? "We'll send a verification code to your email to authorize this transaction."
+                  : showMethodPicker
                   ? "Choose a verification method, then request your code."
                   : `Request your ${methodLabel} code to complete this ${actionNoun}.`
                 : `Enter your ${methodLabel} code to complete this ${actionNoun}.`)}
@@ -177,10 +179,12 @@ export default function TransferVerificationModal({
               {isChoosingOtpChannel
                 ? isResending
                   ? "Sending..."
-                  : `Send ${methodLabel} code`
+                  : activeMethod === "email_otp" || activeMethod === "otp"
+                    ? "Send code"
+                    : `Send ${methodLabel} code`
                 : isSubmitting
-                  ? "Verifying..."
-                  : "Verify code"}
+                  ? "Confirming..."
+                  : "Confirm"}
             </button>
           </div>
         </div>

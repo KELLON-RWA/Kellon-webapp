@@ -9,6 +9,7 @@ import type { User } from "@/types/db"
 import ActivityPanel from "./ActivityPanel"
 import AssetsPanel from "./AssetsPanel"
 import DashboardHeader from "./DashboardHeader"
+import EarnPreviewPanel from "./EarnPreviewPanel"
 import PortfolioBalanceCard from "./PortfolioBalanceCard"
 import QuickActionsPanel from "./QuickActionsPanel"
 import { useDashboardData } from "@/lib/use-dashboard-data"
@@ -84,6 +85,8 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
               onWithdraw={() => router.push("/withdraw")}
               onMore={() => setIsWalletServicesOpen(true)}
             />
+
+            <EarnPreviewPanel />
 
             <ActivityPanel
               isBalanceVisible={dashboard.isBalanceVisible}

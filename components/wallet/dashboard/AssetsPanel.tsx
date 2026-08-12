@@ -1,7 +1,6 @@
 import { Coins } from "lucide-react";
 import AssetCard from "@/components/wallet/dashboard/AssetCard";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
-import { getChainLabel } from "@/lib/chains";
 import type { GroupedAssetSummary } from "@/lib/dashboard-types";
 import { formatAssetAmount, formatCurrencyAmount } from "@/lib/dashboard-utils";
 
@@ -21,7 +20,7 @@ export default function AssetsPanel({
   isBalanceVisible,
 }: AssetsPanelProps) {
   return (
-    <div className="order-3 flex w-full flex-col gap-4 rounded-2xl border border-white/70 bg-white/55 p-3 shadow-sm shadow-primary-90/20 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none xs:p-4 md:h-[300px] md:overflow-hidden md:rounded-xl md:border md:border-white/70 md:bg-white/60 md:p-5 md:dark:border-white/10 md:dark:bg-transparent min-[900px]:col-span-full min-[900px]:!h-[270px]">
+    <div className="order-3 flex w-full flex-col gap-4 md:h-[300px] md:overflow-hidden md:rounded-xl md:border md:border-white/70 md:bg-white/60 md:p-5 md:shadow-sm md:shadow-primary-90/20 md:backdrop-blur-xl md:dark:border-white/10 md:dark:bg-transparent md:dark:shadow-none min-[900px]:col-span-full min-[900px]:!h-[270px]">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-[15px] font-semibold leading-tight tracking-normal text-black dark:text-white md:text-base">
@@ -35,10 +34,6 @@ export default function AssetsPanel({
           {groupedAssets.map((asset) => {
             const cardValue =
               displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
-            const subtitle =
-              asset.chainCount > 1
-                ? "Available on multiple networks"
-                : `Runs on ${getChainLabel(asset.primaryChain || "")}`;
 
             return (
               <AssetCard
@@ -47,7 +42,6 @@ export default function AssetsPanel({
                 symbol={asset.symbol}
                 amount={formatAssetAmount(asset.amount)}
                 value={formatCurrencyAmount(cardValue, activeCurrency)}
-                subtitle={subtitle}
                 hideBalances={!isBalanceVisible}
                 isValueLoading={isAssetValueLoading}
                 className="px-3 py-3 xs:px-4 md:px-4 md:py-3 lg:px-5 lg:py-4"

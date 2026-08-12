@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronRight,
+  Clock,
+} from "lucide-react";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import { cn } from "@/lib/utils";
@@ -27,18 +32,19 @@ export default function ActivityPanel({
   transactionsError,
 }: ActivityPanelProps) {
   return (
-    <div className="order-4 flex w-full flex-col space-y-4 rounded-2xl border border-white/70 bg-white/55 p-3 shadow-sm shadow-primary-90/20 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none xs:p-4 max-h-[420px] overflow-hidden md:max-h-none md:h-[360px] md:overflow-hidden md:rounded-xl md:border md:border-white/70 md:bg-white/60 md:p-5 md:dark:border-white/10 md:dark:bg-transparent min-[900px]:order-none min-[900px]:col-span-full min-[900px]:space-y-3 min-[900px]:p-4 lg:space-y-4 lg:p-5">
-      <div className="flex items-end justify-between">
-        <div>
+    <div className="order-4 flex max-h-[420px] w-full flex-col space-y-4 overflow-hidden md:h-[360px] md:max-h-none md:overflow-hidden md:rounded-xl md:border md:border-white/70 md:bg-white/60 md:p-5 md:shadow-sm md:shadow-primary-90/20 md:backdrop-blur-xl md:dark:border-white/10 md:dark:bg-transparent md:dark:shadow-none min-[900px]:order-none min-[900px]:col-span-full min-[900px]:space-y-3 min-[900px]:p-4 lg:space-y-4 lg:p-5">
+      <div>
+        <Link
+          href="/transactions"
+          className="group inline-flex items-center gap-1 text-black dark:text-white"
+        >
           <h3 className="text-[15px] font-semibold leading-tight tracking-normal text-black dark:text-white md:text-base">
             Recent Activity
           </h3>
-        </div>
-        <Link
-          href="/transactions"
-          className="text-xs text-primary-50 hover:opacity-80 md:text-sm cursor-pointer"
-        >
-          See All
+          <ChevronRight
+            aria-hidden="true"
+            className="h-5 w-5 transition-transform group-hover:translate-x-0.5"
+          />
         </Link>
       </div>
 

@@ -796,7 +796,7 @@ export default function WithdrawFlow({
         isResending={isResendingVerification}
         onClose={closeWithdrawalVerification}
         onSubmit={submitWithdrawalVerification}
-        title="Verify withdrawal"
+        title="Confirm withdrawal"
         actionNoun="withdrawal"
       />
     </>
