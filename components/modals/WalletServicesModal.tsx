@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, FileText, Gift, MoreHorizontal, X } from "lucide-react";
+import {
+  ChevronRight,
+  FileText,
+  Gift,
+  MoreHorizontal,
+  Waypoints,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -45,6 +52,11 @@ export default function WalletServicesModal({
     router.push("/gifts");
   };
 
+  const handleBridge = () => {
+    onClose(false);
+    router.push("/bridge");
+  };
+
   const content = (
     <div className="px-4 pb-8 md:px-0 md:pb-0">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -68,6 +80,12 @@ export default function WalletServicesModal({
       </div>
 
       <div className="space-y-4">
+        <ServiceOption
+          icon={<Waypoints className="h-6 w-6 text-pink-500" />}
+          title="Bridge"
+          description="Move USDC and USDT across networks"
+          onClick={handleBridge}
+        />
         <ServiceOption
           icon={<FileText className="h-6 w-6 text-pink-500" />}
           title="Payment Requests"
