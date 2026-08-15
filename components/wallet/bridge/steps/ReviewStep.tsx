@@ -38,8 +38,8 @@ export function BridgeReviewStep({
   return (
     <div className="mx-auto w-full max-w-xl space-y-4">
       <section className={BRIDGE_CARD_CLASS}>
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-secondary-50">
-          <div>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-secondary-50">
+          <div className="min-w-0">
             <p className="text-xs text-gray-500 dark:text-gray-400">
               You send
             </p>
@@ -51,7 +51,7 @@ export function BridgeReviewStep({
             </p>
           </div>
           <ArrowRight className="h-5 w-5 shrink-0 text-primary-60" />
-          <div className="text-right">
+          <div className="min-w-0 text-right">
             <p className="text-xs text-gray-500 dark:text-gray-400">
               You receive
             </p>
