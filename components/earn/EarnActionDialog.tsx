@@ -2,6 +2,10 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMfa, useWallets } from "@privy-io/react-auth";
+import {
+  useWallets as useSolanaWallets,
+  useSignTransaction as useSolanaSignTransaction,
+} from "@privy-io/react-auth/solana";
 import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -68,7 +72,7 @@ type EarnVerification = {
   context: EarnVerificationContext;
 };
 
-type EarnVerificationContext = "transfer" | "withdrawal" | "submitUserOp";
+type EarnVerificationContext = "transfer" | "withdrawal" | "submitUserOp" | "yield";
 
 interface EarnActionDialogProps {
   action: YieldActionType;
@@ -147,6 +151,10 @@ export default function EarnActionDialog({
   onComplete,
 }: EarnActionDialogProps) {
   const { wallets, ready: walletsReady } = useWallets();
+  const { wallets: solanaWallets, ready: solanaWalletsReady } =
+    useSolanaWallets();
+  const { signTransaction: signSolanaTransaction } =
+    useSolanaSignTransaction();
   const { mfaMethods, promptMfa } = useMfa();
   const { getSmartAccountClient } = useSmartAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,7 +167,7 @@ export default function EarnActionDialog({
   const lastOtpRequestAtRef = useRef(0);
   const [verificationContext, setVerificationContext] =
     useState<EarnVerificationContext>(
-      action === "withdraw" ? "withdrawal" : "transfer",
+      action === "withdraw" ? "withdrawal" : "yield",
     );
 
   const symbol = opportunity?.symbol.toUpperCase() || "";
@@ -313,7 +321,7 @@ export default function EarnActionDialog({
 
     const isBundlerVerification = verification?.context === "submitUserOp";
     let activeVerificationContext: EarnVerificationContext =
-      action === "withdraw" ? "withdrawal" : "transfer";
+      action === "withdraw" ? "withdrawal" : "yield";
 
     if (verification?.verificationCode && verification.verificationType) {
       setStickyVerificationCode({
@@ -352,15 +360,53 @@ export default function EarnActionDialog({
               verificationPayload,
             );
       const prepared = preparedResponse.data;
-      const stellarTransaction = prepared.transactions.find(
-        (transaction) => transaction.txXdr || transaction.xdr,
-      );
+      const stellarTransaction =
+        opportunity.chain === "stellar"
+          ? prepared.transactions.find(
+              (transaction) =>
+                transaction.txXdr || transaction.xdr || transaction.data,
+            )
+          : null;
 
       if (stellarTransaction) {
         await yieldService.executeStellar(
           opportunity.id,
           values.amount,
-          stellarTransaction.txXdr || stellarTransaction.xdr || "",
+          stellarTransaction.txXdr ||
+            stellarTransaction.xdr ||
+            stellarTransaction.data ||
+            "",
+          action,
+        );
+      } else if (opportunity.chain === "solana") {
+        const solanaTx = prepared.transactions[0];
+        if (!solanaTx?.data) {
+          throw new Error("Solana transaction payload is missing.");
+        }
+        let signedTx = solanaTx.data;
+        if (solanaWalletsReady && solanaWallets.length > 0) {
+          try {
+            const rawBytes = Uint8Array.from(atob(solanaTx.data), (c) =>
+              c.charCodeAt(0),
+            );
+            const result = await signSolanaTransaction({
+              transaction: rawBytes,
+              wallet: solanaWallets[0],
+            });
+            const signedBytes = result.signedTransaction;
+            if (signedBytes) {
+              signedTx = btoa(
+                String.fromCharCode(...Array.from(signedBytes)),
+              );
+            }
+          } catch {
+            // Fallback to sending sponsored tx as prepared
+          }
+        }
+        await yieldService.executeSolana(
+          opportunity.id,
+          values.amount,
+          signedTx,
           action,
         );
       } else {

@@ -11,6 +11,7 @@ export interface YieldTransaction {
   chainId?: string | number;
   stepType?: "approve" | "bridge" | "supply" | "withdraw";
   provider?: string;
+  messengerName?: string;
   txXdr?: string;
   xdr?: string;
 }
@@ -178,6 +179,17 @@ export const yieldService = {
     post<{ txHash: string; result: YieldPosition }>(
       "/api/yield/execute-stellar",
       { opportunityId, amount, txXdr, type },
+    ),
+
+  executeSolana: (
+    opportunityId: string,
+    amount: string,
+    signedTx: string,
+    type: YieldActionType,
+  ) =>
+    post<{ txHash: string; result: YieldPosition }>(
+      "/api/yield/execute-solana",
+      { opportunityId, amount, signedTx, type },
     ),
 
   getBridgeStatus: (provider: string, txHash: string, chainId?: number) => {
