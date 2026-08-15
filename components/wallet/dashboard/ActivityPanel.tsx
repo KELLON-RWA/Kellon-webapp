@@ -69,12 +69,12 @@ export default function ActivityPanel({
         />
       ) : recentTransactions.length > 0 ? (
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          <div className="overflow-hidden rounded-xl border border-primary-90/45 bg-white/80 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none">
+          <div className="overflow-hidden rounded-xl border border-black/10 bg-white/80 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none">
             {recentTransactions.map((transaction) => (
               <Link
                 key={transaction.id}
                 href={`/transactions/${transaction.id}`}
-                className="flex cursor-pointer items-center justify-between gap-2 border-b border-primary-90/35 px-2.5 py-3 transition-colors last:border-b-0 hover:bg-primary-99/80 dark:border-white/10 dark:hover:bg-secondary-60/40 xs:gap-3 xs:px-3 min-[900px]:gap-2 min-[900px]:px-2.5 min-[900px]:py-2.5 lg:gap-3 lg:px-3 lg:py-3"
+                className="flex cursor-pointer items-center justify-between gap-2 border-b border-black/10 px-2.5 py-3 transition-colors last:border-b-0 hover:bg-primary-99/80 dark:border-white/10 dark:hover:bg-secondary-60/40 xs:gap-3 xs:px-3 min-[900px]:gap-2 min-[900px]:px-2.5 min-[900px]:py-2.5 lg:gap-3 lg:px-3 lg:py-3"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2 xs:gap-3 min-[900px]:gap-2 lg:gap-3">
                   <div
@@ -138,7 +138,7 @@ export default function ActivityPanel({
 function ActivityEmptyState({ title, text }: { title: string; text: string }) {
   return (
     <FlowEmptyState
-      className="min-h-[250px] flex-1 rounded-xl border-primary-90/50 bg-white/70 shadow-sm shadow-primary-90/10 dark:bg-secondary-50 dark:shadow-none md:rounded-lg"
+      className="min-h-[250px] flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:rounded-lg"
       icon={
         <Clock
           size={24}

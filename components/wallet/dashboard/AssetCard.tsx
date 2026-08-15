@@ -29,14 +29,14 @@ const AssetCard: FC<AssetCardProps> = ({
       href={`/assets/${symbol.toLowerCase()}`}
       className={cn(
         "group flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-xl p-3 transition-all xs:gap-4 xs:p-4 md:rounded-lg md:p-4 lg:p-6",
-        "border border-primary-90/45 bg-white/80  shadow-primary-90/10 hover:border-primary-80/70 hover:bg-primary-99/80",
+        "border border-black/10 bg-white/80 shadow-primary-90/10 hover:border-black/20 hover:bg-primary-99/80",
         "dark:bg-secondary-50 dark:border-white/10 dark:hover:bg-secondary-60/50 ",
         className,
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3 xs:gap-4 lg:gap-5">
         {/* Real Crypto Icon Container */}
-        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-90/40 shadow-sm shadow-primary-90/20 dark:border-white/5 dark:shadow-none xs:h-12 xs:w-12 lg:h-14 lg:w-14">
+        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-black/10 shadow-sm shadow-primary-90/20 dark:border-white/5 dark:shadow-none xs:h-12 xs:w-12 lg:h-14 lg:w-14">
           <Image
             src={iconUrl}
             alt={symbol}

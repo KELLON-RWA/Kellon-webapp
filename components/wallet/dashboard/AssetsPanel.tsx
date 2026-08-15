@@ -51,7 +51,7 @@ export default function AssetsPanel({
         </div>
       ) : (
         <FlowEmptyState
-          className="min-h-[220px] flex-1 rounded-xl border-primary-90/50 bg-white/70 shadow-sm shadow-primary-90/10 dark:bg-secondary-50 dark:shadow-none md:min-h-0 md:rounded-lg lg:items-start lg:text-left"
+          className="min-h-[220px] flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:min-h-0 md:rounded-lg lg:items-start lg:text-left"
           icon={
             <Coins
               size={24}

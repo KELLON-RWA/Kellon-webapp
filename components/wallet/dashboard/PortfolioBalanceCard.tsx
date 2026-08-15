@@ -49,9 +49,9 @@ export default function PortfolioBalanceCard({
         <div className="absolute inset-x-0 top-0 hidden h-44 dark:block dark:bg-[radial-gradient(circle_at_20%_0%,rgba(193,92,165,0.45),transparent_48%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,0.14),transparent_38%)] md:h-52" />
 
         <div className="relative flex items-center justify-start gap-3 self-stretch md:justify-between">
-          <div className="flex items-center gap-2 rounded-full border   px-3 py-1.5  font-bold tracking-tight text-gray-20 shadow-sm shadow-primary-90/20   dark:shadow-none border-primary-90/70 bg-white/80 md:py-1.5 text-[10px] md:backdrop-blur dark:border-white/10 dark:bg-white/10 dark:text-white/75">
+          <div className="flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-1.5 text-[10px] font-bold tracking-tight text-gray-20 shadow-sm shadow-primary-90/20 dark:border-white/10 dark:bg-white/10 dark:text-white/75 dark:shadow-none md:py-1.5 md:backdrop-blur">
             <span
-              className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-primary-90/60 bg-primary-99 text-[11px] leading-none dark:border-white/10 dark:bg-transparent md:border-primary-90/40 md:bg-primary-99 md:dark:border-white/20 md:dark:bg-white/5"
+              className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-black/10 bg-primary-99 text-[11px] leading-none dark:border-white/10 dark:bg-transparent md:border-black/10 md:bg-primary-99 md:dark:border-white/20 md:dark:bg-white/5"
               aria-label={`Detected country ${countryCode}`}
               title={countryCode}
             >
@@ -70,7 +70,7 @@ export default function PortfolioBalanceCard({
                     currency === "LOCAL" ? "USD" : "LOCAL",
                   )
                 }
-                className="ml-1 cursor-pointer rounded-full border border-primary-90/70 bg-primary-99 px-1.5 py-0.5 text-[9px] font-bold text-primary-50 transition hover:border-primary-80 hover:text-primary-30 dark:border-white/10 dark:bg-transparent dark:text-gray-40 dark:hover:text-white md:border-primary-90/40 md:bg-primary-99 md:text-[8px] md:text-primary-50 md:hover:text-primary-30 md:dark:border-white/10 md:dark:bg-white/5 md:dark:text-primary-80 md:dark:hover:text-primary-90"
+                className="ml-1 cursor-pointer rounded-full border border-black/10 bg-primary-99 px-1.5 py-0.5 text-[9px] font-bold text-primary-50 transition hover:border-black/20 hover:text-primary-30 dark:border-white/10 dark:bg-transparent dark:text-gray-40 dark:hover:text-white md:border-black/10 md:bg-primary-99 md:text-[8px] md:text-primary-50 md:hover:text-primary-30 md:dark:border-white/10 md:dark:bg-white/5 md:dark:text-primary-80 md:dark:hover:text-primary-90"
               >
                 {isLocalDisplay ? "USD" : localCurrency}
               </button>
@@ -80,7 +80,7 @@ export default function PortfolioBalanceCard({
           <button
             type="button"
             onClick={() => setIsBalanceVisible((visible) => !visible)}
-            className="hidden cursor-pointer rounded-full border border-primary-90/70 bg-white/85 p-1.5 text-primary-50 shadow-sm shadow-primary-90/20 transition hover:border-primary-80 hover:bg-primary-99 hover:text-primary-30 md:block md:dark:border-white/10 md:dark:bg-white/10 md:dark:text-white/70 md:dark:shadow-none md:dark:hover:bg-white/15 md:dark:hover:text-white"
+            className="hidden cursor-pointer rounded-full border border-black/10 bg-white/85 p-1.5 text-primary-50 shadow-sm shadow-primary-90/20 transition hover:border-black/20 hover:bg-primary-99 hover:text-primary-30 md:block md:dark:border-white/10 md:dark:bg-white/10 md:dark:text-white/70 md:dark:shadow-none md:dark:hover:bg-white/15 md:dark:hover:text-white"
             aria-label={isBalanceVisible ? "Hide balances" : "Show balances"}
           >
             {isBalanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
@@ -117,7 +117,7 @@ export default function PortfolioBalanceCard({
         </div>
 
         <div className="hidden md:grid md:grid-cols-2 md:gap-3 md:pt-5 lg:gap-4 lg:pt-6">
-          <div className="rounded-xl border border-primary-90/50 bg-white/75 p-3 shadow-sm shadow-primary-90/15 backdrop-blur dark:border-white/10 dark:bg-secondary-50 dark:shadow-none lg:p-4">
+          <div className="rounded-xl border border-black/10 bg-white/75 p-3 shadow-sm shadow-primary-90/15 backdrop-blur dark:border-white/10 dark:bg-secondary-50 dark:shadow-none lg:p-4">
             <p className="text-[10px] font-bold tracking-tight text-gray-30 dark:text-white/35">
               Total Holdings
             </p>
@@ -126,7 +126,7 @@ export default function PortfolioBalanceCard({
             </p>
           </div>
 
-          <div className="rounded-xl border border-primary-90/50 bg-white/75 p-3 shadow-sm shadow-primary-90/15 backdrop-blur dark:border-white/10 dark:bg-secondary-50 dark:shadow-none lg:p-4">
+          <div className="rounded-xl border border-black/10 bg-white/75 p-3 shadow-sm shadow-primary-90/15 backdrop-blur dark:border-white/10 dark:bg-secondary-50 dark:shadow-none lg:p-4">
             <p className="text-[10px] font-bold tracking-tight text-gray-30 dark:text-white/35">
               Networks
             </p>

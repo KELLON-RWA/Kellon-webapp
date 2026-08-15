@@ -42,13 +42,13 @@ export default function EarnPreviewPanel() {
         />
       </Link>
 
-      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mr-[calc(50%_-_50vw)] flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {isLoading
           ? [0, 1, 2].map((item) => (
               <div
                 key={item}
                 aria-hidden="true"
-                className="h-40 w-[45%] min-w-[168px] max-w-[210px] shrink-0 animate-pulse snap-start rounded-xl border border-primary-90/35 bg-white/70 dark:border-white/10 dark:bg-secondary-50 md:h-44 md:min-w-[190px]"
+                className="h-40 w-[45%] min-w-[168px] max-w-[210px] shrink-0 animate-pulse snap-start rounded-xl border border-black/10 bg-white/70 dark:border-white/10 dark:bg-secondary-50 md:h-44 md:min-w-[190px]"
               />
             ))
           : featuredOpportunities.map((opportunity) => (
@@ -56,7 +56,7 @@ export default function EarnPreviewPanel() {
                 key={opportunity.id}
                 href="/earn"
                 aria-label={`Earn ${formatApy(opportunity.apy)} APY on ${opportunity.symbol}`}
-                className="flex h-40 w-[45%] min-w-[168px] max-w-[210px] shrink-0 snap-start flex-col justify-between rounded-xl border border-primary-90/45 bg-white/80 p-4 shadow-sm shadow-primary-90/10 transition-colors hover:border-primary-80/70 hover:bg-primary-99/80 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none dark:hover:bg-secondary-60/50 md:h-44 md:min-w-[190px]"
+                className="flex h-40 w-[45%] min-w-[168px] max-w-[210px] shrink-0 snap-start flex-col justify-between rounded-xl border border-black/10 bg-white/80 p-4 shadow-sm shadow-primary-90/10 transition-colors hover:border-black/20 hover:bg-primary-99/80 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none dark:hover:bg-secondary-60/50 md:h-44 md:min-w-[190px]"
               >
                 <AssetNetworkIcon
                   symbol={opportunity.symbol}
