@@ -75,12 +75,6 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <a
-          href="#main-content"
-          className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-white px-4 py-2 font-semibold text-cryptoNight shadow-lg transition-transform focus:translate-y-0 dark:bg-secondary-60 dark:text-white"
-        >
-          Skip to main content
-        </a>
         <Provider>{children}</Provider>
       </body>
     </html>
