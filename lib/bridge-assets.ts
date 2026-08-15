@@ -11,8 +11,6 @@ export interface BridgeAssetOption {
   chainName: string;
   chainId: number | string;
   chainType: "evm" | "stellar" | "solana";
-  tokenAddress: string;
-  decimals: number;
   balance: number;
 }
 
@@ -37,16 +35,6 @@ export function normalizeBridgeChain(value?: string | null): string {
   return normalized.replace(/testnet|mainnet|network/g, "");
 }
 
-export function getBridgeDecimals(
-  symbol: BridgeSymbol,
-  chainKey: SupportedChainKeys,
-): number {
-  if (chainKey === "stellar") return 7;
-  if (chainKey === "solana") return 6;
-  if (chainKey === "bnb") return 18;
-  return symbol === "USDC" || symbol === "USDT" ? 6 : 18;
-}
-
 export function getBridgeDestinations(): BridgeAssetOption[] {
   const chains = getActiveChains();
 
@@ -63,8 +51,6 @@ export function getBridgeDestinations(): BridgeAssetOption[] {
         chainName: chain.name,
         chainId: chain.id,
         chainType: chain.type,
-        tokenAddress: chain.usdcAddress,
-        decimals: getBridgeDecimals("USDC", chainKey),
         balance: 0,
       });
     }
@@ -78,8 +64,6 @@ export function getBridgeDestinations(): BridgeAssetOption[] {
         chainName: chain.name,
         chainId: chain.id,
         chainType: chain.type,
-        tokenAddress: chain.usdtAddress,
-        decimals: getBridgeDecimals("USDT", chainKey),
         balance: 0,
       });
     }
