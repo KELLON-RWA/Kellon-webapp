@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useMemo, useCallback, useEffect } from "react"
-import { ArrowLeft, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useBuyCryptoState, STEPS } from "@/hooks/use-buy-cypto-state"
@@ -26,6 +25,7 @@ import { useProviders } from "@/hooks/use-provider"
 import { useProviderRates } from "@/hooks/use-provider-rates"
 import { bankService } from "@/services/api/bank"
 import { transactionService } from "@/services/api/transactions"
+import FlowHeader from "@/components/wallet/shared/FlowHeader"
 import {
   extractOnrampTransferInstructions,
   getCentiivPollingReferences,
@@ -633,28 +633,13 @@ export default function BuyCryptoFlow({
 
   return (
     <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 px-4 pt-4">
-        <button
-          type="button"
-          aria-label="Go back"
-          onClick={goBack}
-          className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-        </button>
-        <h1 className="text-lg font-bold text-black dark:text-white">
-          {stepTitle}
-        </h1>
-        <button
-          type="button"
-          aria-label="Close buy flow"
-          onClick={() => onAttemptClose(true)}
-          className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
-        >
-          <X className="w-5 h-5 text-slate-600 dark:text-white" />
-        </button>
-      </div>
+      <FlowHeader
+        title={stepTitle}
+        onBack={goBack}
+        onClose={() => onAttemptClose(true)}
+        closeLabel="Close buy flow"
+        className="mb-8 px-4 pt-4"
+      />
 
       <StepIndicator
         currentStep={currentStepIndex}
