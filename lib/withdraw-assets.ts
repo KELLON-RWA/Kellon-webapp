@@ -9,6 +9,15 @@ export interface WithdrawableAsset {
   usdValue: number
 }
 
+export interface WithdrawableAssetGroup {
+  symbol: string
+  name: string
+  assets: WithdrawableAsset[]
+  balance: number
+  usdValue: number
+  isMultiChain: boolean
+}
+
 type BalanceAsset = Pick<Asset, "symbol" | "chain" | "amount">
 
 function normalizeChainName(value: string): string {
@@ -73,4 +82,33 @@ export function getWithdrawableAssets(
       return left.symbol.localeCompare(right.symbol)
     return right.balance - left.balance
   })
+}
+
+/** Groups repeated token balances while preserving single-network selections. */
+export function groupWithdrawableAssets(
+  assets: WithdrawableAsset[],
+): WithdrawableAssetGroup[] {
+  const groups = new Map<string, WithdrawableAssetGroup>()
+
+  assets.forEach((asset) => {
+    const current = groups.get(asset.symbol)
+    if (current) {
+      current.assets.push(asset)
+      current.balance += asset.balance
+      current.usdValue += asset.usdValue
+      current.isMultiChain = true
+      return
+    }
+
+    groups.set(asset.symbol, {
+      symbol: asset.symbol,
+      name: asset.name,
+      assets: [asset],
+      balance: asset.balance,
+      usdValue: asset.usdValue,
+      isMultiChain: false,
+    })
+  })
+
+  return Array.from(groups.values())
 }

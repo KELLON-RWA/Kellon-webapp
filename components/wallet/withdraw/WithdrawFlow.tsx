@@ -107,6 +107,7 @@ export default function WithdrawFlow({
     providerId,
     bankId,
     setStep,
+    setAsset,
     setAssetAndNetwork,
     setAmount,
     setCountryAndCurrency,
@@ -648,6 +649,7 @@ export default function WithdrawFlow({
               country={country}
               isDetectingCountry={isDetectingCountry}
               assets={withdrawableAssets}
+              onSelectAssetGroup={setAsset}
               onSelectAsset={(nextAsset) => {
                 setAssetAndNetwork(
                   nextAsset.symbol,
