@@ -1,8 +1,8 @@
 "use client"
 
-import { ArrowLeft, X } from "lucide-react"
 import { Form } from "@/components/ui/form"
 import FlowStepIndicator from "@/components/wallet/shared/FlowStepIndicator"
+import FlowHeader from "@/components/wallet/shared/FlowHeader"
 import { getChainLabel } from "@/lib/chains"
 import type { User } from "@/types/db"
 import GiftSuccessModal from "./GiftSuccessModal"
@@ -139,29 +139,13 @@ export default function GiftFlow({ profile }: GiftFlowProps) {
   return (
     <div className="relative min-h-[100dvh] overflow-hidden text-cryptoNight dark:text-white">
       <main className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-4xl flex-col px-4 pb-28 pt-5 md:px-6 md:pb-14 md:pt-20">
-        <header className="mb-8 flex items-center justify-between gap-4 md:mb-10">
-          <button
-            type="button"
-            onClick={goBack}
-            className="cursor-pointer rounded-full border border-slate-200 bg-gray-100 p-2 dark:border-none dark:bg-secondary-60/50"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-
-          <h1 className="text-center text-xl font-bold md:text-2xl">
-            {stepTitles[step]}
-          </h1>
-
-          <button
-            type="button"
-            onClick={closeFlow}
-            className="cursor-pointer rounded-full border border-slate-200 bg-gray-100 p-2 dark:border-none dark:bg-secondary-60/50"
-            aria-label="Close gifts"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </header>
+        <FlowHeader
+          title={stepTitles[step]}
+          onBack={goBack}
+          onClose={closeFlow}
+          closeLabel="Close gifts"
+          className="mb-8 md:mb-10"
+        />
 
         {step !== "intro" ? (
           <FlowStepIndicator

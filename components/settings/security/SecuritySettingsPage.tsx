@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import type { User } from "@/types/db";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import RecoveryAccessSection from "./RecoveryAccessSection";
 import SecurityTips from "./SecurityTips";
 import VerificationMethodsSection from "./VerificationMethodsSection";
@@ -16,19 +15,12 @@ export default function SecuritySettingsPage({ profile }: { profile: User }) {
 
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-2xl px-6 pb-24 pt-5 md:pt-20">
-      <header className="mb-8 flex items-center justify-between">
-        <Link
-          href="/"
-          aria-label="Back to wallet"
-          className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-100 dark:border-white/10 dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60"
-        >
-          <ArrowLeft className="h-6 w-6" />
-        </Link>
-        <h1 className="text-lg font-semibold text-cryptoNight dark:text-white">
-          Security &amp; Backup
-        </h1>
-        <div className="w-10" aria-hidden="true" />
-      </header>
+      <FlowHeader
+        title="Security & Backup"
+        backHref="/"
+        backLabel="Back to wallet"
+        className="mb-8"
+      />
 
       <VerificationMethodsSection
         settings={security.settings}

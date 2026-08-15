@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Bell, Paintbrush } from "lucide-react";
+import { Bell, Paintbrush } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,9 @@ import {
 } from "@/hooks/use-notifications";
 import { toast } from "sonner";
 import { ActionToolTip } from "@/components/ActionTooltip";
+import FlowHeader, {
+  FlowHeaderActionButton,
+} from "@/components/wallet/shared/FlowHeader";
 import MarkNotificationsReadModal from "@/components/modals/MarkNotificationsReadModal";
 import NotificationDetailModal, {
   type NotificationDetailDisplay,
@@ -626,48 +629,37 @@ export default function NotificationsPage() {
 
   return (
     <section className="container mx-auto flex h-[100dvh] max-w-4xl flex-col overflow-hidden px-4 pb-0 pt-4 md:px-6 md:pb-12 md:pt-20">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="cursor-pointer rounded-full border border-gray-80 bg-white/85 p-2 shadow-sm backdrop-blur transition-all hover:bg-white dark:border-white/10 dark:bg-secondary-50/70 dark:hover:bg-secondary-60/50"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </button>
-
-        <div className="flex flex-col items-center">
-          <h1 className="text-lg font-semibold text-black dark:text-white md:text-2xl">
-            Notifications{!isLoading ? ` (${notifications.length})` : ""}
-          </h1>
-          {hasUnread && !isLoading && (
-            <span className="text-[10px] font-medium text-primary-60 dark:text-primary-80">
+      <FlowHeader
+        title={`Notifications${!isLoading ? ` (${notifications.length})` : ""}`}
+        subtitle={
+          hasUnread && !isLoading ? (
+            <span className="block text-[10px] font-medium text-primary-60 dark:text-primary-80">
               {unreadCount} unread
             </span>
-          )}
-        </div>
-
-        <ActionToolTip
-          label="Mark all as read"
-          side="left"
-          disabled={!hasUnread || isMarkingAll}
-        >
-          <button
-            type="button"
-            onClick={() => setIsMarkAllModalOpen(true)}
+          ) : null
+        }
+        onBack={() => router.back()}
+        rightContent={
+          <ActionToolTip
+            label="Mark all as read"
+            side="left"
             disabled={!hasUnread || isMarkingAll}
-            aria-label="Mark all as read"
-            className={cn(
-              "cursor-pointer rounded-full border border-gray-80 bg-white/85 p-2 shadow-sm backdrop-blur transition-all dark:border-white/10 dark:bg-secondary-50/70",
-              hasUnread && !isMarkingAll
-                ? "text-primary-50 hover:bg-white dark:text-primary-80 dark:hover:bg-secondary-60/50"
-                : "cursor-not-allowed text-primary-90 opacity-50 dark:text-primary-80/40",
-            )}
           >
-            <Paintbrush className="h-5 w-5" />
-          </button>
-        </ActionToolTip>
-      </div>
+            <FlowHeaderActionButton
+              onClick={() => setIsMarkAllModalOpen(true)}
+              disabled={!hasUnread || isMarkingAll}
+              aria-label="Mark all as read"
+              className={cn(
+                hasUnread && !isMarkingAll
+                  ? "text-primary-50 dark:text-primary-80"
+                  : "text-primary-90 dark:text-primary-80/40",
+              )}
+            >
+              <Paintbrush className="h-5 w-5" />
+            </FlowHeaderActionButton>
+          </ActionToolTip>
+        }
+      />
 
       <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
         {CATEGORY_FILTERS.map((category) => {

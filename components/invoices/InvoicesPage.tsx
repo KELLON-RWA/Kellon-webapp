@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import {
-  ArrowLeft,
   CheckCircle2,
   Clock3,
   Copy,
@@ -15,6 +14,7 @@ import {
 import { toast } from "sonner"
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime"
 import { Button } from "@/components/ui/button"
+import FlowHeader from "@/components/wallet/shared/FlowHeader"
 import { invoiceService } from "@/services/api/invoices"
 import { cn } from "@/lib/utils"
 import { InvoiceStatus, type Invoice } from "@/types/db"
@@ -50,29 +50,15 @@ export default function InvoicesPage() {
 
   return (
     <section className="container mx-auto flex min-h-[100dvh] max-w-4xl flex-col px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-20">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded-full border border-black/5 bg-white p-2 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </button>
-
-        <h1 className="text-lg font-semibold text-black dark:text-white md:text-2xl">
-          My Invoices
-        </h1>
-
-        <button
-          type="button"
-          onClick={() => router.push("/invoices/create")}
-          className="rounded-full border border-black/5 bg-white p-2 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
-          aria-label="Create invoice"
-        >
-          <Plus className="h-5 w-5 text-primary-60 dark:text-primary-80" />
-        </button>
-      </div>
+      <FlowHeader
+        title="My Invoices"
+        onBack={() => router.back()}
+        rightAction={{
+          label: "Create invoice",
+          icon: <Plus className="h-5 w-5 text-primary-60 dark:text-primary-80" />,
+          onClick: () => router.push("/invoices/create"),
+        }}
+      />
 
       <div className="mt-7 overflow-x-auto">
         <div className="flex min-w-max gap-2 pb-1">

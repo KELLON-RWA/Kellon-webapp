@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Check,
   CheckCircle2,
   Circle,
@@ -16,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import { getChainLabel } from "@/lib/chains";
 import {
   getCurrencyDecimals,
@@ -1095,21 +1095,12 @@ export default function TransactionDetails({
   if (isLoading) {
     return (
       <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 pt-4 md:pt-20">
-        <div className="flex items-center justify-between mb-8 px-4">
-          <Button
-            type="button"
-            variant="iconCircle"
-            size="icon"
-            onClick={handleBack}
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-          </Button>
-          <h2 className="text-lg font-bold text-black dark:text-white">
-            Transaction
-          </h2>
-          <div className="w-9 h-9" />
-        </div>
+        <FlowHeader
+          title="Transaction"
+          headingLevel="h2"
+          onBack={handleBack}
+          className="mb-8 px-4"
+        />
         <div className="mx-auto max-w-2xl px-4 space-y-4">
           <div className="h-32 animate-pulse rounded-xl bg-white dark:bg-secondary-40" />
           <div className="h-48 animate-pulse rounded-xl bg-white dark:bg-secondary-40" />
@@ -1121,21 +1112,12 @@ export default function TransactionDetails({
   if (error || !transaction) {
     return (
       <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 pt-4 md:pt-20">
-        <div className="flex items-center justify-between mb-8 px-4">
-          <Button
-            type="button"
-            variant="iconCircle"
-            size="icon"
-            onClick={handleBack}
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-          </Button>
-          <h2 className="text-lg font-bold text-black dark:text-white">
-            Transaction
-          </h2>
-          <div className="w-9 h-9" />
-        </div>
+        <FlowHeader
+          title="Transaction"
+          headingLevel="h2"
+          onBack={handleBack}
+          className="mb-8 px-4"
+        />
         <div className="mx-auto max-w-2xl px-4">
           <div className="rounded-xl bg-white p-6 text-center dark:bg-secondary-40">
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1149,22 +1131,12 @@ export default function TransactionDetails({
 
   return (
     <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 pt-4 md:pt-20">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 px-4">
-        <Button
-          type="button"
-          variant="iconCircle"
-          size="icon"
-          onClick={handleBack}
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </Button>
-        <h2 className="text-lg font-bold text-black dark:text-white">
-          {transactionTitle}
-        </h2>
-        <div className="w-9 h-9" />
-      </div>
+      <FlowHeader
+        title={transactionTitle}
+        headingLevel="h2"
+        onBack={handleBack}
+        className="mb-8 px-4"
+      />
 
       <div className="mx-auto max-w-2xl px-4">
         {isOnrampTracking && transaction ? (

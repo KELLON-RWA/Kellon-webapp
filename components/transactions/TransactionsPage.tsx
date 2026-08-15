@@ -5,15 +5,14 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowDownLeft,
-  ArrowLeft,
   ArrowUpRight,
   ChevronRight,
   Filter,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import {
   getTransactionAmountLabel,
   getTransactionStatusClasses,
@@ -193,31 +192,15 @@ export default function TransactionsPage() {
 
   return (
     <section className="container mx-auto flex h-[100dvh] max-w-4xl flex-col overflow-hidden px-4 pb-0 pt-4 md:px-6 md:pb-12 md:pt-20">
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="iconCircle"
-          size="icon"
-          onClick={() => router.back()}
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </Button>
-
-        <h1 className="text-lg font-semibold text-black dark:text-white md:text-2xl">
-          Transactions
-        </h1>
-
-        <Button
-          type="button"
-          variant="iconCircle"
-          size="icon"
-          onClick={openFilters}
-          aria-label="Open filters"
-        >
-          <Filter className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-        </Button>
-      </div>
+      <FlowHeader
+        title="Transactions"
+        onBack={() => router.back()}
+        rightAction={{
+          label: "Open filters",
+          icon: <Filter className="h-5 w-5" />,
+          onClick: openFilters,
+        }}
+      />
 
       <TransactionFilterModal
         isOpen={isFilterOpen}

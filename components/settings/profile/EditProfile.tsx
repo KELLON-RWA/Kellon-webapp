@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Pencil,
   LucideIcon,
-  ArrowLeft,
   Loader2,
 } from "lucide-react";
 
@@ -30,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import BankAccountModal from "./BankAccountModal";
 import { bankService } from "@/services/api/bank";
 import { BankDetail, User } from "@/types/db";
@@ -108,20 +108,12 @@ const ProfilePage: FC<ProfilePageProps> = ({ initialProfile }) => {
 
   return (
     <section className="mx-auto min-h-[100dvh] w-full max-w-2xl px-6 pb-10 pt-5 text-slate-900 transition-colors duration-300 dark:text-white md:pt-20">
-      <div className="mb-8 flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Back to wallet"
-          onClick={() => router.push("/")}
-          className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 shadow-sm hover:bg-slate-100 dark:border-white/10 dark:bg-secondary-60/50 dark:hover:bg-secondary-60"
-        >
-          <ArrowLeft className="h-6 w-6" />
-        </button>
-        <h1 className="text-lg font-semibold">
-          {isEditing ? "Edit Profile" : "Profile"}
-        </h1>
-        <div className="w-10" />
-      </div>
+      <FlowHeader
+        title={isEditing ? "Edit Profile" : "Profile"}
+        onBack={() => router.push("/")}
+        backLabel="Back to wallet"
+        className="mb-8"
+      />
 
       <div className="space-y-6">
         {/* Profile Card */}

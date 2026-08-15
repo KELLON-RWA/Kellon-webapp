@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { ArrowLeft, ArrowRight, FileText, Loader2 } from "lucide-react";
+import { ArrowRight, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import { invoiceService } from "@/services/api/invoices";
 import {
   transferService,
@@ -472,10 +473,13 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
 
   return (
     <section className="container mx-auto flex min-h-[90dvh] max-w-4xl flex-col px-4 pb-28 pt-4 md:px-6 md:pb-14 md:pt-20">
-      <header className="relative mb-8 flex items-center justify-center">
-        <button
-          type="button"
-          onClick={() => {
+      <FlowHeader
+        title={
+          mobileStep === "review" || isDesktopReview
+            ? "Review Invoice"
+            : "Create Invoice"
+        }
+        onBack={() => {
             if (isDesktopReview) {
               setIsDesktopReview(false);
               setMobileStep("details");
@@ -489,19 +493,9 @@ export default function CreateInvoicePage({ profile }: CreateInvoicePageProps) {
               return;
             }
             router.back();
-          }}
-          className="absolute left-0 cursor-pointer rounded-full border border-black/5 bg-white p-2 text-gray-600 transition-all hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-300 dark:hover:bg-secondary-60/50"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-
-        <h1 className="text-lg font-semibold text-black dark:text-white">
-          {mobileStep === "review" || isDesktopReview
-            ? "Review Invoice"
-            : "Create Invoice"}
-        </h1>
-      </header>
+        }}
+        className="mb-8"
+      />
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(submitInvoice)}>
