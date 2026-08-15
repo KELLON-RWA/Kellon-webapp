@@ -16,13 +16,14 @@ export function getInvoiceAssetOptions(assets: Asset[]): InvoiceAssetOption[] {
     )
     .map((asset) => {
       const symbol = asset.symbol.toUpperCase();
+      const chain = (asset.chain || "base").toLowerCase();
 
       return {
-        key: `${symbol}:${asset.chain || "base"}`,
+        key: `${symbol}:${chain}`,
         symbol,
         name: getAssetName(symbol),
         iconUrl: getAssetIcon(symbol),
-        chain: asset.chain || "base",
+        chain,
         assetType: asset.assetType,
       };
     });

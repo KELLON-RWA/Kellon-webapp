@@ -142,7 +142,7 @@ export function parseGiftAssetAmount(amount: Asset["amount"]): number {
 }
 
 export function getGiftAssetOptions(assets: Asset[] = []): GiftAssetOption[] {
-  return assets
+  const options = assets
     .filter(
       (asset): asset is Asset =>
         Boolean(asset?.symbol && asset?.chain) &&
@@ -151,16 +151,29 @@ export function getGiftAssetOptions(assets: Asset[] = []): GiftAssetOption[] {
     )
     .map((asset) => {
       const symbol = asset.symbol.toUpperCase();
+      const chain = (asset.chain || "base").toLowerCase();
       return {
-        key: [asset.id, symbol, asset.chain].filter(Boolean).join(":"),
+        key: `${symbol}:${chain}`,
         symbol,
         name: getAssetName(symbol),
-        chain: asset.chain || "base",
+        chain,
         amount: parseGiftAssetAmount(asset.amount),
         assetType: asset.assetType,
       };
     })
-    .filter((asset) => asset.amount > 0 && ["USDC", "USDT"].includes(asset.symbol))
+    .filter((asset) => asset.amount > 0 && ["USDC", "USDT"].includes(asset.symbol));
+
+  return Array.from(
+    options.reduce((uniqueAssets, asset) => {
+      const existing = uniqueAssets.get(asset.key);
+
+      if (!existing || asset.amount > existing.amount) {
+        uniqueAssets.set(asset.key, asset);
+      }
+
+      return uniqueAssets;
+    }, new Map<string, GiftAssetOption>()).values(),
+  )
     .sort((left, right) => {
       if (left.symbol !== right.symbol) return left.symbol.localeCompare(right.symbol);
       return left.chain.localeCompare(right.chain);

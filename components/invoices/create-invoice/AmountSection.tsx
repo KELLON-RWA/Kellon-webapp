@@ -7,6 +7,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import ChainIcon from "@/components/wallet/ChainIcon";
+import { getChainLabel } from "@/lib/chains";
 import { cn } from "@/lib/utils";
 import { AssetChoice } from "./AssetChoice";
 import {
@@ -16,7 +25,6 @@ import {
   type InvoiceAssetOption,
   type InvoiceFormValues,
 } from "./types";
-import { formatChain } from "./utils";
 
 interface AmountSectionProps {
   form: UseFormReturn<InvoiceFormValues>;
@@ -59,7 +67,7 @@ export function AmountSection({
           )}
         />
 
-        {selectedAssetGroup && selectedAssetGroup.chains.length > 1 ? (
+        {selectedAssetGroup ? (
           <FormField
             control={form.control}
             name="chain"
@@ -69,23 +77,51 @@ export function AmountSection({
                   Network
                 </FormLabel>
                 <FormControl>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {selectedAssetGroup.chains.map((asset) => (
-                      <button
-                        key={asset.key}
-                        type="button"
-                        onClick={() => field.onChange(asset.chain)}
-                        className={cn(
-                          "shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-                          field.value === asset.chain
-                            ? "border-primary-90 bg-primary-95 text-primary-50 dark:border-primary-70/20 dark:bg-primary-70/15 dark:text-primary-80"
-                            : "border-gray-80 bg-white/80 text-gray-20 hover:text-cryptoNight dark:border-white/10 dark:bg-secondary-50/70 dark:text-gray-40 dark:hover:text-white",
-                        )}
-                      >
-                        {formatChain(asset.chain)}
-                      </button>
-                    ))}
-                  </div>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger
+                      aria-label={`Select ${selectedAssetGroup.symbol} network`}
+                      className="h-14 w-full rounded-2xl border-black/5 bg-gray-95 px-3 text-black shadow-none focus:border-primary-60 focus:ring-2 focus:ring-primary-60/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white"
+                    >
+                      {selectedAsset ? (
+                        <span className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                            <ChainIcon
+                              name={selectedAsset.chain}
+                              size={28}
+                              className="!h-7 !w-7 shrink-0"
+                            />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                            {getChainLabel(selectedAsset.chain)}
+                          </span>
+                        </span>
+                      ) : (
+                        <SelectValue placeholder="Choose network" />
+                      )}
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-black/10 bg-white p-1.5 text-black shadow-xl dark:border-white/10 dark:bg-secondary-50 dark:text-white">
+                      {selectedAssetGroup.chains.map((asset) => (
+                        <SelectItem
+                          key={asset.key}
+                          value={asset.chain}
+                          className="min-h-14 rounded-xl py-2.5 pl-3 pr-3 focus:bg-gray-50 dark:focus:bg-secondary-60/50 [&>span:first-child]:hidden [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1"
+                        >
+                          <span className="flex w-full min-w-0 items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                              <ChainIcon
+                                name={asset.chain}
+                                size={28}
+                                className="!h-7 !w-7 shrink-0"
+                              />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                              {getChainLabel(asset.chain)}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage className="text-xs text-red-500" />
               </FormItem>
