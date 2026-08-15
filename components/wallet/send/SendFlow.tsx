@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Send, X } from "lucide-react";
+import { ArrowRight, Send } from "lucide-react";
 import AddFundsModal from "@/components/modals/AddFundsModal";
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import type { User } from "@/types/db";
 import AmountStep from "./AmountStep";
 import AssetStep from "./AssetStep";
@@ -61,29 +62,13 @@ export default function SendFlow({ profile }: SendFlowProps) {
 
   return (
     <div className="mx-auto flex min-h-[90dvh] w-full max-w-full flex-col overflow-x-hidden px-4 pb-32 pt-4 md:container md:max-w-5xl md:px-6 md:pt-28">
-      <div className="mb-8 flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Go back"
-          onClick={goBack}
-          className="rounded-full border border-gray-80 bg-white p-2 text-gray-20 transition hover:bg-gray-95 hover:text-cryptoNight dark:border-white/10 dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60 cursor-pointer"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-
-        <h1 className="text-lg font-bold text-black dark:text-white md:text-2xl">
-          {stepTitles[step]}
-        </h1>
-
-        <button
-          type="button"
-          aria-label="Close send flow"
-          onClick={closeSend}
-          className="rounded-full border border-gray-80 bg-white p-2 text-gray-20 transition hover:bg-gray-95 hover:text-cryptoNight dark:border-white/10 dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60 cursor-pointer"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+      <FlowHeader
+        title={stepTitles[step]}
+        onBack={goBack}
+        onClose={closeSend}
+        closeLabel="Close send flow"
+        className="mb-8"
+      />
 
       <StepIndicator
         currentStep={SEND_STEPS.indexOf(step)}

@@ -1,14 +1,7 @@
 "use client";
 
 import { FC, useState, useMemo, useEffect, useRef } from "react";
-import {
-  ArrowLeft,
-  X,
-  ChevronDown,
-  Copy,
-  Check,
-  ReceiptText,
-} from "lucide-react";
+import { ChevronDown, Copy, Check, ReceiptText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import ChainIcon from "@/components/wallet/ChainIcon";
@@ -16,6 +9,7 @@ import { ChainAccount } from "@/types/db";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import SelectNetworkModal from "@/components/modals/SelectNetworkModal";
 import { Button } from "@/components/ui/button";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 
 interface ReceiveCryptoProps {
   chainAccounts: ChainAccount[];
@@ -119,23 +113,14 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
   if (filteredChainAccounts.length === 0) {
     return (
       <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
-        <div className="flex items-center justify-between mb-8 px-4 pt-4">
-          <button
-            onClick={goBack}
-            className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-          </button>
-          <h2 className="text-lg font-bold text-black dark:text-white">
-            Receive
-          </h2>
-          <button
-            onClick={handleClose}
-            className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
-          >
-            <X className="w-5 h-5 text-slate-600 dark:text-white" />
-          </button>
-        </div>
+        <FlowHeader
+          title="Receive"
+          headingLevel="h2"
+          onBack={goBack}
+          onClose={handleClose}
+          closeLabel="Close receive flow"
+          className="mb-8 px-4 pt-4"
+        />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-gray-500 dark:text-gray-400">
@@ -149,21 +134,17 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
 
   return (
     <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] pb-32 md:pt-20">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 px-4 pt-4">
-        <button
-          onClick={goBack}
-          className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-        </button>
-        <h2 className="text-lg font-bold text-black dark:text-white">
-          Receive
-        </h2>
-        <button className="p-2 bg-gray-100 dark:bg-secondary-60/50 rounded-full border border-slate-200 dark:border-none cursor-pointer">
-          <ReceiptText className="w-5 h-5 text-slate-600 dark:text-white" />
-        </button>
-      </div>
+      <FlowHeader
+        title="Receive"
+        headingLevel="h2"
+        onBack={goBack}
+        rightAction={{
+          label: "View receive activity",
+          icon: <ReceiptText className="h-5 w-5" />,
+          onClick: () => undefined,
+        }}
+        className="mb-8 px-4 pt-4"
+      />
 
       {/* Network Selector - Opens Modal */}
       <div className="flex justify-center mb-8">

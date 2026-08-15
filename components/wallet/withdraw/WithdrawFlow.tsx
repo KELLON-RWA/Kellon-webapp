@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { BankDetail, User } from "@/types/db";
@@ -23,6 +22,7 @@ import {
   type OfframpResponse,
 } from "@/services/api/off-ramp";
 import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import { WithdrawAssetSelectionStep } from "./steps/AssetSelectionStep";
 import { WithdrawAmountEntryStep } from "./steps/AmountEntryStep";
@@ -613,17 +613,9 @@ export default function WithdrawFlow({
   return (
     <>
       <div className="container mx-auto flex min-h-[90dvh] max-w-2xl flex-col pb-32 md:pt-20">
-        <div className="mb-8 flex items-center justify-between px-4 pt-4">
-          <button
-            type="button"
-            aria-label="Go back"
-            onClick={goBack}
-            className="rounded-full border border-slate-200 bg-gray-100 p-2 dark:border-none dark:bg-secondary-60/50 cursor-pointer"
-          >
-            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-white" />
-          </button>
-          <h1 className="text-lg font-bold text-black dark:text-white">
-            {step === "provider"
+        <FlowHeader
+          title={
+            step === "provider"
               ? "Choose Provider"
               : step === "amount"
                 ? "Enter Amount"
@@ -633,19 +625,15 @@ export default function WithdrawFlow({
                     : "Select Bank"
                   : step === "review"
                     ? "Review Withdrawal"
-                    : "Withdraw"}
-          </h1>
-          <button
-            type="button"
-            aria-label="Close withdrawal flow"
-            onClick={() =>
-              hasStarted ? setShowExitModal(true) : onAttemptClose(false)
-            }
-            className="rounded-full border border-slate-200 bg-gray-100 p-2 dark:border-none dark:bg-secondary-60/50 cursor-pointer"
-          >
-            <X className="h-5 w-5 text-slate-600 dark:text-white" />
-          </button>
-        </div>
+                    : "Withdraw"
+          }
+          onBack={goBack}
+          onClose={() =>
+            hasStarted ? setShowExitModal(true) : onAttemptClose(false)
+          }
+          closeLabel="Close withdrawal flow"
+          className="mb-8 px-4 pt-4"
+        />
 
         <StepIndicator
           currentStep={WITHDRAW_STEPS.indexOf(step)}
