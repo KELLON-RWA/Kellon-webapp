@@ -7,6 +7,7 @@ import { useWallets } from "@privy-io/react-auth"
 import { toast } from "sonner"
 import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal"
 import FlowHeader from "@/components/wallet/shared/FlowHeader"
+import FlowStepIndicator from "@/components/wallet/shared/FlowStepIndicator"
 import {
   getBridgeDestinations,
   getBridgeSources,
@@ -434,6 +435,11 @@ export default function BridgeFlow({ profile }: BridgeFlowProps) {
           view === "review" ? setView("compose") : router.back()
         }
         className="mb-6 md:mb-8"
+      />
+
+      <FlowStepIndicator
+        currentStep={view === "review" ? 1 : 0}
+        totalSteps={2}
       />
 
       {view === "review" && source && destination && selectedRoute ? (
