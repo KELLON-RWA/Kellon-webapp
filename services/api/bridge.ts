@@ -18,6 +18,8 @@ export interface BridgeRateOption {
   executionDuration?: number;
   messenger?: BridgeMessenger;
   messengerName?: string;
+  minAmount?: string;
+  reason?: string;
   message?: string;
 }
 
@@ -87,6 +89,8 @@ export interface ExecuteFundingPlanResult {
   alreadyOnTarget: string;
 }
 
+export type UnifiedBridgeBalances = Record<string, unknown>;
+
 async function bridgeRequest<T>(
   endpoint: string,
   init: RequestInit,
@@ -110,6 +114,17 @@ async function bridgeRequest<T>(
 }
 
 export const bridgeService = {
+  getUnifiedBalances: async (
+    symbol: CalculateFundingPlanRequest["symbol"] = "USDC",
+  ): Promise<UnifiedBridgeBalances> => {
+    const response = await bridgeRequest<UnifiedBridgeBalances>(
+      `/api/funding/unified-balances?symbol=${encodeURIComponent(symbol)}`,
+      { method: "GET", cache: "no-store" },
+      { authenticated: "required", signed: true },
+    );
+    return response.data;
+  },
+
   getMinThresholds: async (): Promise<BridgeMinimumThresholds> => {
     const response = await bridgeRequest<BridgeMinimumThresholds>(
       "/api/funding/min-thresholds",
@@ -142,7 +157,7 @@ export const bridgeService = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
       },
-      { authenticated: "required" },
+      { authenticated: "required", signed: true },
     );
     return response.data;
   },
@@ -184,7 +199,7 @@ export const bridgeService = {
     if (params.symbol) search.set("symbol", params.symbol);
 
     const response = await bridgeRequest<BridgeStatus>(
-      `/api/yield/bridge-status?${search.toString()}`,
+      `/api/funding/bridge-status?${search.toString()}`,
       { method: "GET", cache: "no-store" },
       { authenticated: "optional" },
     );

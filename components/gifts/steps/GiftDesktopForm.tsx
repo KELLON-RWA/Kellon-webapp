@@ -27,6 +27,7 @@ interface GiftDesktopFormProps {
   onSelectTemplate: (id: string) => void
   onAmountChange: (value: string) => void
   onReview: () => void
+  onBridge: () => void
 }
 
 export default function GiftDesktopForm({
@@ -43,6 +44,7 @@ export default function GiftDesktopForm({
   onSelectTemplate,
   onAmountChange,
   onReview,
+  onBridge,
 }: GiftDesktopFormProps) {
   return (
     <section className="hidden w-full flex-1 flex-col gap-5 md:flex">
@@ -64,6 +66,7 @@ export default function GiftDesktopForm({
             selectedAsset={selectedAsset}
             hasEnoughBalance={hasEnoughBalance}
             onAmountChange={onAmountChange}
+            onBridge={onBridge}
           />
         </div>
 

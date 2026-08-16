@@ -1,10 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import { Form } from "@/components/ui/form"
+import BridgeFundingOverlay, {
+  type BridgeFundingRequest,
+} from "@/components/wallet/bridge/BridgeFundingOverlay"
 import FlowStepIndicator from "@/components/wallet/shared/FlowStepIndicator"
 import FlowHeader from "@/components/wallet/shared/FlowHeader"
 import { getChainLabel } from "@/lib/chains"
 import type { User } from "@/types/db"
+import { useUser } from "@/hooks/use-user"
 import GiftSuccessModal from "./GiftSuccessModal"
 import type { GiftStep } from "./gift-utils"
 import GiftDesktopForm from "./steps/GiftDesktopForm"
@@ -27,7 +32,11 @@ const stepTitles: Record<GiftStep, string> = {
 }
 
 export default function GiftFlow({ profile }: GiftFlowProps) {
-  const giftFlow = useGiftFlow(profile)
+  const [bridgeRequest, setBridgeRequest] =
+    useState<BridgeFundingRequest | null>(null)
+  const { data: liveProfile } = useUser(profile, { live: true })
+  const activeProfile = liveProfile || profile
+  const giftFlow = useGiftFlow(activeProfile)
   const {
     form,
     assets,
@@ -64,6 +73,16 @@ export default function GiftFlow({ profile }: GiftFlowProps) {
     goToDetails,
   } = giftFlow
 
+  const openBridge = () => {
+    if (!selectedAsset) return
+    setBridgeRequest({
+      symbol: selectedAsset.symbol,
+      targetChain: selectedAsset.chain,
+      requiredAmount: Number(amount),
+      targetBalance: selectedAsset.amount,
+    })
+  }
+
   const renderStep = () => {
     if (step === "intro") {
       return <GiftIntroStep onContinue={goToStyle} />
@@ -93,6 +112,7 @@ export default function GiftFlow({ profile }: GiftFlowProps) {
             onSelectTemplate={handleTemplateSelect}
             onAmountChange={handleAmountChange}
             onReview={handleReview}
+            onBridge={openBridge}
           />
         </>
       )
@@ -112,6 +132,7 @@ export default function GiftFlow({ profile }: GiftFlowProps) {
           isCustomTemplate={selectedTemplate.id === "custom"}
           onAmountChange={handleAmountChange}
           onReview={handleReview}
+          onBridge={openBridge}
         />
       )
     }
@@ -165,6 +186,11 @@ export default function GiftFlow({ profile }: GiftFlowProps) {
         chain={getChainLabel(selectedAsset?.chain || "base")}
         recipient={normalizedRecipient}
         onDone={leaveFlow}
+      />
+      <BridgeFundingOverlay
+        profile={activeProfile}
+        request={bridgeRequest}
+        onOpenChange={(open) => !open && setBridgeRequest(null)}
       />
       <GiftExitConfirmation
         open={isExitOpen}

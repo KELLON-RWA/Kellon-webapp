@@ -21,6 +21,7 @@ interface GiftDetailsStepProps {
   isCustomTemplate: boolean
   onAmountChange: (value: string) => void
   onReview: () => void
+  onBridge: () => void
 }
 
 export default function GiftDetailsStep({
@@ -35,6 +36,7 @@ export default function GiftDetailsStep({
   isCustomTemplate,
   onAmountChange,
   onReview,
+  onBridge,
 }: GiftDetailsStepProps) {
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 md:gap-5">
@@ -44,6 +46,7 @@ export default function GiftDetailsStep({
         selectedAsset={selectedAsset}
         hasEnoughBalance={hasEnoughBalance}
         onAmountChange={onAmountChange}
+        onBridge={onBridge}
       />
       <GiftRecipientMessageSection
         form={form}

@@ -2,6 +2,7 @@
 
 import type { UseFormReturn } from "react-hook-form";
 import Keypad from "@/components/Keypad";
+import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton";
 import {
   Form,
   FormControl,
@@ -21,6 +22,7 @@ interface AmountStepProps {
   onAmountChange: (value: string) => void;
   onKeypadPress: (value: string) => void;
   onReview: () => void;
+  onBridge: () => void;
 }
 
 export default function AmountStep({
@@ -31,7 +33,13 @@ export default function AmountStep({
   onAmountChange,
   onKeypadPress,
   onReview,
+  onBridge,
 }: AmountStepProps) {
+  const amountValue = Number(amount);
+  const isOverBalance =
+    Boolean(selectedAsset) &&
+    Number.isFinite(amountValue) &&
+    amountValue > (selectedAsset?.amount || 0);
   return (
     <div className="flex h-full flex-col gap-5 md:gap-6">
       <Form {...amountForm}>
@@ -81,9 +89,12 @@ export default function AmountStep({
       </Form>
 
       {amount && !isAmountValid ? (
-        <p className="text-xs font-medium text-red-500">
-          Enter an amount greater than zero and within your balance.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-medium text-red-500">
+            Enter an amount greater than zero and within your balance.
+          </p>
+          {isOverBalance ? <BridgeDeficitButton onClick={onBridge} /> : null}
+        </div>
       ) : null}
 
       <div className="block md:hidden">

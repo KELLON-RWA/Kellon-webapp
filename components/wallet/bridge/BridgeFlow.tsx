@@ -39,8 +39,15 @@ import {
   matchesBridgeRecommendation,
 } from "./utils"
 
-interface BridgeFlowProps {
+export interface BridgeFlowProps {
   profile: User
+  embedded?: boolean
+  initialSymbol?: BridgeAssetOption["symbol"]
+  initialSourceChain?: string
+  initialDestinationChain?: string
+  initialAmount?: string
+  onClose?: () => void
+  onSubmitted?: () => void
 }
 
 async function monitorBridgeStatus(
@@ -61,7 +68,16 @@ async function monitorBridgeStatus(
   }
 }
 
-export default function BridgeFlow({ profile }: BridgeFlowProps) {
+export default function BridgeFlow({
+  profile,
+  embedded = false,
+  initialSymbol,
+  initialSourceChain,
+  initialDestinationChain,
+  initialAmount = "",
+  onClose,
+  onSubmitted,
+}: BridgeFlowProps) {
   const router = useRouter()
   const { wallets, ready: walletsReady } = useWallets()
   const { getSmartAccountClient } = useSmartAccount()
@@ -71,12 +87,28 @@ export default function BridgeFlow({ profile }: BridgeFlowProps) {
   )
   const destinations = useMemo(() => getBridgeDestinations(), [])
   const [sourceKey, setSourceKey] = useState(
-    sources.find((item) => item.chainType === "evm")?.key ||
+    sources.find(
+      (item) =>
+        item.chainType === "evm" &&
+        (!initialSymbol || item.symbol === initialSymbol) &&
+        (!initialSourceChain || item.chainKey === initialSourceChain),
+    )?.key ||
+      sources.find(
+        (item) =>
+          item.chainType === "evm" &&
+          (!initialSymbol || item.symbol === initialSymbol) &&
+          item.chainKey !== initialDestinationChain,
+      )?.key ||
+      sources.find((item) => item.chainType === "evm")?.key ||
       sources[0]?.key ||
       "",
   )
-  const [destinationKey, setDestinationKey] = useState("")
-  const [amount, setAmount] = useState("")
+  const [destinationKey, setDestinationKey] = useState(
+    initialSymbol && initialDestinationChain
+      ? `${initialSymbol}:${initialDestinationChain}`
+      : "",
+  )
+  const [amount, setAmount] = useState(initialAmount)
   const [selectedRoute, setSelectedRoute] = useState<BridgeRateOption | null>(
     null,
   )
@@ -301,7 +333,8 @@ export default function BridgeFlow({ profile }: BridgeFlowProps) {
       if (execution.transactions.length === 0) {
         setVerification(null)
         toast.success("Funds are already on the destination network")
-        router.push("/")
+        if (embedded) onSubmitted?.()
+        else router.push("/")
         return
       }
 
@@ -353,7 +386,8 @@ export default function BridgeFlow({ profile }: BridgeFlowProps) {
         amount,
         symbol: source.symbol,
       })
-      router.push("/")
+      if (embedded) onSubmitted?.()
+      else router.push("/")
     } catch (error) {
       const verificationError = findTransferVerificationRequiredError(error)
       if (verificationError) {
@@ -428,12 +462,24 @@ export default function BridgeFlow({ profile }: BridgeFlowProps) {
         : null
 
   return (
-    <section className="container mx-auto flex min-h-[90dvh] max-w-4xl flex-col overflow-x-hidden px-4 pb-28 pt-4 md:px-6 md:pb-14 md:pt-20">
+    <section
+      className={
+        embedded
+          ? "mx-auto flex w-full max-w-4xl flex-col overflow-x-hidden px-4 pb-6 pt-2 md:px-6"
+          : "container mx-auto flex min-h-[90dvh] max-w-4xl flex-col overflow-x-hidden px-4 pb-28 pt-4 md:px-6 md:pb-14 md:pt-20"
+      }
+    >
       <FlowHeader
         title={view === "review" ? "Review bridge" : "Bridge"}
         onBack={() =>
-          view === "review" ? setView("compose") : router.back()
+          view === "review"
+            ? setView("compose")
+            : embedded
+              ? onClose?.()
+              : router.back()
         }
+        onClose={embedded ? onClose : undefined}
+        closeLabel="Close bridge"
         className="mb-6 md:mb-8"
       />
 

@@ -1,7 +1,11 @@
 import { AtSign, Mail, Wallet } from "lucide-react";
 import * as z from "zod";
 import type { Asset, Transaction } from "@/types/db";
-import type { RecipientKind } from "./send-types";
+import type {
+  RecipientKind,
+  SendableAsset,
+  SendableAssetGroup,
+} from "./send-types";
 
 export const SEND_STEPS = ["recipient", "asset", "amount", "review"] as const;
 
@@ -47,6 +51,23 @@ export function formatAssetAmount(value: number): string {
     minimumFractionDigits: value > 0 && value < 1 ? 2 : 0,
     maximumFractionDigits: 6,
   }).format(value);
+}
+
+export function groupSendableAssets(
+  assets: SendableAsset[],
+): SendableAssetGroup[] {
+  const groups = new Map<string, SendableAsset[]>();
+  assets.forEach((asset) => {
+    groups.set(asset.symbol, [...(groups.get(asset.symbol) || []), asset]);
+  });
+
+  return Array.from(groups.entries()).map(([symbol, options]) => ({
+    symbol,
+    name: options[0]?.name || symbol,
+    assets: options,
+    balance: options.reduce((total, asset) => total + asset.amount, 0),
+    isMultiChain: options.length > 1,
+  }));
 }
 
 export function getTokenIconUrl(symbol: string): string {

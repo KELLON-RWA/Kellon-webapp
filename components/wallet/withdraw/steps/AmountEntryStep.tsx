@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { formatNumberWithCommas } from "@/lib/format-number-with-comma"
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill"
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter"
+import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton"
 import { Input } from "@/components/ui/input"
 import {
   Form,
@@ -25,6 +26,7 @@ interface AmountEntryStepProps {
   assetBalance: number
   onContinue: () => void
   onAmountChange: (value: string) => void
+  onBridge: () => void
 }
 
 type AmountFormValues = {
@@ -45,6 +47,7 @@ export function WithdrawAmountEntryStep({
   assetBalance,
   onContinue,
   onAmountChange,
+  onBridge,
 }: AmountEntryStepProps) {
   const amountSchema = useMemo(
     () =>
@@ -84,6 +87,8 @@ export function WithdrawAmountEntryStep({
     ? formatNumberWithCommas(currentAmount)
     : "0"
   const isAmountValid = form.formState.isValid
+  const isOverBalance =
+    Number.isFinite(Number(currentAmount)) && Number(currentAmount) > assetBalance
   const quickAmounts = useMemo(
     () =>
       FIXED_QUICK_AMOUNTS.filter((value) => value <= assetBalance).slice(0, 6),
@@ -175,7 +180,16 @@ export function WithdrawAmountEntryStep({
                   Max
                 </button>
               </div>
-              {form.formState.errors.amount ? (
+              {isOverBalance ? (
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+                  <p className="text-sm text-destructive">
+                    Insufficient balance. You need{" "}
+                    {formatAssetAmount(Number(currentAmount) - assetBalance)}{" "}
+                    more {asset || "asset"}.
+                  </p>
+                  <BridgeDeficitButton onClick={onBridge} />
+                </div>
+              ) : form.formState.errors.amount ? (
                 <p className="mt-2 text-sm text-destructive">
                   {form.formState.errors.amount.message}
                 </p>
@@ -272,6 +286,11 @@ export function WithdrawAmountEntryStep({
                           </p>
                           <FormMessage className="text-right text-sm" />
                         </div>
+                        {isOverBalance ? (
+                          <div className="mt-3 flex justify-end">
+                            <BridgeDeficitButton onClick={onBridge} />
+                          </div>
+                        ) : null}
                       </FormItem>
                     )}
                   />

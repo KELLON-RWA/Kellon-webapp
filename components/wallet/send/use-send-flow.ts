@@ -25,6 +25,7 @@ import {
   setStickyTransferMeta,
 } from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
+import { normalizeBridgeChain } from "@/lib/bridge-assets"
 import { beginOperation, endOperation } from "@/services/api"
 import {
   createPublicClient,
@@ -253,24 +254,30 @@ export function useSendFlow(profile: User) {
 
   // ── Sendable assets (derived from profile) ─────────────────────────────────
   const sendableAssets = useMemo<SendableAsset[]>(() => {
-    return (profile.assets || [])
+    const grouped = new Map<string, SendableAsset>()
+
+    ;(profile.assets || [])
       .filter((asset): asset is Asset => Boolean(asset?.symbol && asset?.chain))
-      .map((asset) => {
+      .forEach((asset) => {
         const symbol = asset.symbol.toUpperCase()
         const chain = asset.chain || ""
-        return {
+        const amount = parseAssetAmount(asset.amount)
+        if (amount <= 0 || !["USDC", "USDT"].includes(symbol)) return
+
+        const key = `${symbol}:${normalizeBridgeChain(chain)}`
+        const current = grouped.get(key)
+        grouped.set(key, {
           id: asset.id,
-          key: [asset.id, symbol, chain].filter(Boolean).join(":"),
+          key,
           symbol,
           name: ASSET_NAMES[symbol] || symbol,
-          amount: parseAssetAmount(asset.amount),
+          amount: (current?.amount || 0) + amount,
           chain,
           assetType: asset.assetType,
-        }
+        })
       })
-      .filter(
-        (asset) => asset.amount > 0 && ["USDC", "USDT"].includes(asset.symbol),
-      )
+
+    return Array.from(grouped.values())
       .sort((a, b) => {
         if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
         return a.chain.localeCompare(b.chain)

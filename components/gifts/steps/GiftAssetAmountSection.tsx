@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon"
+import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton"
 import ChainIcon from "@/components/wallet/ChainIcon"
 import { getChainLabel } from "@/lib/chains"
 import { cn } from "@/lib/utils"
@@ -38,6 +39,7 @@ interface GiftAssetAmountSectionProps {
   selectedAsset: GiftAssetOption | null
   hasEnoughBalance: boolean
   onAmountChange: (value: string) => void
+  onBridge: () => void
 }
 
 export default function GiftAssetAmountSection({
@@ -46,6 +48,7 @@ export default function GiftAssetAmountSection({
   selectedAsset,
   hasEnoughBalance,
   onAmountChange,
+  onBridge,
 }: GiftAssetAmountSectionProps) {
   const selectedAssetKey = form.watch("assetKey")
   const amount = form.watch("amount")
@@ -217,20 +220,23 @@ export default function GiftAssetAmountSection({
       />
 
       {selectedAsset ? (
-        <p
-          className={cn(
-            "mt-3 text-xs font-medium",
-            isOverBalance ? "text-red-500" : "text-gray-500 dark:text-gray-400",
-          )}
-        >
-          {isOverBalance
-            ? `Insufficient balance. Available: ${formatGiftAmount(
-                selectedAsset.amount,
-              )} ${selectedAsset.symbol}`
-            : `Available: ${formatGiftAmount(selectedAsset.amount)} ${
-                selectedAsset.symbol
-              }`}
-        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p
+            className={cn(
+              "text-xs font-medium",
+              isOverBalance ? "text-red-500" : "text-gray-500 dark:text-gray-400",
+            )}
+          >
+            {isOverBalance
+              ? `Insufficient balance. Available: ${formatGiftAmount(
+                  selectedAsset.amount,
+                )} ${selectedAsset.symbol}`
+              : `Available: ${formatGiftAmount(selectedAsset.amount)} ${
+                  selectedAsset.symbol
+                }`}
+          </p>
+          {isOverBalance ? <BridgeDeficitButton onClick={onBridge} /> : null}
+        </div>
       ) : null}
     </section>
   )

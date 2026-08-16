@@ -15,6 +15,14 @@ export interface SendableAsset {
   assetType: AssetType;
 }
 
+export interface SendableAssetGroup {
+  symbol: string;
+  name: string;
+  assets: SendableAsset[];
+  balance: number;
+  isMultiChain: boolean;
+}
+
 export interface VerifiedRecipient {
   id: string;
   name?: string | null;

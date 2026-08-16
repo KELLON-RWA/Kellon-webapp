@@ -127,6 +127,12 @@ const SIGNED_ROUTE_SEGMENTS = [
   "yield",
   "biometric",
   "bridge",
+  "funding",
+  "workflows",
+  "workflow",
+  "stocks",
+  "fiat",
+  "users",
 ];
 
 function getStoredValue(key: string): string | undefined {

@@ -22,6 +22,9 @@ import {
   type OfframpResponse,
 } from "@/services/api/off-ramp";
 import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
+import BridgeFundingOverlay, {
+  type BridgeFundingRequest,
+} from "@/components/wallet/bridge/BridgeFundingOverlay";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import { WithdrawAssetSelectionStep } from "./steps/AssetSelectionStep";
@@ -122,6 +125,8 @@ export default function WithdrawFlow({
   const [selectedProviderBank, setSelectedProviderBank] =
     useState<SelectableBank | null>(null);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [bridgeRequest, setBridgeRequest] =
+    useState<BridgeFundingRequest | null>(null);
   const [savedBanks, setSavedBanks] = useState<BankDetail[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
@@ -671,6 +676,15 @@ export default function WithdrawFlow({
               assetBalance={selectedAssetBalance}
               onContinue={() => isAmountValid && setStep("provider")}
               onAmountChange={setAmount}
+              onBridge={() => {
+                if (!asset || !selectedAssetDetails) return;
+                setBridgeRequest({
+                  symbol: asset,
+                  targetChain: selectedAssetDetails.network.name,
+                  requiredAmount: amountValue,
+                  targetBalance: selectedAssetBalance,
+                });
+              }}
             />
           ) : null}
 
@@ -788,6 +802,11 @@ export default function WithdrawFlow({
         onSubmit={submitWithdrawalVerification}
         title="Confirm withdrawal"
         actionNoun="withdrawal"
+      />
+      <BridgeFundingOverlay
+        profile={activeProfile}
+        request={bridgeRequest}
+        onOpenChange={(open) => !open && setBridgeRequest(null)}
       />
     </>
   );

@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowRight, Send } from "lucide-react";
 import AddFundsModal from "@/components/modals/AddFundsModal";
+import BridgeFundingOverlay, {
+  type BridgeFundingRequest,
+} from "@/components/wallet/bridge/BridgeFundingOverlay";
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import type { User } from "@/types/db";
+import { useUser } from "@/hooks/use-user";
 import AmountStep from "./AmountStep";
 import AssetStep from "./AssetStep";
 import RecentsPanel from "./RecentsPanel";
@@ -20,6 +25,10 @@ interface SendFlowProps {
 }
 
 export default function SendFlow({ profile }: SendFlowProps) {
+  const [bridgeRequest, setBridgeRequest] =
+    useState<BridgeFundingRequest | null>(null);
+  const { data: liveProfile } = useUser(profile, { live: true });
+  const activeProfile = liveProfile || profile;
   const {
     amount,
     amountForm,
@@ -58,7 +67,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
     verificationRequest,
     verifiedRecipient,
     verifyRecipient,
-  } = useSendFlow(profile);
+  } = useSendFlow(activeProfile);
 
   return (
     <div className="mx-auto flex min-h-[90dvh] w-full max-w-full flex-col overflow-x-hidden px-4 pb-32 pt-4 md:container md:max-w-5xl md:px-6 md:pt-28">
@@ -110,6 +119,15 @@ export default function SendFlow({ profile }: SendFlowProps) {
               onAmountChange={setAmount}
               onKeypadPress={handleAmountKeypadPress}
               onReview={() => setStep("review")}
+              onBridge={() => {
+                if (!selectedAsset) return;
+                setBridgeRequest({
+                  symbol: selectedAsset.symbol,
+                  targetChain: selectedAsset.chain,
+                  requiredAmount: amountValue,
+                  targetBalance: selectedAsset.amount,
+                });
+              }}
             />
           ) : null}
 
@@ -166,6 +184,11 @@ export default function SendFlow({ profile }: SendFlowProps) {
         isResending={isResendingVerification}
         onClose={closeTransferVerification}
         onSubmit={submitTransferVerification}
+      />
+      <BridgeFundingOverlay
+        profile={activeProfile}
+        request={bridgeRequest}
+        onOpenChange={(open) => !open && setBridgeRequest(null)}
       />
     </div>
   );
