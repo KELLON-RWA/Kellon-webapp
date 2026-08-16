@@ -30,6 +30,7 @@ export enum TransactionType {
   SWAP = "SWAP",
   TRANSFER_IN = "TRANSFER_IN",
   TRANSFER_OUT = "TRANSFER_OUT",
+  BRIDGE = "BRIDGE",
 }
 
 export enum AssetType {

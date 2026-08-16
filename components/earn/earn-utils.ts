@@ -67,7 +67,10 @@ export function getSymbolBalances(
 }
 
 export function getMaxUsableBalance(profile: User, symbol: string): number {
-  return getSymbolBalances(profile, symbol)[0]?.amount || 0;
+  return getSymbolBalances(profile, symbol).reduce(
+    (total, { amount }) => total + amount,
+    0,
+  );
 }
 
 export function getPositionOpportunity(

@@ -74,6 +74,8 @@ export function getTransactionAction(type: Transaction["type"]): string {
       return "Received";
     case "TRANSFER_OUT":
       return "Sent";
+    case "BRIDGE":
+      return "Bridge";
     default:
       return type.charAt(0) + type.slice(1).toLowerCase();
   }
@@ -204,6 +206,7 @@ function getTransactionDisplayAmount(transaction: Transaction): number | null {
       "WITHDRAW",
       "TRANSFER_IN",
       "TRANSFER_OUT",
+      "BRIDGE",
     ].includes(transaction.type)
   ) {
     return parseTransactionAmount(transaction.amount);
