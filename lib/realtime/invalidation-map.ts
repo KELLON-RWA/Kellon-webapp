@@ -21,6 +21,7 @@ export function planInvalidation(event: RealtimeEvent): InvalidationPlan {
       return {
         queryKeys: [
           ["transactions"],
+          ["user-session"],
           ...(event.entityId ? [["transaction", event.entityId]] : []),
         ],
         // A transaction reaching a terminal state moves a balance, and balances come
@@ -29,7 +30,7 @@ export function planInvalidation(event: RealtimeEvent): InvalidationPlan {
       }
 
     case "balance.updated":
-      return { queryKeys: [], refreshRouter: true }
+      return { queryKeys: [["user-session"]], refreshRouter: true }
 
     case "notification.created":
       // Prefix key: covers both ["notifications"] and ["notifications","unread-count"].
@@ -46,6 +47,6 @@ export function planInvalidation(event: RealtimeEvent): InvalidationPlan {
 
 /** Applied on every (re)connect, since events during the gap are not replayed. */
 export const RECONNECT_INVALIDATION: InvalidationPlan = {
-  queryKeys: [["transactions"], ["notifications"]],
+  queryKeys: [["transactions"], ["notifications"], ["user-session"]],
   refreshRouter: true,
 }
