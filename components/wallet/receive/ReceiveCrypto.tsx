@@ -205,8 +205,9 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
 
       {/* Disclaimers */}
       <div className="text-center text-[10px] text-gray-400 px-4 space-y-1 mb-8">
-        <p>Only send {chainName} assets to this address.</p>
-        <p>Sending other cryptocurrencies may result in permanent loss.</p>
+        <p>Only deposit USDC or USDT on {chainName} to this address.</p>
+        <p>Do not send BNB, FLURRY, or unsupported tokens here.</p>
+        <p>Unsupported deposits may not be usable in Kellon.</p>
         <p>Always verify the address before transferring.</p>
       </div>
 

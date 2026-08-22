@@ -74,7 +74,7 @@ const AddFundsModal: FC<AddFundsModalProps> = ({
         <AddOption
           icon={<ArrowDownCircle className="text-green-500 w-6 h-6" />}
           title="Deposit Crypto"
-          description="Transfer from external wallet or exchange."
+          description="Only deposit supported stablecoins: USDC or USDT."
           onClick={handleCryptoDeposit}
         />
       </div>

@@ -47,7 +47,7 @@ const SelectNetworkModal: FC<SelectNetworkModalProps> = ({
   };
 
   const content = (
-    <div className="px-4 pb-8 md:px-0 md:pb-0">
+    <div className="flex max-h-[82dvh] flex-col px-4 pb-8 md:max-h-[70dvh] md:px-0 md:pb-0">
       <div className="flex justify-start mb-6">
         <button
           onClick={() => onClose(false)}
@@ -66,7 +66,7 @@ const SelectNetworkModal: FC<SelectNetworkModalProps> = ({
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {chains.map((chain) => {
           const isSelected = selectedChainId === chain.id;
           const chainName = chain.name;
@@ -135,7 +135,7 @@ const SelectNetworkModal: FC<SelectNetworkModalProps> = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="bg-gray-70 dark:bg-black2 border-none rounded-t-[32px] outline-none [&>button]:hidden">
+      <DrawerContent className="max-h-[90dvh] bg-gray-70 dark:bg-black2 border-none rounded-t-[32px] outline-none [&>button]:hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Select Network</DrawerTitle>
         </DrawerHeader>

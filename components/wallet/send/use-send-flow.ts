@@ -35,7 +35,7 @@ import {
   http,
   type Address,
 } from "viem"
-import type { Asset, User } from "@/types/db"
+import { AssetType, type Asset, type User } from "@/types/db"
 import type {
   AmountFormValues,
   RecipientFormValues,
@@ -262,7 +262,7 @@ export function useSendFlow(profile: User) {
         const symbol = asset.symbol.toUpperCase()
         const chain = asset.chain || ""
         const amount = parseAssetAmount(asset.amount)
-        if (amount <= 0 || !["USDC", "USDT"].includes(symbol)) return
+        if (asset.assetType !== AssetType.CRYPTO || amount <= 0) return
 
         const key = `${symbol}:${normalizeBridgeChain(chain)}`
         const current = grouped.get(key)
@@ -277,11 +277,10 @@ export function useSendFlow(profile: User) {
         })
       })
 
-    return Array.from(grouped.values())
-      .sort((a, b) => {
-        if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
-        return a.chain.localeCompare(b.chain)
-      })
+    return Array.from(grouped.values()).sort((a, b) => {
+      if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
+      return a.chain.localeCompare(b.chain)
+    })
   }, [profile.assets])
 
   // ── Navigation reducer (initialised once from URL on mount) ───────────────
@@ -836,7 +835,7 @@ export function useSendFlow(profile: User) {
       beginOperation(Boolean(verification))
       try {
         const trimmedRecipient = recipientInput.trim()
-        const chainLower = selectedAsset.chain.toLowerCase()
+        const chainLower = normalizeBridgeChain(selectedAsset.chain)
 
         const transferPayload = {
           amount: amountValue,
@@ -932,6 +931,13 @@ export function useSendFlow(profile: User) {
             signedTxBase64,
             verificationCode: verification?.verificationCode,
             verificationType: verification?.verificationType,
+          })
+        } else if (
+          !["USDC", "USDT"].includes(selectedAsset.symbol.toUpperCase())
+        ) {
+          response = await transferService.transferEVM({
+            ...transferPayload,
+            chain: chainLower,
           })
         } else {
           // Privy is still hydrating; `wallets` is [] until it settles, so a click
