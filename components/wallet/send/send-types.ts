@@ -13,6 +13,10 @@ export interface SendableAsset {
   amount: number;
   chain: string;
   assetType: AssetType;
+  tokenAddress?: string;
+  decimals?: number;
+  isNative?: boolean;
+  isTemporaryRecoveryAsset?: boolean;
 }
 
 export interface SendableAssetGroup {
