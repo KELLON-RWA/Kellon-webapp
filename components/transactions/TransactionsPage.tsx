@@ -49,6 +49,8 @@ function matchesActivityFilter(
       return transaction.type === "WITHDRAW";
     case "deposit":
       return ["BUY", "DEPOSIT"].includes(transaction.type);
+    case "bridge":
+      return transaction.type === "BRIDGE" || method.includes("bridge") || metadata.includes("bridge");
     case "invoices":
       return method.includes("invoice") || metadata.includes("invoice");
     case "gifts":

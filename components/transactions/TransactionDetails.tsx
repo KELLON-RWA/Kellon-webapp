@@ -367,6 +367,7 @@ function getTransactionDisplayAmount(transaction: Transaction): number | null {
       "SELL",
       "BUY",
       "DEPOSIT",
+      "BRIDGE",
     ].includes(transaction.type)
   ) {
     return parseTransactionAmount(transaction.amount);
@@ -382,6 +383,22 @@ function getTransactionTitle(transaction: Transaction): string {
 
   if (transaction.type === "WITHDRAW") {
     return `${fiatCurrency} Withdrawal`;
+  }
+
+  if (transaction.type === "BRIDGE") {
+    const metadata = getTransactionMetadata(transaction);
+    const fromChain =
+      typeof metadata.fromChain === "string"
+        ? metadata.fromChain.toUpperCase()
+        : typeof metadata.chain === "string"
+          ? metadata.chain.toUpperCase()
+          : "";
+    const toChain =
+      typeof metadata.toChain === "string" ? metadata.toChain.toUpperCase() : "";
+    if (fromChain && toChain) {
+      return `Bridge (${fromChain} → ${toChain})`;
+    }
+    return `Bridge ${symbol}`;
   }
 
   return `${symbol} ${type}`;

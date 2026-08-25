@@ -232,6 +232,22 @@ export function getTransactionTitle(transaction: Transaction): string {
     return `${fiatCurrency || symbol} Withdrawal`;
   }
 
+  if (transaction.type === "BRIDGE") {
+    const metadata = transaction.metadata || {};
+    const fromChain =
+      typeof metadata.fromChain === "string"
+        ? metadata.fromChain.toUpperCase()
+        : typeof metadata.chain === "string"
+          ? metadata.chain.toUpperCase()
+          : "";
+    const toChain =
+      typeof metadata.toChain === "string" ? metadata.toChain.toUpperCase() : "";
+    if (fromChain && toChain) {
+      return `Bridge (${fromChain} → ${toChain})`;
+    }
+    return `Bridge ${symbol}`;
+  }
+
   if (action === "Buy") {
     return `Buy ${symbol}`;
   }

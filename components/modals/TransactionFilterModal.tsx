@@ -31,6 +31,7 @@ export type ActivityFilter =
   | "received"
   | "withdraw"
   | "deposit"
+  | "bridge"
   | "invoices"
   | "gifts"
   | "cards"
@@ -42,6 +43,7 @@ export const ACTIVITY_FILTERS: ActivityFilter[] = [
   "received",
   "withdraw",
   "deposit",
+  "bridge",
   "invoices",
   "gifts",
   "cards",
