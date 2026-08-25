@@ -57,7 +57,7 @@ export default function AssetStep({
         icon={<Wallet className="h-6 w-6" />}
         title="No sendable assets"
         titleClassName="text-base font-semibold text-black dark:text-white"
-        text="Syncing your wallet assets. If you recently deposited, wait a moment and try again."
+        text="Fund your wallet with USDC or USDT before sending."
         textClassName="mt-1 max-w-xs text-sm text-gray-20 dark:text-gray-40"
         action={
           <Button

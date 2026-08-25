@@ -10,8 +10,6 @@ import type {
 export const SEND_STEPS = ["recipient", "asset", "amount", "review"] as const;
 
 export const ASSET_NAMES: Record<string, string> = {
-  BNB: "BNB",
-  FLURRY: "Flurry Finance",
   USDC: "USD Coin",
   USDT: "Tether USD",
 };

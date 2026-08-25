@@ -33,10 +33,9 @@ import {
   erc20Abi,
   formatUnits,
   http,
-  parseUnits,
   type Address,
 } from "viem"
-import { AssetType, type Asset, type User } from "@/types/db"
+import type { Asset, User } from "@/types/db"
 import type {
   AmountFormValues,
   RecipientFormValues,
@@ -127,24 +126,6 @@ const BALANCE_CHECK_RPC: Record<string, string> = {
   bsc: "https://bsc-dataseed.binance.org",
 }
 
-const BSC_RECOVERY_CHAIN = "bnb"
-const TEMPORARY_BSC_RECOVERY_ASSETS = [
-  {
-    symbol: "BNB",
-    name: "BNB",
-    decimals: 18,
-    isNative: true,
-    tokenAddress: undefined,
-  },
-  {
-    symbol: "FLURRY",
-    name: "Flurry Finance",
-    decimals: 18,
-    isNative: false,
-    tokenAddress: "0x47c9bcef4fe2f2d017095fbd2ad1ec3bb7af9be0",
-  },
-] as const
-
 async function verifyOnChainBalance(
   chainKey: string,
   tokenAddress: string,
@@ -169,82 +150,6 @@ async function verifyOnChainBalance(
       `Insufficient ${symbol} balance. You have ${available} ${symbol} but tried to send ${required} ${symbol}.`,
     )
   }
-}
-
-async function verifyNativeBalance(
-  chainKey: string,
-  accountAddress: string,
-  requiredAmount: bigint,
-  symbol: string,
-  decimals: number,
-): Promise<void> {
-  const rpcUrl = BALANCE_CHECK_RPC[chainKey]
-  if (!rpcUrl) return
-  const client = createPublicClient({ transport: http(rpcUrl) })
-  const balance = await client.getBalance({
-    address: accountAddress as Address,
-  })
-  if (balance < requiredAmount) {
-    const available = formatUnits(balance, decimals)
-    const required = formatUnits(requiredAmount, decimals)
-    throw new Error(
-      `Insufficient ${symbol} balance. You have ${available} ${symbol} but tried to send ${required} ${symbol}.`,
-    )
-  }
-}
-
-function getBscSmartAccountAddress(profile: User): string | null {
-  const account = (profile.chainAccounts || []).find(
-    (chainAccount) =>
-      normalizeBridgeChain(chainAccount.chain) === BSC_RECOVERY_CHAIN,
-  )
-  return account?.smartAccountAddress || account?.publicKey || null
-}
-
-async function getTemporaryBscRecoveryAssets(
-  profile: User,
-): Promise<SendableAsset[]> {
-  const address = getBscSmartAccountAddress(profile)
-  const rpcUrl = BALANCE_CHECK_RPC[BSC_RECOVERY_CHAIN]
-  if (!address || !rpcUrl) return []
-
-  const client = createPublicClient({ transport: http(rpcUrl) })
-  const assets = await Promise.all(
-    TEMPORARY_BSC_RECOVERY_ASSETS.map(
-      async (token): Promise<SendableAsset | null> => {
-      try {
-        const balance = token.isNative
-          ? await client.getBalance({ address: address as Address })
-          : await client.readContract({
-              address: token.tokenAddress as Address,
-              abi: erc20Abi,
-              functionName: "balanceOf",
-              args: [address as Address],
-            })
-
-        if (balance <= 0n) return null
-
-        return {
-          id: `temporary-bsc-${token.symbol.toLowerCase()}`,
-          key: `${token.symbol}:${BSC_RECOVERY_CHAIN}`,
-          symbol: token.symbol,
-          name: token.name,
-          amount: Number(formatUnits(balance, token.decimals)),
-          chain: BSC_RECOVERY_CHAIN,
-          assetType: AssetType.CRYPTO,
-          decimals: token.decimals,
-          isNative: token.isNative,
-          tokenAddress: token.isNative ? undefined : token.tokenAddress,
-          isTemporaryRecoveryAsset: true,
-        } satisfies SendableAsset
-      } catch {
-        return null
-      }
-      },
-    ),
-  )
-
-  return assets.filter((asset): asset is SendableAsset => Boolean(asset))
 }
 
 function navReducer(state: NavState, action: NavAction): NavState {
@@ -347,26 +252,6 @@ export function useSendFlow(profile: User) {
     mode: "onChange",
   })
 
-  const [temporaryBscAssets, setTemporaryBscAssets] = useState<
-    SendableAsset[]
-  >([])
-
-  useEffect(() => {
-    let cancelled = false
-
-    getTemporaryBscRecoveryAssets(profile)
-      .then((assets) => {
-        if (!cancelled) setTemporaryBscAssets(assets)
-      })
-      .catch(() => {
-        if (!cancelled) setTemporaryBscAssets([])
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [profile])
-
   // ── Sendable assets (derived from profile) ─────────────────────────────────
   const sendableAssets = useMemo<SendableAsset[]>(() => {
     const grouped = new Map<string, SendableAsset>()
@@ -377,7 +262,7 @@ export function useSendFlow(profile: User) {
         const symbol = asset.symbol.toUpperCase()
         const chain = asset.chain || ""
         const amount = parseAssetAmount(asset.amount)
-        if (asset.assetType !== AssetType.CRYPTO || amount <= 0) return
+        if (amount <= 0 || !["USDC", "USDT"].includes(symbol)) return
 
         const key = `${symbol}:${normalizeBridgeChain(chain)}`
         const current = grouped.get(key)
@@ -392,16 +277,12 @@ export function useSendFlow(profile: User) {
         })
       })
 
-    temporaryBscAssets.forEach((asset) => {
-      if (grouped.has(asset.key)) return
-      grouped.set(asset.key, asset)
-    })
-
-    return Array.from(grouped.values()).sort((a, b) => {
-      if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
-      return a.chain.localeCompare(b.chain)
-    })
-  }, [profile.assets, temporaryBscAssets])
+    return Array.from(grouped.values())
+      .sort((a, b) => {
+        if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
+        return a.chain.localeCompare(b.chain)
+      })
+  }, [profile.assets])
 
   // ── Navigation reducer (initialised once from URL on mount) ───────────────
   const initialNavState = useMemo<NavState>(() => {
@@ -1053,19 +934,6 @@ export function useSendFlow(profile: User) {
             verificationType: verification?.verificationType,
           })
         } else {
-          const tokenSymbol = selectedAsset.symbol.toUpperCase()
-          const canSendFromSmartAccount =
-            tokenSymbol === "USDC" ||
-            tokenSymbol === "USDT" ||
-            selectedAsset.isNative ||
-            Boolean(selectedAsset.tokenAddress)
-
-          if (!canSendFromSmartAccount) {
-            response = await transferService.transferEVM({
-              ...transferPayload,
-              chain: chainLower,
-            })
-          } else {
           // Privy is still hydrating; `wallets` is [] until it settles, so a click
           // straight after page load would otherwise read as "no wallet".
           if (!walletsReady) {
@@ -1116,54 +984,40 @@ export function useSendFlow(profile: User) {
             throw new Error(`Unsupported EVM chain: ${selectedAsset.chain}`)
           }
 
+          const tokenSymbol = selectedAsset.symbol.toUpperCase()
           const tokenAddress =
-            selectedAsset.tokenAddress ||
-            (tokenSymbol === "USDC"
+            tokenSymbol === "USDC"
               ? chainConfig.usdcAddress
-              : tokenSymbol === "USDT"
-                ? chainConfig.usdtAddress
-                : undefined)
+              : chainConfig.usdtAddress
 
-          if (!selectedAsset.isNative && !tokenAddress) {
+          if (!tokenAddress) {
             throw new Error(
               `Token ${tokenSymbol} not supported on ${selectedAsset.chain}`,
             )
           }
 
           const isBsc = chainConfig.id === 56 || chainConfig.id === 97
-          const decimals = selectedAsset.decimals ?? (isBsc ? 18 : 6)
-          const amountBigInt = parseUnits(amount, decimals)
+          const decimals = isBsc ? 18 : 6
+          const amountBigInt = BigInt(Math.round(amountValue * 10 ** decimals))
 
           const safeAddr = (smartAccountClient.account as { address?: string })
             ?.address
           if (safeAddr) {
-            if (selectedAsset.isNative) {
-              await verifyNativeBalance(
-                chainLower,
-                safeAddr,
-                amountBigInt,
-                tokenSymbol,
-                decimals,
-              )
-            } else {
-              await verifyOnChainBalance(
-                chainLower,
-                tokenAddress as string,
-                safeAddr,
-                amountBigInt,
-                tokenSymbol,
-                decimals,
-              )
-            }
+            await verifyOnChainBalance(
+              chainLower,
+              tokenAddress,
+              safeAddr,
+              amountBigInt,
+              tokenSymbol,
+              decimals,
+            )
           }
 
-          const txData = selectedAsset.isNative
-            ? "0x"
-            : encodeFunctionData({
-                abi: erc20Abi,
-                functionName: "transfer",
-                args: [destinationAddress as `0x${string}`, amountBigInt],
-              })
+          const txData = encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [destinationAddress as `0x${string}`, amountBigInt],
+          })
 
           if (
             verification?.verificationCode &&
@@ -1188,11 +1042,9 @@ export function useSendFlow(profile: User) {
             ).sendTransaction({
               account: smartAccountClient.account,
               chain: smartAccountClient.chain,
-              to: (selectedAsset.isNative
-                ? destinationAddress
-                : tokenAddress) as `0x${string}`,
+              to: tokenAddress as `0x${string}`,
               data: txData,
-              value: selectedAsset.isNative ? amountBigInt : 0n,
+              value: 0n,
             })
             setStickyVerificationCode(null)
             setStickyTransferMeta(null)
@@ -1220,7 +1072,6 @@ export function useSendFlow(profile: User) {
               throw new Error(revertReason)
             }
             throw err
-          }
           }
         }
 
@@ -1270,7 +1121,6 @@ export function useSendFlow(profile: User) {
       }
     },
     [
-      amount,
       amountValue,
       getSmartAccountClient,
       isAmountValid,
