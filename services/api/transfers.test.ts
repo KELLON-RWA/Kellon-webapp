@@ -11,7 +11,7 @@ import {
 
 describe("transfer verification", () => {
   it("prefers a delivered OTP when OTP and TOTP are both available", () => {
-    expect(resolveVerificationType(["totp", "email_otp"])).toBe("otp")
+    expect(resolveVerificationType(["totp", "email_otp"])).toBe("email_otp")
   })
 
   it("uses TOTP when it is the only available method", () => {
@@ -37,7 +37,7 @@ describe("transfer verification", () => {
 
   it("maps a selected method to its verifier and delivery channel", () => {
     expect(getVerificationTypeForMethod("totp")).toBe("totp")
-    expect(getVerificationTypeForMethod("sms_otp")).toBe("otp")
+    expect(getVerificationTypeForMethod("sms_otp")).toBe("sms_otp")
     expect(getOtpChannelForMethod("email_otp")).toBe("email")
     expect(getOtpChannelForMethod("sms_otp")).toBe("sms")
     expect(getOtpChannelForMethod("totp")).toBeNull()
@@ -87,7 +87,7 @@ describe("transfer verification", () => {
       },
     })
 
-    expect(result?.verificationType).toBe("otp")
+    expect(result?.verificationType).toBe("email_otp")
     expect(result?.availableMethods).toEqual(["email_otp", "totp"])
     expect(result?.action).toBe("transfer")
   })

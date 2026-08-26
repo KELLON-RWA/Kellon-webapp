@@ -68,7 +68,7 @@ type EvmSmartAccountClient = {
 
 type EarnVerification = {
   verificationCode: string;
-  verificationType: "email_otp" | "totp" | "webauthn";
+  verificationType: "email_otp" | "sms_otp" | "totp" | "webauthn";
   context: EarnVerificationContext;
 };
 
@@ -159,7 +159,7 @@ export default function EarnActionDialog({
   const { getSmartAccountClient } = useSmartAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationType, setVerificationType] = useState<
-    "otp" | "totp" | null
+    "email_otp" | "sms_otp" | "totp" | null
   >(null);
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
@@ -474,10 +474,10 @@ export default function EarnActionDialog({
         }
 
         setVerificationContext(activeVerificationContext);
-        setOtpSent(verificationError.verificationType === "otp");
+        setOtpSent(verificationError.verificationType !== "totp");
         setVerificationType(verificationError.verificationType);
 
-        if (verificationError.verificationType !== "otp") {
+        if (verificationError.verificationType === "totp") {
           toast.info("Enter your authenticator code to continue.");
         }
         return;
@@ -628,9 +628,9 @@ export default function EarnActionDialog({
       <TransferVerificationModal
         isOpen={Boolean(verificationType)}
         isSubmitting={isSubmitting}
-        verificationType={verificationType || "otp"}
+        verificationType={verificationType || "email_otp"}
         title={
-          verificationType === "otp" && !otpSent
+          verificationType !== "totp" && !otpSent
             ? "Email verification"
             : action === "supply"
               ? "Confirm deposit"
@@ -652,14 +652,11 @@ export default function EarnActionDialog({
           setOtpSent(false);
         }}
         onSubmit={(verificationCode) => {
-          const activeVerificationType = verificationType || "otp";
+          const activeVerificationType = verificationType || "email_otp";
           form.handleSubmit((values) =>
             performAction(values, {
               verificationCode,
-              verificationType:
-                activeVerificationType === "otp"
-                  ? "email_otp"
-                  : activeVerificationType,
+              verificationType: activeVerificationType,
               context: verificationContext,
             }),
           )();

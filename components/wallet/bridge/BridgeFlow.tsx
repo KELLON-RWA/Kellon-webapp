@@ -539,7 +539,7 @@ export default function BridgeFlow({
       <TransferVerificationModal
         isOpen={Boolean(verification)}
         isSubmitting={isSubmitting}
-        verificationType={verification?.verificationType || "otp"}
+        verificationType={verification?.verificationType || "email_otp"}
         availableMethods={verification?.availableMethods}
         selectedMethod={verification?.selectedMethod}
         onMethodChange={selectVerificationMethod}

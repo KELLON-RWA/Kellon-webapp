@@ -720,7 +720,7 @@ export default function BridgeFundingOverlay({
     <TransferVerificationModal
       isOpen={Boolean(verification)}
       isSubmitting={isSubmitting}
-      verificationType={verification?.verificationType || "otp"}
+      verificationType={verification?.verificationType || "email_otp"}
       availableMethods={verification?.availableMethods}
       selectedMethod={verification?.selectedMethod}
       onMethodChange={(method) =>

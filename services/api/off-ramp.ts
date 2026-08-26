@@ -44,7 +44,7 @@ export interface OfframpInitRequest {
 
   // Security / MFA Fields
   verificationCode?: string; // OTP or TOTP code
-  verificationType?: "otp" | "totp";
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "otp" | string;
   verificationCodes?: Record<string, string>;
 
   paymentMethod?: string;
@@ -90,37 +90,42 @@ export interface OfframpResponse {
   };
   // If MFA is needed, backend returns 403 with these:
   code?: "VERIFICATION_REQUIRED";
-  verificationType?: "otp" | "totp";
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "otp" | string;
 }
 
 type OfframpErrorBody = {
   message?: string;
   code?: string;
-  verificationType?: "otp" | "totp";
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "otp" | string;
   availableMethods?: string[];
+  action?: string;
   error?:
     | string
     | {
         message?: string;
         code?: string;
-        verificationType?: "otp" | "totp";
+        verificationType?: "email_otp" | "sms_otp" | "totp" | "otp" | string;
         availableMethods?: string[];
+        action?: string;
       };
 };
 
 export class OfframpVerificationRequiredError extends Error {
-  verificationType: "otp" | "totp";
+  verificationType: "email_otp" | "sms_otp" | "totp" | "otp";
   availableMethods?: string[];
+  action?: string;
 
   constructor(
     message: string,
-    verificationType: "otp" | "totp" = "otp",
+    verificationType: "email_otp" | "sms_otp" | "totp" | "otp" = "email_otp",
     availableMethods?: string[],
+    action?: string,
   ) {
     super(message);
     this.name = "OfframpVerificationRequiredError";
     this.verificationType = verificationType;
     this.availableMethods = availableMethods;
+    this.action = action;
   }
 }
 
@@ -220,8 +225,13 @@ async function handleOfframpResponse(
     const requestedVerificationType =
       nestedError?.verificationType || body.verificationType;
     const verificationType = requestedVerificationType
-      ? requestedVerificationType
+      ? requestedVerificationType === "sms_otp"
+        ? "sms_otp"
+        : requestedVerificationType === "totp"
+          ? "totp"
+          : "email_otp"
       : resolveVerificationType(availableMethods);
+    const action = nestedError?.action || body.action;
     const verificationSignals = [
       code,
       body.message,
@@ -241,6 +251,7 @@ async function handleOfframpResponse(
         message === "VERIFICATION_REQUIRED" ? "Verification required" : message,
         verificationType,
         availableMethods,
+        action,
       );
     }
 

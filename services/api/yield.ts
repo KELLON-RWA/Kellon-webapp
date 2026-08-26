@@ -56,6 +56,7 @@ type YieldErrorBody = {
   code?: string;
   verificationType?: string;
   availableMethods?: string[];
+  action?: string;
   error?:
     | string
     | {
@@ -63,6 +64,7 @@ type YieldErrorBody = {
         code?: string;
         verificationType?: string;
         availableMethods?: string[];
+        action?: string;
       };
 };
 
@@ -90,10 +92,18 @@ async function handleYieldResponse<T>(
       response.status === 403 &&
       (code === "VERIFICATION_REQUIRED" || Boolean(availableMethods?.length))
     ) {
+      const vType =
+        verificationType === "totp"
+          ? "totp"
+          : verificationType === "sms_otp" ||
+              availableMethods?.includes("sms_otp")
+            ? "sms_otp"
+            : "email_otp";
       throw new TransferVerificationRequiredError(
         message,
-        verificationType === "totp" ? "totp" : "otp",
+        vType,
         availableMethods,
+        nestedError?.action || body.action,
       );
     }
 

@@ -14,7 +14,7 @@ import type { VerificationMethod } from "@/services/api/transfers";
 interface TransferVerificationModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
-  verificationType: "otp" | "totp";
+  verificationType: "email_otp" | "sms_otp" | "totp" | "otp";
   onClose: () => void;
   onSubmit: (code: string) => void;
   title?: string;
@@ -50,8 +50,7 @@ export default function TransferVerificationModal({
     if (!isOpen) setCode("");
   }, [isOpen]);
 
-  const activeMethod =
-    selectedMethod || (verificationType === "totp" ? "totp" : "otp");
+  const activeMethod = selectedMethod || verificationType;
   const methods = availableMethods?.length ? availableMethods : [activeMethod];
   const isOtpMethod = activeMethod !== "totp";
   const trimmedCode = code.trim();

@@ -43,6 +43,7 @@ import {
   resolveVerificationMethod,
   transferService,
   type VerificationMethod,
+  type VerificationType,
 } from "@/services/api/transfers";
 import {
   beginOperation,
@@ -131,7 +132,7 @@ export default function WithdrawFlow({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [verificationRequest, setVerificationRequest] = useState<{
-    verificationType: "otp" | "totp";
+    verificationType: VerificationType;
     verificationMethod: VerificationMethod;
     availableMethods: VerificationMethod[];
     otpSent: boolean;
@@ -271,7 +272,7 @@ export default function WithdrawFlow({
   const initiateWithdrawal = async (
     verification?: {
       verificationCode: string;
-      verificationType: "otp" | "totp";
+      verificationType: VerificationType;
       verificationMethod: VerificationMethod;
     },
     retryRequest?: {

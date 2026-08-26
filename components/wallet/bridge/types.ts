@@ -1,9 +1,12 @@
-import type { VerificationMethod } from "@/services/api/transfers";
+import type {
+  VerificationMethod,
+  VerificationType,
+} from "@/services/api/transfers";
 
 export type BridgeVerification = {
   availableMethods: VerificationMethod[];
   selectedMethod: VerificationMethod;
-  verificationType: "otp" | "totp";
+  verificationType: VerificationType;
   action?: string;
   otpSent: boolean;
 };

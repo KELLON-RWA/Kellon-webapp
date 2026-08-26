@@ -13,6 +13,7 @@ import {
   resolveVerificationMethod,
   transferService,
   type VerificationMethod,
+  type VerificationType,
 } from "@/services/api/transfers"
 import { useWallets } from "@privy-io/react-auth"
 import {
@@ -327,7 +328,7 @@ export function useSendFlow(profile: User) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
   const [verificationRequest, setVerificationRequest] = useState<{
-    verificationType: "otp" | "totp"
+    verificationType: VerificationType
     availableMethods: VerificationMethod[]
     selectedMethod: VerificationMethod
     action?: string
@@ -818,7 +819,7 @@ export function useSendFlow(profile: User) {
   const executeTransfer = useCallback(
     async (verification?: {
       verificationCode: string
-      verificationType: "otp" | "totp"
+      verificationType: VerificationType
       verificationMethod: VerificationMethod
     }) => {
       if (
@@ -1100,7 +1101,6 @@ export function useSendFlow(profile: User) {
             // The backend sends the preferred OTP as part of the initial challenge.
             otpSent: selectedMethod !== "totp",
           })
-
           if (selectedMethod !== "totp") {
             toast.info(
               selectedMethod === "sms_otp"

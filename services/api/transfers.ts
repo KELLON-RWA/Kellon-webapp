@@ -10,7 +10,7 @@ export interface InternalTransferPayload {
   recipientTag?: string
   metadata?: Record<string, string | number | boolean | null>
   verificationCode?: string
-  verificationType?: "otp" | "totp"
+  verificationType?: VerificationType | "otp"
   verificationCodes?: Record<string, string>
 }
 
@@ -58,7 +58,7 @@ export interface SubmitUserOperationResponse {
 type TransferErrorBody = {
   message?: string
   code?: string
-  verificationType?: "otp" | "totp"
+  verificationType?: VerificationType | "otp"
   availableMethods?: string[]
   action?: string
   error?:
@@ -66,20 +66,23 @@ type TransferErrorBody = {
     | {
         message?: string
         code?: string
-        verificationType?: "otp" | "totp"
+        verificationType?: VerificationType | "otp"
         availableMethods?: string[]
         action?: string
       }
 }
 
+export type VerificationType = "email_otp" | "sms_otp" | "totp"
+export type VerificationMethod = VerificationType | "otp"
+
 export class TransferVerificationRequiredError extends Error {
-  verificationType: "otp" | "totp"
+  verificationType: VerificationType
   availableMethods?: string[]
   action?: string
 
   constructor(
     message: string,
-    verificationType: "otp" | "totp" = "otp",
+    verificationType: VerificationType = "email_otp",
     availableMethods?: string[],
     action?: string,
   ) {
@@ -91,8 +94,6 @@ export class TransferVerificationRequiredError extends Error {
   }
 }
 
-export type VerificationMethod = "email_otp" | "sms_otp" | "totp" | "otp"
-
 const SUPPORTED_VERIFICATION_METHODS = new Set<VerificationMethod>([
   "email_otp",
   "sms_otp",
@@ -102,7 +103,7 @@ const SUPPORTED_VERIFICATION_METHODS = new Set<VerificationMethod>([
 
 export function getAvailableVerificationMethods(
   availableMethods?: string[],
-  fallback: "otp" | "totp" = "otp",
+  fallback: VerificationMethod = "email_otp",
 ): VerificationMethod[] {
   const methods = (availableMethods || [])
     .map((method) => method.toLowerCase())
@@ -122,8 +123,10 @@ export function getAvailableVerificationMethods(
 
 export function getVerificationTypeForMethod(
   method: VerificationMethod,
-): "otp" | "totp" {
-  return method === "totp" ? "totp" : "otp"
+): VerificationType {
+  if (method === "totp") return "totp"
+  if (method === "sms_otp") return "sms_otp"
+  return "email_otp"
 }
 
 export function getOtpChannelForMethod(
@@ -144,19 +147,18 @@ export function getOtpChannelForMethod(
  */
 export function resolveVerificationType(
   availableMethods?: string[],
-): "otp" | "totp" {
-  if (!availableMethods?.length) return "otp"
-  const hasOtpChannel = availableMethods.some((m) =>
-    ["otp", "email_otp", "sms_otp"].includes(m),
-  )
-  if (hasOtpChannel) return "otp"
-  return availableMethods.includes("totp") ? "totp" : "otp"
+): VerificationType {
+  if (!availableMethods?.length) return "email_otp"
+  if (availableMethods.includes("email_otp")) return "email_otp"
+  if (availableMethods.includes("sms_otp")) return "sms_otp"
+  if (availableMethods.includes("totp")) return "totp"
+  return "email_otp"
 }
 
 /** Preserves the exact verification channel required by the bundler. */
 export function resolveVerificationMethod(
   availableMethods?: string[],
-  fallback: "otp" | "totp" = "otp",
+  fallback: VerificationMethod = "email_otp",
 ): VerificationMethod {
   if (!availableMethods?.length) return fallback
   const methods = availableMethods.map((method) => method.toLowerCase())
@@ -297,10 +299,11 @@ export async function handleTransferResponse<T>(
       "Unable to process transfer"
     const availableMethods =
       body.availableMethods || nestedError?.availableMethods
-    const verificationType =
-      nestedError?.verificationType ||
-      body.verificationType ||
-      resolveVerificationType(availableMethods)
+    const requestedVerificationType =
+      nestedError?.verificationType || body.verificationType
+    const verificationType = requestedVerificationType
+      ? getVerificationTypeForMethod(requestedVerificationType)
+      : resolveVerificationType(availableMethods)
     const action = nestedError?.action || body.action
 
     if (res.status === 403 && code === "VERIFICATION_REQUIRED") {
@@ -329,7 +332,7 @@ export interface TransferStellarPayload {
   recipientTag?: string
   recipientUsername?: string
   verificationCode?: string
-  verificationType?: "otp" | "totp"
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "webauthn" | string
 }
 
 export interface TransferSolanaPayload {
@@ -340,7 +343,7 @@ export interface TransferSolanaPayload {
   recipientTag?: string
   recipientUsername?: string
   verificationCode?: string
-  verificationType?: "otp" | "totp"
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "webauthn" | string
 }
 
 export interface PrepareSolanaSponsoredPayload {
@@ -364,7 +367,7 @@ export interface SubmitSolanaSponsoredPayload {
   toAddress: string
   signedTxBase64: string
   verificationCode?: string
-  verificationType?: "otp" | "totp"
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "webauthn" | string
 }
 
 export interface TransferEVMPayload {
@@ -376,7 +379,7 @@ export interface TransferEVMPayload {
   recipientTag?: string
   recipientUsername?: string
   verificationCode?: string
-  verificationType?: "otp" | "totp"
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "webauthn" | string
 }
 
 export interface TransferCryptoPayload {
@@ -384,7 +387,7 @@ export interface TransferCryptoPayload {
   toAddress: string
   amount: number | string
   verificationCode?: string
-  verificationType?: "otp" | "totp"
+  verificationType?: "email_otp" | "sms_otp" | "totp" | "webauthn" | string
 }
 
 export const transferService = {
@@ -572,7 +575,7 @@ export const transferService = {
         "Content-Type": "application/json",
         "x-platform": getPlatformHeader(),
       },
-      body: JSON.stringify({ context, channel }),
+      body: JSON.stringify({ action: context, context, channel }),
     })
 
     return handleTransferResponse(res)
