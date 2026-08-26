@@ -73,6 +73,23 @@ export function getMaxUsableBalance(profile: User, symbol: string): number {
   );
 }
 
+export function getMaxUsableBalanceForChain(
+  profile: User,
+  symbol: string,
+  targetChain?: string,
+): number {
+  if (!targetChain) return getMaxUsableBalance(profile, symbol);
+
+  const normalizedTarget = targetChain.toLowerCase();
+  return (profile.assets || [])
+    .filter(
+      (asset: Asset) =>
+        asset.symbol.toUpperCase() === symbol.toUpperCase() &&
+        asset.chain?.toLowerCase() === normalizedTarget,
+    )
+    .reduce((total, asset) => total + toNumber(asset.amount), 0);
+}
+
 export function getPositionOpportunity(
   position: YieldPosition,
   opportunities: YieldOpportunity[],

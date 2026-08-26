@@ -1,4 +1,5 @@
 import { apiFetch, handleResponse, type ApiResponse } from "./index";
+import { handleTransferResponse } from "./transfers";
 
 export interface StockListing {
   symbol: string;
@@ -25,6 +26,9 @@ export interface BuyStockParams {
   provider: string;
   fundingSymbol?: string;
   fundingChain?: string;
+  verificationCode?: string;
+  verificationType?: string;
+  verificationCodes?: Array<{ type: string; code: string }>;
 }
 
 export interface BuyStockResponse {
@@ -42,6 +46,9 @@ export interface SellStockParams {
   shares: number;
   currency?: string;
   provider: string;
+  verificationCode?: string;
+  verificationType?: string;
+  verificationCodes?: Array<{ type: string; code: string }>;
 }
 
 export interface SellStockResponse {
@@ -85,37 +92,47 @@ export interface MarketIndex {
 }
 
 export const stocksService = {
-  async getAvailableStocks(provider = "all"): Promise<ApiResponse<StockListing[]>> {
-    const res = await apiFetch(`/api/v1/stocks?provider=${encodeURIComponent(provider)}`, {
-      method: "GET",
-    });
+  async getAvailableStocks(
+    provider = "all",
+  ): Promise<ApiResponse<StockListing[]>> {
+    const res = await apiFetch(
+      `/api/v1/stocks?provider=${encodeURIComponent(provider)}`,
+      { method: "GET" },
+      { signed: false },
+    );
     return handleResponse<StockListing[]>(res);
   },
 
-  async getQuote(symbol: string, provider: string): Promise<ApiResponse<StockQuote>> {
+  async getQuote(
+    symbol: string,
+    provider: string,
+  ): Promise<ApiResponse<StockQuote>> {
     const res = await apiFetch(
       `/api/v1/stocks/quote/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}`,
-      {
-        method: "GET",
-      }
+      { method: "GET" },
+      { signed: false },
     );
     return handleResponse<StockQuote>(res);
   },
 
-  async buyStock(params: BuyStockParams): Promise<ApiResponse<BuyStockResponse>> {
+  async buyStock(
+    params: BuyStockParams,
+  ): Promise<ApiResponse<BuyStockResponse>> {
     const res = await apiFetch("/api/v1/stocks/buy", {
       method: "POST",
       body: JSON.stringify(params),
     });
-    return handleResponse<BuyStockResponse>(res);
+    return handleTransferResponse<BuyStockResponse>(res);
   },
 
-  async sellStock(params: SellStockParams): Promise<ApiResponse<SellStockResponse>> {
+  async sellStock(
+    params: SellStockParams,
+  ): Promise<ApiResponse<SellStockResponse>> {
     const res = await apiFetch("/api/v1/stocks/sell", {
       method: "POST",
       body: JSON.stringify(params),
     });
-    return handleResponse<SellStockResponse>(res);
+    return handleTransferResponse<SellStockResponse>(res);
   },
 
   async getPortfolio(): Promise<ApiResponse<StockPortfolio>> {
@@ -126,9 +143,11 @@ export const stocksService = {
   },
 
   async getIndices(): Promise<ApiResponse<MarketIndex[]>> {
-    const res = await apiFetch("/api/v1/stocks/indices", {
-      method: "GET",
-    });
+    const res = await apiFetch(
+      "/api/v1/stocks/indices",
+      { method: "GET" },
+      { signed: false },
+    );
     return handleResponse<MarketIndex[]>(res);
   },
 };

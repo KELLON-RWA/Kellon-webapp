@@ -17,7 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { yieldService, type YieldActionType } from "@/services/api/yield";
-import { stocksService } from "@/services/api/stocks";
+import {
+  stocksService,
+  type StockListing,
+  type StockPortfolioHolding,
+} from "@/services/api/stocks";
 import {
   PositionStatus,
   RiskLevel,
@@ -26,6 +30,7 @@ import {
   type YieldPosition,
 } from "@/types/db";
 import EarnActionDialog from "./EarnActionDialog";
+import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import {
   formatApy,
   formatMetricUsd,
@@ -87,6 +92,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [activeTab, setActiveTab] = useState<"yield" | "stocks">("yield");
   const [stockProviderFilter, setStockProviderFilter] = useState<string>("all");
   const [selectedAction, setSelectedAction] = useState<SelectedAction>(null);
+  const [selectedStockAction, setSelectedStockAction] = useState<{
+    action: StockActionType;
+    stock?: StockListing | null;
+    holding?: StockPortfolioHolding | null;
+  } | null>(null);
   const [opportunitySearch, setOpportunitySearch] = useState("");
   const [isSearchToolbarStuck, setIsSearchToolbarStuck] = useState(false);
   const searchToolbarRef = useRef<HTMLDivElement>(null);
@@ -107,6 +117,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const {
     data: stocks = [],
     isLoading: stocksLoading,
+    refetch: refetchStocks,
   } = useQuery({
     queryKey: ["available-stocks"],
     queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
@@ -114,7 +125,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
     refetchOnWindowFocus: true,
   });
 
-  const { data: stockPortfolio } = useQuery({
+  const { data: stockPortfolio, refetch: refetchStockPortfolio } = useQuery({
     queryKey: ["stock-portfolio"],
     queryFn: async () => (await stocksService.getPortfolio()).data,
     enabled: activeTab === "stocks",
@@ -490,7 +501,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               "rounded-lg px-4 py-2 text-sm font-bold transition",
               activeTab === "yield"
                 ? "bg-primary-90 text-white dark:bg-primary-70"
-                : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10"
+                : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
             )}
           >
             Yield Opportunities
@@ -502,7 +513,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               "rounded-lg px-4 py-2 text-sm font-bold transition",
               activeTab === "stocks"
                 ? "bg-primary-90 text-white dark:bg-primary-70"
-                : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10"
+                : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
             )}
           >
             Tokenized Stocks
@@ -631,7 +642,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         }
                       >
                         <span className="relative z-10 flex items-center justify-center gap-2">
-                          {available > 0 ? "Start earning" : "No available balance"}
+                          {available > 0
+                            ? "Start earning"
+                            : "No available balance"}
                           {available > 0 ? (
                             <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
                           ) : null}
@@ -668,43 +681,108 @@ export default function EarnPage({ profile }: EarnPageProps) {
               <div className="mb-6 rounded-xl border border-gray-80 bg-white/80 p-5 shadow-sm dark:border-white/10 dark:bg-secondary-50/75">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs font-medium text-gray-30 dark:text-gray-40">Stock Portfolio Value</p>
+                    <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                      Stock Portfolio Value
+                    </p>
                     <p className="text-2xl font-extrabold text-cryptoNight dark:text-white">
                       ${stockPortfolio.totalPortfolioValue.toFixed(2)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold",
-                      stockPortfolio.totalUnrealizedPnL >= 0
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
-                        : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"
-                    )}>
-                      {stockPortfolio.totalUnrealizedPnL >= 0 ? "+" : ""}${stockPortfolio.totalUnrealizedPnL.toFixed(2)} ({stockPortfolio.totalUnrealizedPnLPercentage.toFixed(2)}%)
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold",
+                        stockPortfolio.totalUnrealizedPnL >= 0
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                          : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300",
+                      )}
+                    >
+                      {stockPortfolio.totalUnrealizedPnL >= 0 ? "+" : ""}$
+                      {stockPortfolio.totalUnrealizedPnL.toFixed(2)} (
+                      {stockPortfolio.totalUnrealizedPnLPercentage.toFixed(2)}%)
                     </span>
                     <p className="text-xs text-gray-30 dark:text-gray-40">
                       Cost Basis: ${stockPortfolio.totalCostBasis.toFixed(2)}
                     </p>
                   </div>
                 </div>
+
+                {stockPortfolio.holdings &&
+                  stockPortfolio.holdings.length > 0 && (
+                    <div className="mt-4 border-t border-gray-80 pt-4 dark:border-white/10">
+                      <p className="mb-3 text-xs font-bold text-cryptoNight dark:text-white">
+                        Your Stock Holdings
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {stockPortfolio.holdings.map((holding) => (
+                          <div
+                            key={holding.id}
+                            className="flex items-center justify-between rounded-lg bg-gray-90 p-3 dark:bg-secondary-60"
+                          >
+                            <div>
+                              <p className="text-xs font-bold text-cryptoNight dark:text-white">
+                                {holding.symbol}
+                              </p>
+                              <p className="text-[10px] text-gray-30 dark:text-gray-40">
+                                {holding.shares.toFixed(4)} shares · $
+                                {(holding.currentValue || 0).toFixed(2)}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setSelectedStockAction({
+                                  action: "sell",
+                                  holding,
+                                })
+                              }
+                            >
+                              Sell
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
 
             {/* Benchmark Market Indices */}
             {marketIndices.length > 0 && (
               <div className="mb-6">
-                <h4 className="mb-3 text-sm font-bold text-cryptoNight dark:text-white">Market Benchmark Indices</h4>
+                <h4 className="mb-3 text-sm font-bold text-cryptoNight dark:text-white">
+                  Market Benchmark Indices
+                </h4>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {marketIndices.map((idx) => (
-                    <div key={idx.symbol} className="rounded-lg border border-gray-80 bg-white/60 p-3 dark:border-white/10 dark:bg-secondary-50/50">
+                    <div
+                      key={idx.symbol}
+                      className="rounded-lg border border-gray-80 bg-white/60 p-3 dark:border-white/10 dark:bg-secondary-50/50"
+                    >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-cryptoNight dark:text-white">{idx.symbol}</span>
-                        <span className={cn("text-xs font-bold", idx.change24hPercentage >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
-                          {idx.change24hPercentage >= 0 ? "+" : ""}{idx.change24hPercentage.toFixed(2)}%
+                        <span className="text-xs font-bold text-cryptoNight dark:text-white">
+                          {idx.symbol}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs font-bold",
+                            idx.change24hPercentage >= 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400",
+                          )}
+                        >
+                          {idx.change24hPercentage >= 0 ? "+" : ""}
+                          {idx.change24hPercentage.toFixed(2)}%
                         </span>
                       </div>
-                      <p className="text-[11px] text-gray-30 dark:text-gray-40">{idx.name}</p>
-                      <p className="mt-1 text-base font-bold text-cryptoNight dark:text-white">${idx.price.toFixed(2)}</p>
+                      <p className="text-[11px] text-gray-30 dark:text-gray-40">
+                        {idx.name}
+                      </p>
+                      <p className="mt-1 text-base font-bold text-cryptoNight dark:text-white">
+                        ${idx.price.toFixed(2)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -726,7 +804,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     "rounded-full px-3 py-1 text-xs font-semibold transition",
                     stockProviderFilter === chip.id
                       ? "bg-primary-90 text-white dark:bg-primary-70"
-                      : "bg-gray-90 text-gray-30 hover:bg-gray-80 dark:bg-white/5 dark:text-gray-40 dark:hover:bg-white/10"
+                      : "bg-gray-90 text-gray-30 hover:bg-gray-80 dark:bg-white/5 dark:text-gray-40 dark:hover:bg-white/10",
                   )}
                 >
                   {chip.label}
@@ -743,7 +821,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     (stk) =>
                       stockProviderFilter === "all" ||
                       (stk.provider || "").toLowerCase() ===
-                        stockProviderFilter.toLowerCase()
+                        stockProviderFilter.toLowerCase(),
                   )
                   .map((stock) => (
                     <article
@@ -781,6 +859,22 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           </span>
                         </div>
                       </div>
+
+                      <Button
+                        type="button"
+                        variant="flow"
+                        size="sm"
+                        className="w-full"
+                        onClick={() =>
+                          setSelectedStockAction({ action: "buy", stock })
+                        }
+                      >
+                        <span className="relative z-10 flex items-center justify-center gap-2">
+                          Buy {stock.symbol}
+                          <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+                      </Button>
                     </article>
                   ))}
               </div>
@@ -805,6 +899,24 @@ export default function EarnPage({ profile }: EarnPageProps) {
           if (!open) setSelectedAction(null);
         }}
         onComplete={refresh}
+      />
+
+      <StockActionDialog
+        action={selectedStockAction?.action || "buy"}
+        stock={selectedStockAction?.stock || null}
+        holding={selectedStockAction?.holding || null}
+        profile={profile}
+        open={Boolean(selectedStockAction)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedStockAction(null);
+        }}
+        onComplete={async () => {
+          await Promise.all([
+            refetchStocks(),
+            refetchStockPortfolio(),
+            refresh(),
+          ]);
+        }}
       />
 
       {isLoading ? (
