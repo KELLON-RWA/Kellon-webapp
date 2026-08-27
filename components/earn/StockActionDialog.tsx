@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useWallets } from "@privy-io/react-auth";
 import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -17,6 +18,10 @@ import {
   createWebauthnAttestation,
   endOperation,
 } from "@/services/api";
+import {
+  setStickyVerificationCode,
+  useSmartAccount,
+} from "@/hooks/useSmartAccount";
 import {
   stocksService,
   type StockListing,
@@ -39,7 +44,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { getMaxUsableBalanceForChain } from "./earn-utils";
+import {
+  getMaxUsableBalanceForChain,
+  getStockSettlementChain,
+} from "./earn-utils";
 
 export type StockActionType = "buy" | "sell";
 
@@ -59,6 +67,18 @@ interface StockActionDialogProps {
   onComplete: () => Promise<void> | void;
 }
 
+interface StockSmartAccountClient {
+  account: { address: string };
+  chain: unknown;
+  sendTransaction(args: {
+    account: unknown;
+    chain: unknown;
+    to: `0x${string}`;
+    data: `0x${string}`;
+    value: bigint;
+  }): Promise<string>;
+}
+
 export default function StockActionDialog({
   action,
   stock,
@@ -68,6 +88,8 @@ export default function StockActionDialog({
   onOpenChange,
   onComplete,
 }: StockActionDialogProps) {
+  const { wallets, ready: walletsReady } = useWallets();
+  const { getSmartAccountClient } = useSmartAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationType, setVerificationType] = useState<
     "email_otp" | "sms_otp" | "totp" | null
@@ -80,7 +102,7 @@ export default function StockActionDialog({
   const symbol = (stock?.symbol || holding?.symbol || "").toUpperCase();
   const stockPrice = Number(stock?.price || holding?.currentPrice || 0);
   const stockProvider = stock?.provider || holding?.provider || "";
-  const targetStockChain = stockProvider === "ondo" ? "ethereum" : "base";
+  const targetStockChain = getStockSettlementChain(stockProvider);
 
   // Purchases can only spend USDC held on the provider's settlement chain.
   const availableUsdc = getMaxUsableBalanceForChain(
@@ -193,6 +215,15 @@ export default function StockActionDialog({
     setIsSubmitting(true);
     beginOperation(Boolean(verification));
 
+    if (verification) {
+      setStickyVerificationCode({
+        type: verification.verificationType,
+        code: verification.verificationCode,
+      });
+    } else {
+      setStickyVerificationCode(null);
+    }
+
     try {
       const verificationPayload = verification
         ? {
@@ -208,14 +239,76 @@ export default function StockActionDialog({
         : {};
 
       if (action === "buy") {
-        const res = await stocksService.buyStock({
+        if (!walletsReady) {
+          throw new Error("Your wallet is still loading. Please try again.");
+        }
+
+        const embeddedWallet = wallets.find(
+          (wallet) =>
+            wallet.walletClientType === "privy" &&
+            wallet.address.toLowerCase().startsWith("0x"),
+        );
+        if (!embeddedWallet) {
+          throw new Error("Your embedded wallet is not available.");
+        }
+
+        const rawClient = await getSmartAccountClient(
+          embeddedWallet,
+          targetStockChain,
+        );
+        if (!rawClient) {
+          throw new Error("Smart Account wallet client is not ready.");
+        }
+
+        const client = rawClient as unknown as StockSmartAccountClient;
+        const amountFiat = Number(values.value);
+        const buildRes = await stocksService.buildBuyTransaction({
           symbol: currentStock.symbol,
-          amountFiat: Number(values.value),
+          amountFiat,
           currency: currentStock.currency || "USD",
           provider: currentStock.provider,
           fundingSymbol: "USDC",
           fundingChain: targetStockChain,
-          ...verificationPayload,
+          userAddress: client.account.address,
+        });
+
+        if (!buildRes.data?.to) {
+          throw new Error("The stock purchase transaction could not be built.");
+        }
+
+        if (buildRes.data.approveTx) {
+          await client.sendTransaction({
+            account: client.account,
+            chain: client.chain,
+            to: buildRes.data.approveTx.to as `0x${string}`,
+            data: (buildRes.data.approveTx.data || "0x") as `0x${string}`,
+            value: BigInt(buildRes.data.approveTx.value || "0"),
+          });
+        }
+
+        const txHash = await client.sendTransaction({
+          account: client.account,
+          chain: client.chain,
+          to: buildRes.data.to as `0x${string}`,
+          data: (buildRes.data.data || "0x") as `0x${string}`,
+          value: BigInt(buildRes.data.value || "0"),
+        });
+
+        if (!txHash.startsWith("0x")) {
+          throw new Error(
+            "On-chain stock purchase transaction failed to broadcast.",
+          );
+        }
+
+        const res = await stocksService.confirmTransaction({
+          symbol: currentStock.symbol,
+          amountFiat,
+          shares:
+            buildRes.data.quote?.shares || amountFiat / currentStock.price,
+          provider: currentStock.provider,
+          txHash,
+          fundingSymbol: "USDC",
+          fundingChain: targetStockChain,
         });
 
         toast.success(
@@ -293,6 +386,7 @@ export default function StockActionDialog({
         error instanceof Error ? error.message : `Failed to ${action} stock.`,
       );
     } finally {
+      setStickyVerificationCode(null);
       setIsSubmitting(false);
     }
   };

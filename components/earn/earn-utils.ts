@@ -90,6 +90,10 @@ export function getMaxUsableBalanceForChain(
     .reduce((total, asset) => total + toNumber(asset.amount), 0);
 }
 
+export function getStockSettlementChain(provider: string): "bsc" | "base" {
+  return provider.toLowerCase() === "pancakeswap" ? "bsc" : "base";
+}
+
 export function getPositionOpportunity(
   position: YieldPosition,
   opportunities: YieldOpportunity[],

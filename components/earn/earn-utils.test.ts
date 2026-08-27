@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Asset, User } from "@/types/db";
-import { getMaxUsableBalanceForChain } from "./earn-utils";
+import {
+  getMaxUsableBalanceForChain,
+  getStockSettlementChain,
+} from "./earn-utils";
 
 function profileWithAssets(
   assets: Array<Pick<Asset, "symbol" | "chain" | "amount">>,
@@ -26,5 +29,13 @@ describe("Earn chain balances", () => {
 
     expect(getMaxUsableBalanceForChain(profile, "USDC", "BASE")).toBe(12.5);
     expect(getMaxUsableBalanceForChain(profile, "USDC", "ethereum")).toBe(4);
+  });
+});
+
+describe("getStockSettlementChain", () => {
+  it("uses BSC for PancakeSwap and Base for other stock providers", () => {
+    expect(getStockSettlementChain("pancakeswap")).toBe("bsc");
+    expect(getStockSettlementChain("PANCAKESWAP")).toBe("bsc");
+    expect(getStockSettlementChain("ondo")).toBe("base");
   });
 });

@@ -89,17 +89,13 @@ export async function handleResponse<T>(
 }
 
 /**
- * Validates and retrieves the backend API base URL.
- * @throws Error if the environment variable is missing.
+ * Resolves the backend API base URL, with the production API as a safe fallback.
  */
 const getBaseUrl = () => {
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-
-  if (!apiUrl || apiUrl.length === 0) {
-    throw new Error(
-      "Missing environment variable NEXT_PUBLIC_BACKEND_API_URL!!",
-    );
-  }
+  const apiUrl =
+    process.env.NEXT_PUBLIC_BACKEND_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://api.kellon.xyz";
 
   return apiUrl;
 };
@@ -237,7 +233,9 @@ export async function createWebauthnAttestation(): Promise<string> {
   const deviceId = getStoredValue(DEVICE_TOKEN_STORAGE_KEY);
 
   if (!apiSecret || !deviceId) {
-    throw new Error("Secure device credentials are missing. Please log in again.");
+    throw new Error(
+      "Secure device credentials are missing. Please log in again.",
+    );
   }
 
   const timestamp = Date.now().toString();
@@ -263,22 +261,22 @@ function normalizeRequestBody(body: RequestInit["body"]): {
 }
 
 function getBackendUrl(input: string): URL {
-  const baseOrigin =
-    typeof window === "undefined" ? "http://localhost" : window.location.origin;
-  const requestUrl = new URL(input, baseOrigin);
-
-  if (
-    requestUrl.origin === baseOrigin &&
-    requestUrl.pathname.startsWith("/api/")
-  ) {
-    const backendBase = new URL(
-      BASE_URL.endsWith("/") ? BASE_URL : `${BASE_URL}/`,
-    );
-    const backendPath = requestUrl.pathname.replace(/^\/api\/?/, "");
-    return new URL(`${backendPath}${requestUrl.search}`, backendBase);
+  if (input.startsWith("http://") || input.startsWith("https://")) {
+    return new URL(input);
   }
 
-  return requestUrl;
+  const normalizedBase = BASE_URL.replace(/\/+$/, "");
+  let path = input.startsWith("/") ? input : `/${input}`;
+
+  if (normalizedBase.endsWith("/api/v1") && path.startsWith("/api/v1/")) {
+    path = path.replace(/^\/api\/v1/, "");
+  } else if (normalizedBase.endsWith("/api/v1") && path.startsWith("/api/")) {
+    path = path.replace(/^\/api/, "");
+  } else if (normalizedBase.endsWith("/api") && path.startsWith("/api/")) {
+    path = path.replace(/^\/api/, "");
+  }
+
+  return new URL(`${normalizedBase}${path}`);
 }
 
 function buildCanonicalPath(url: string): string {

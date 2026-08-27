@@ -61,6 +61,37 @@ export interface SellStockResponse {
   provider: string;
 }
 
+export interface StockTransactionCall {
+  to: string;
+  data: string;
+  value: string;
+}
+
+export interface BuildStockBuyTransactionParams extends BuyStockParams {
+  userAddress: string;
+}
+
+export interface BuildStockBuyTransactionResponse extends StockTransactionCall {
+  chain: string;
+  approveTx?: StockTransactionCall;
+  quote: {
+    symbol: string;
+    price: number;
+    shares: number;
+    amountFiat: number;
+  };
+}
+
+export interface ConfirmStockBuyTransactionParams {
+  symbol: string;
+  amountFiat: number;
+  shares: number;
+  provider: string;
+  txHash: string;
+  fundingSymbol?: string;
+  fundingChain?: string;
+}
+
 export interface StockPortfolioHolding {
   id: string;
   symbol: string;
@@ -133,6 +164,26 @@ export const stocksService = {
       body: JSON.stringify(params),
     });
     return handleTransferResponse<SellStockResponse>(res);
+  },
+
+  async buildBuyTransaction(
+    params: BuildStockBuyTransactionParams,
+  ): Promise<ApiResponse<BuildStockBuyTransactionResponse>> {
+    const res = await apiFetch("/api/v1/stocks/buy/build-tx", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+    return handleResponse<BuildStockBuyTransactionResponse>(res);
+  },
+
+  async confirmTransaction(
+    params: ConfirmStockBuyTransactionParams,
+  ): Promise<ApiResponse<BuyStockResponse>> {
+    const res = await apiFetch("/api/v1/stocks/buy/confirm-tx", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+    return handleResponse<BuyStockResponse>(res);
   },
 
   async getPortfolio(): Promise<ApiResponse<StockPortfolio>> {
