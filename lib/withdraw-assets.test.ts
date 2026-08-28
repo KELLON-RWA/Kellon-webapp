@@ -24,10 +24,25 @@ describe("withdrawable assets", () => {
           symbol: "USDC",
           balance: 0.97,
           usdValue: 0.97,
-          network: expect.objectContaining({ name: "BNB" }),
+          network: expect.objectContaining({ name: "BNB", key: "bnb" }),
         }),
       ]),
     )
+  })
+
+  it("normalizes BSC aliases to the canonical BNB request key", () => {
+    const aliases = getWithdrawableAssets([
+      { symbol: "USDT", chain: "BSC", amount: 10 },
+      { symbol: "USDT", chain: "BNB Smart Chain", amount: 5.4 },
+      { symbol: "USDT", chain: "56", amount: 1 },
+    ])
+
+    expect(aliases).toHaveLength(1)
+    expect(aliases[0]).toMatchObject({
+      symbol: "USDT",
+      balance: 16.4,
+      network: { name: "BNB", key: "bnb" },
+    })
   })
 
   it("combines duplicate records only within the same chain", () => {

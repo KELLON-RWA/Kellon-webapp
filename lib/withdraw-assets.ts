@@ -5,7 +5,7 @@ export interface WithdrawableAsset {
   symbol: string
   name: string
   balance: number
-  network: { id: string; name: string }
+  network: { id: string; name: string; key: string }
   usdValue: number
 }
 
@@ -22,7 +22,11 @@ type BalanceAsset = Pick<Asset, "symbol" | "chain" | "amount">
 
 function normalizeChainName(value: string): string {
   const normalized = value.toLowerCase().replace(/[\s_-]+/g, "")
-  if (["bsc", "binance", "binancesmartchain"].includes(normalized)) {
+  if (
+    ["bsc", "bnbsmartchain", "binance", "binancesmartchain"].includes(
+      normalized,
+    )
+  ) {
     return "bnb"
   }
   return normalized
@@ -58,6 +62,9 @@ export function getWithdrawableAssets(
     const network = {
       id: String(matchedChain?.id ?? normalizedAssetChain),
       name: matchedChain?.name ?? item.chain,
+      key: matchedChain
+        ? normalizeChainName(matchedChain.name)
+        : normalizedAssetChain,
     }
     const key = `${symbol}:${network.id}`
     const current = assetMap.get(key)

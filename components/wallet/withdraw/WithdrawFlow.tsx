@@ -298,6 +298,8 @@ export default function WithdrawFlow({
       return;
     }
 
+    const selectedNetworkKey = selectedAssetDetails?.network.key || networkName;
+
     withdrawalInFlightRef.current = true;
     setIsSubmitting(true);
     // One key per withdrawal intent; resumed on any retry so a funding failure can't
@@ -330,8 +332,10 @@ export default function WithdrawFlow({
             cryptocurrency: asset,
             asset,
             token: providerName === "paycrest" ? asset : undefined,
-            chain: networkName,
-            network: networkName,
+            // Backend balance records use canonical keys (for example `bnb`),
+            // while networkName is the user-facing label (`BNB`).
+            chain: selectedNetworkKey,
+            network: selectedNetworkKey,
             rate,
             reference: providerReference,
             narration: providerName === "paycrest" ? "Withdrawal" : undefined,
@@ -406,7 +410,7 @@ export default function WithdrawFlow({
 
         await fundOfframpOrder({
           order: createdOrder,
-          chainKey: networkName,
+          chainKey: selectedNetworkKey,
           symbol: asset,
           fallbackAmount: withdrawalCryptoAmount,
           verification: verification
