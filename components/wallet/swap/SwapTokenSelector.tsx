@@ -24,6 +24,7 @@ import { formatSwapAmount, getTokenIcon } from "./utils";
 interface Props {
   open: boolean;
   title: string;
+  description?: string;
   tokens: SwapAssetOption[];
   selectedKey?: string;
   showBalance?: boolean;
@@ -46,6 +47,7 @@ function TokenLogo({ token }: { token: SwapAssetOption }) {
 export function SwapTokenSelector({
   open,
   title,
+  description = "Tokens available through LI.FI",
   tokens,
   selectedKey,
   showBalance = false,
@@ -74,9 +76,7 @@ export function SwapTokenSelector({
           <h2 className="text-lg font-bold text-black dark:text-white">
             {title}
           </h2>
-          <p className="mt-1 text-xs text-gray-500">
-            Tokens available through LI.FI
-          </p>
+          <p className="mt-1 text-xs text-gray-500">{description}</p>
         </div>
         <button
           type="button"
@@ -92,7 +92,7 @@ export function SwapTokenSelector({
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search token or address"
+          placeholder="Search token or network"
           className="h-11 rounded-xl border-black/5 bg-white pl-9 shadow-none dark:border-white/10 dark:bg-secondary-50"
         />
       </div>
@@ -158,7 +158,7 @@ export function SwapTokenSelector({
         >
           <DialogTitle className="sr-only">{title}</DialogTitle>
           <DialogDescription className="sr-only">
-            Choose a LI.FI token
+            {description}
           </DialogDescription>
           {content}
         </DialogContent>
@@ -170,9 +170,7 @@ export function SwapTokenSelector({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[88dvh] rounded-t-[24px] border-black/5 bg-gray-70 dark:border-white/10 dark:bg-black2">
         <DrawerTitle className="sr-only">{title}</DrawerTitle>
-        <DrawerDescription className="sr-only">
-          Choose a LI.FI token
-        </DrawerDescription>
+        <DrawerDescription className="sr-only">{description}</DrawerDescription>
         {content}
       </DrawerContent>
     </Drawer>

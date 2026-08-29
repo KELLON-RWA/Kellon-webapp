@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getActiveChains } from "@/lib/chains";
 import { lifiRequest } from "@/lib/lifi-server";
+import { isNativeToStableSwap } from "@/lib/swap-policy";
 import type { Route } from "@/services/api/swap";
 
 export const runtime = "nodejs";
@@ -33,8 +34,7 @@ export async function POST(request: Request) {
     if (
       !supportedChainIds.has(body.fromChainId) ||
       !supportedChainIds.has(body.toChainId) ||
-      body.fromChainId !== body.toChainId ||
-      body.fromTokenAddress.toLowerCase() === body.toTokenAddress.toLowerCase()
+      !isNativeToStableSwap(body)
     ) {
       return NextResponse.json(
         { message: "Unsupported Kellon swap pair" },

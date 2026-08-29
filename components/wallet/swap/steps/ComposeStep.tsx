@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, ArrowUpDown, ChevronDown } from "lucide-react";
+import { ArrowDown, ArrowRight, ChevronDown } from "lucide-react";
 import ChainIcon from "@/components/wallet/ChainIcon";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import type { SwapAssetOption } from "@/lib/swap-assets";
@@ -26,7 +26,6 @@ interface Props {
   onSourceChange: (value: string) => void;
   onDestinationChange: (value: string) => void;
   onAmountChange: (value: string) => void;
-  onReverse: () => void;
   onRouteSelect: (route: Route) => void;
   onShowAllRoutes: () => void;
   onReview: () => void;
@@ -64,13 +63,13 @@ export function SwapComposeStep(props: Props) {
         <div className="rounded-2xl border border-dashed border-black/10 p-8 text-left dark:border-white/10">
           <p className="font-semibold text-black dark:text-white">
             {props.isLoadingTokens
-              ? "Loading your tokens"
-              : "No swappable balance"}
+              ? "Checking native balances"
+              : "No native tokens to recover"}
           </p>
           <p className="mt-2 text-sm text-gray-500">
             {props.isLoadingTokens
-              ? "Checking LI.FI support across your Kellon networks."
-              : "Funded tokens on supported EVM networks will appear here."}
+              ? "Checking supported Kellon networks."
+              : "Native tokens sent to your supported EVM wallets will appear here."}
           </p>
         </div>
       </div>
@@ -143,14 +142,9 @@ export function SwapComposeStep(props: Props) {
               </div>
             </div>
             <div className="relative flex h-3 justify-center">
-              <button
-                type="button"
-                onClick={props.onReverse}
-                className="absolute -top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-primary-60 text-white transition hover:bg-primary-50 dark:border-secondary-50"
-                aria-label="Reverse swap"
-              >
-                <ArrowUpDown className="h-4 w-4" />
-              </button>
+              <span className="absolute -top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-primary-60 text-white dark:border-secondary-50">
+                <ArrowDown className="h-4 w-4" />
+              </span>
             </div>
             <div className="rounded-2xl border border-black/5 bg-white/80 p-4 dark:border-white/10 dark:bg-secondary-50/80">
               <div className="mb-3 text-xs font-medium text-gray-500">
@@ -208,7 +202,8 @@ export function SwapComposeStep(props: Props) {
       </div>
       <SwapTokenSelector
         open={selector === "source"}
-        title="Select token to swap"
+        title="Select native token"
+        description="Native balances across all Kellon networks"
         tokens={props.sources}
         selectedKey={source?.key}
         showBalance
@@ -218,6 +213,7 @@ export function SwapComposeStep(props: Props) {
       <SwapTokenSelector
         open={selector === "destination"}
         title="Select token to receive"
+        description="Choose USDC or USDT on the same network"
         tokens={props.destinations}
         selectedKey={destination?.key}
         onOpenChange={(open) => setSelector(open ? "destination" : null)}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useWallets } from "@privy-io/react-auth";
-import { encodeFunctionData, erc20Abi, parseUnits, zeroAddress } from "viem";
+import { encodeFunctionData, erc20Abi, parseUnits } from "viem";
 import { toast } from "sonner";
 import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
@@ -15,6 +15,8 @@ import {
   getSwapSources,
   getSwapTokens,
 } from "@/lib/swap-assets";
+import { getNativeSwapBalances } from "@/lib/swap-native-balances";
+import { isNativeSwapAddress } from "@/lib/swap-policy";
 import {
   setStickyTransferMeta,
   setStickyVerificationCode,
@@ -50,9 +52,27 @@ export default function SwapFlow({ profile }: { profile: User }) {
     () => getSwapTokens(tokensQuery.data || []),
     [tokensQuery.data],
   );
+  const nativeBalancesQuery = useQuery({
+    queryKey: [
+      "swap-native-balances",
+      profile.id,
+      tokenCatalog.map((token) => token.key).join(","),
+    ],
+    queryFn: () =>
+      getNativeSwapBalances(profile.chainAccounts || [], tokenCatalog),
+    enabled: tokenCatalog.length > 0,
+    staleTime: 15_000,
+    refetchOnMount: "always",
+    retry: 1,
+  });
   const sources = useMemo(
-    () => getSwapSources(profile.assets || [], tokenCatalog),
-    [profile.assets, tokenCatalog],
+    () =>
+      getSwapSources(
+        profile.assets || [],
+        tokenCatalog,
+        nativeBalancesQuery.data || [],
+      ),
+    [profile.assets, tokenCatalog, nativeBalancesQuery.data],
   );
   const [sourceKey, setSourceKey] = useState("");
   const [destinationKey, setDestinationKey] = useState("");
@@ -90,6 +110,9 @@ export default function SwapFlow({ profile }: { profile: User }) {
     }
   }, [destinationKey, destinations, source]);
   const amountValue = Number(amount);
+  const isProviderSupported = Boolean(
+    source?.chainType === "evm" && destination?.chainType === "evm",
+  );
   const isAmountValid = Boolean(
     source &&
       destination &&
@@ -108,6 +131,14 @@ export default function SwapFlow({ profile }: { profile: User }) {
     queryKey: ["swap-routes", source?.key, destination?.key, amount],
     queryFn: async () => {
       if (!source || !destination) return { routes: [] as Route[] };
+      if (
+        source.chainType !== "evm" ||
+        destination.chainType !== "evm" ||
+        typeof source.chainId !== "number" ||
+        typeof destination.chainId !== "number"
+      ) {
+        throw new Error("This network is not supported by the swap provider.");
+      }
       if (!walletsReady) throw new Error("Wallet is still loading");
       const wallet = getEmbeddedWallet();
       if (!wallet)
@@ -132,7 +163,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
         toAddress: address,
       });
     },
-    enabled: isAmountValid && walletsReady,
+    enabled: isAmountValid && isProviderSupported && walletsReady,
     staleTime: 20_000,
     retry: 1,
   });
@@ -159,23 +190,12 @@ export default function SwapFlow({ profile }: { profile: User }) {
     setView("compose");
   }, [routes]);
 
-  const reverseSwap = () => {
-    if (!source || !destination) return;
-    const reverse = sources.find((item) => item.key === destination.key);
-    if (!reverse) {
-      toast.info(
-        `You need a ${destination.symbol} balance on ${destination.chainName} to swap in the opposite direction.`,
-      );
-      return;
-    }
-    setSourceKey(reverse.key);
-    setDestinationKey(source.key);
-    setAmount("");
-    setSelectedRoute(null);
-  };
-
   const executeSwap = async (code?: string) => {
     if (!source || !destination || !selectedRoute) return;
+    if (source.chainType !== "evm" || destination.chainType !== "evm") {
+      toast.error("This network is not supported by the swap provider.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (!walletsReady)
@@ -221,7 +241,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
           !step.estimate.skipApproval &&
           spender &&
           token &&
-          token.toLowerCase() !== zeroAddress &&
+          !isNativeSwapAddress(token) &&
           !approved.has(approvalKey)
         ) {
           if (step.estimate.approvalReset) {
@@ -334,7 +354,11 @@ export default function SwapFlow({ profile }: { profile: User }) {
   };
 
   const quoteError =
-    quoteQuery.error instanceof Error ? quoteQuery.error.message : null;
+    source && destination && !isProviderSupported
+      ? `${source.symbol} recovery swaps on ${source.chainName} are not supported by the current swap provider yet.`
+      : quoteQuery.error instanceof Error
+        ? quoteQuery.error.message
+        : null;
   return (
     <section className="container mx-auto flex min-h-[90dvh] max-w-4xl flex-col overflow-x-hidden px-4 pb-28 pt-4 md:px-6 md:pb-14 md:pt-20">
       <FlowHeader
@@ -364,7 +388,9 @@ export default function SwapFlow({ profile }: { profile: User }) {
           amount={amount}
           receiveAmount={getRouteReceiveAmount(selectedRoute)}
           isAmountValid={isAmountValid}
-          isLoadingTokens={tokensQuery.isLoading}
+          isLoadingTokens={
+            tokensQuery.isLoading || nativeBalancesQuery.isLoading
+          }
           routes={routes}
           selectedRoute={selectedRoute}
           isLoadingRoutes={quoteQuery.isFetching}
@@ -381,7 +407,6 @@ export default function SwapFlow({ profile }: { profile: User }) {
             setSelectedRoute(null);
           }}
           onAmountChange={setAmount}
-          onReverse={reverseSwap}
           onRouteSelect={setSelectedRoute}
           onShowAllRoutes={() => setShowAllRoutes(true)}
           onReview={() => setView("review")}

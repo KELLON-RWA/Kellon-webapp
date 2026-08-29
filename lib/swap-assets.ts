@@ -2,6 +2,7 @@ import type { Token } from "@/services/api/swap";
 import type { Asset } from "@/types/db";
 import { normalizeBridgeChain } from "./bridge-assets";
 import { getActiveChains, type SupportedChainKeys } from "./chains";
+import { isNativeSwapAddress, isStableSwapToken } from "./swap-policy";
 
 export interface SwapAssetOption {
   key: string;
@@ -9,20 +10,35 @@ export interface SwapAssetOption {
   name: string;
   chainKey: SupportedChainKeys;
   chainName: string;
-  chainId: number;
-  chainType: "evm";
-  tokenAddress: `0x${string}`;
+  chainId: number | string;
+  chainType: "evm" | "stellar" | "solana";
+  tokenAddress: string;
   decimals: number;
   balance: number;
   logoURI?: string;
   priceUSD?: string;
   coinKey?: string;
   verificationStatus?: string;
+  isNative?: boolean;
 }
 
-const PREFERRED_DESTINATIONS = ["USDC", "USDT", "ETH", "POL", "CELO", "BNB"];
+export interface NativeSwapBalance {
+  chainKey: SupportedChainKeys;
+  amount: number;
+}
 
-function tokenKey(chainId: number, address: string) {
+const PREFERRED_DESTINATIONS = ["USDC", "USDT"];
+
+const NATIVE_CHAIN_ORDER: SupportedChainKeys[] = [
+  "base",
+  "celo",
+  "polygon",
+  "bnb",
+  "solana",
+  "stellar",
+];
+
+function tokenKey(chainId: number | string, address: string) {
   return `${chainId}:${address.toLowerCase()}`;
 }
 
@@ -43,51 +59,108 @@ export function getSwapTokens(tokens: Token[]): SwapAssetOption[] {
   );
   const seen = new Set<string>();
 
-  return tokens
-    .flatMap((token) => {
-      const tokenWithStatus = token as Token & { verificationStatus?: string };
-      const supported = chains.get(Number(token.chainId));
-      if (!supported || !/^0x[a-fA-F0-9]{40}$/.test(token.address)) return [];
-      const key = tokenKey(Number(token.chainId), token.address);
-      if (seen.has(key)) return [];
-      seen.add(key);
-      return [
-        {
-          key,
-          symbol: token.symbol,
-          name: token.name || token.symbol,
-          chainKey: supported.key,
-          chainName: supported.chain.name,
-          chainId: Number(token.chainId),
-          chainType: "evm" as const,
-          tokenAddress: token.address as `0x${string}`,
-          decimals: token.decimals,
-          balance: 0,
-          logoURI: token.logoURI,
-          priceUSD: token.priceUSD,
-          coinKey: token.coinKey,
-          verificationStatus: tokenWithStatus.verificationStatus,
-        },
-      ];
-    })
-    .sort((left, right) => {
-      const leftVerified = left.verificationStatus === "verified" ? 0 : 1;
-      const rightVerified = right.verificationStatus === "verified" ? 0 : 1;
-      if (leftVerified !== rightVerified) return leftVerified - rightVerified;
-      const leftPreferred = PREFERRED_DESTINATIONS.indexOf(
-        left.symbol.toUpperCase(),
-      );
-      const rightPreferred = PREFERRED_DESTINATIONS.indexOf(
-        right.symbol.toUpperCase(),
-      );
-      if (leftPreferred >= 0 || rightPreferred >= 0) {
-        if (leftPreferred < 0) return 1;
-        if (rightPreferred < 0) return -1;
-        if (leftPreferred !== rightPreferred)
-          return leftPreferred - rightPreferred;
-      }
-      return left.symbol.localeCompare(right.symbol);
+  const catalog: SwapAssetOption[] = tokens.flatMap((token) => {
+    const tokenWithStatus = token as Token & { verificationStatus?: string };
+    const supported = chains.get(Number(token.chainId));
+    if (!supported || !/^0x[a-fA-F0-9]{40}$/.test(token.address)) return [];
+    if (
+      !isNativeSwapAddress(token.address) &&
+      !isStableSwapToken(Number(token.chainId), token.address, token.symbol)
+    ) {
+      return [];
+    }
+    const key = tokenKey(Number(token.chainId), token.address);
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [
+      {
+        key,
+        symbol: token.symbol,
+        name: token.name || token.symbol,
+        chainKey: supported.key,
+        chainName: supported.chain.name,
+        chainId: Number(token.chainId),
+        chainType: "evm" as const,
+        tokenAddress: token.address,
+        decimals: token.decimals,
+        balance: 0,
+        logoURI: token.logoURI,
+        priceUSD: token.priceUSD,
+        coinKey: token.coinKey,
+        verificationStatus: tokenWithStatus.verificationStatus,
+        isNative: isNativeSwapAddress(token.address),
+      },
+    ];
+  });
+
+  Object.entries(getActiveChains()).forEach(([rawKey, chain]) => {
+    const chainKey = rawKey as SupportedChainKeys;
+    const nativeAddress =
+      chain.type === "evm"
+        ? "0x0000000000000000000000000000000000000000"
+        : `native:${chainKey}`;
+    const nativeKey = tokenKey(chain.id, nativeAddress);
+    if (!catalog.some((token) => token.key === nativeKey)) {
+      catalog.push({
+        key: nativeKey,
+        symbol: chain.nativeCurrency.symbol,
+        name: chain.nativeCurrency.name,
+        chainKey,
+        chainName: chain.name,
+        chainId: chain.id,
+        chainType: chain.type,
+        tokenAddress: nativeAddress,
+        decimals: chain.nativeCurrency.decimals,
+        balance: 0,
+        coinKey: chain.nativeCurrency.symbol,
+        isNative: true,
+      });
+    }
+
+    (["USDC", "USDT"] as const).forEach((symbol) => {
+      const address = symbol === "USDC" ? chain.usdcAddress : chain.usdtAddress;
+      if (!address) return;
+      const key = tokenKey(chain.id, address);
+      if (catalog.some((token) => token.key === key)) return;
+      catalog.push({
+        key,
+        symbol,
+        name: symbol === "USDC" ? "USD Coin" : "Tether USD",
+        chainKey,
+        chainName: chain.name,
+        chainId: chain.id,
+        chainType: chain.type,
+        tokenAddress: address,
+        decimals: chain.type === "stellar" ? 7 : 6,
+        balance: 0,
+        coinKey: symbol,
+        isNative: false,
+      });
     });
+  });
+
+  return catalog.sort((left, right) => {
+    const leftVerified = left.verificationStatus === "verified" ? 0 : 1;
+    const rightVerified = right.verificationStatus === "verified" ? 0 : 1;
+    if (leftVerified !== rightVerified) return leftVerified - rightVerified;
+    const leftPreferred = PREFERRED_DESTINATIONS.indexOf(
+      left.symbol.toUpperCase(),
+    );
+    const rightPreferred = PREFERRED_DESTINATIONS.indexOf(
+      right.symbol.toUpperCase(),
+    );
+    if (leftPreferred >= 0 || rightPreferred >= 0) {
+      if (leftPreferred < 0) return 1;
+      if (rightPreferred < 0) return -1;
+      if (leftPreferred !== rightPreferred)
+        return leftPreferred - rightPreferred;
+    }
+    return left.symbol.localeCompare(right.symbol);
+  });
+}
+
+export function isNativeSwapToken(token: SwapAssetOption) {
+  return token.isNative === true || isNativeSwapAddress(token.tokenAddress);
 }
 
 function getMetadataAddress(asset: Pick<Asset, "metadata">) {
@@ -107,8 +180,10 @@ export function getSwapSources(
     Pick<Asset, "symbol" | "chain" | "amount" | "metadata"> | null | undefined
   >,
   tokens: SwapAssetOption[],
+  liveNativeBalances: NativeSwapBalance[] = [],
 ): SwapAssetOption[] {
   const balances = new Map<string, number>();
+  const nativeTokens = tokens.filter(isNativeSwapToken);
 
   assets.forEach((asset) => {
     if (!asset?.chain) return;
@@ -117,7 +192,9 @@ export function getSwapSources(
     if (!chainKey || !Number.isFinite(amount) || amount <= 0) return;
 
     const address = getMetadataAddress(asset);
-    const candidates = tokens.filter((token) => token.chainKey === chainKey);
+    const candidates = nativeTokens.filter(
+      (token) => token.chainKey === chainKey,
+    );
     const token = address
       ? candidates.find(
           (candidate) => candidate.tokenAddress.toLowerCase() === address,
@@ -135,10 +212,22 @@ export function getSwapSources(
     balances.set(token.key, (balances.get(token.key) || 0) + amount);
   });
 
-  return tokens
-    .filter((token) => balances.has(token.key))
+  liveNativeBalances.forEach(({ chainKey, amount }) => {
+    if (!Number.isFinite(amount) || amount < 0) return;
+    const token = nativeTokens.find(
+      (candidate) => candidate.chainKey === chainKey,
+    );
+    if (!token) return;
+    balances.set(token.key, Math.max(balances.get(token.key) || 0, amount));
+  });
+
+  return nativeTokens
     .map((token) => ({ ...token, balance: balances.get(token.key) || 0 }))
-    .sort((left, right) => right.balance - left.balance);
+    .sort(
+      (left, right) =>
+        NATIVE_CHAIN_ORDER.indexOf(left.chainKey) -
+        NATIVE_CHAIN_ORDER.indexOf(right.chainKey),
+    );
 }
 
 export function getSwapDestinations(
@@ -147,7 +236,10 @@ export function getSwapDestinations(
 ) {
   if (!source) return [];
   return tokens.filter(
-    (token) => token.chainId === source.chainId && token.key !== source.key,
+    (token) =>
+      token.chainKey === source.chainKey &&
+      !isNativeSwapToken(token) &&
+      ["USDC", "USDT"].includes(token.symbol.toUpperCase()),
   );
 }
 
@@ -156,9 +248,9 @@ export function getDefaultSwapDestination(
   destinations: SwapAssetOption[],
 ) {
   if (!source || !destinations.length) return null;
-  const preferred = source.symbol.toUpperCase() === "USDC" ? "USDT" : "USDC";
   return (
-    destinations.find((token) => token.symbol.toUpperCase() === preferred) ||
+    destinations.find((token) => token.symbol.toUpperCase() === "USDC") ||
+    destinations.find((token) => token.symbol.toUpperCase() === "USDT") ||
     destinations[0]
   );
 }

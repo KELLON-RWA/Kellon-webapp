@@ -6,7 +6,8 @@ import type { User } from "@/types/db";
 
 export const metadata: Metadata = {
   title: "Swap",
-  description: "Swap tokens through LI.FI on supported Kellon wallet networks.",
+  description:
+    "Convert native network tokens received by mistake into USDC or USDT.",
   alternates: { canonical: "/swap" },
 };
 

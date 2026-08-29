@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getActiveChains } from "@/lib/chains";
 import { lifiRequest } from "@/lib/lifi-server";
+import { isNativeToStableSwap } from "@/lib/swap-policy";
 import type { LiFiStep } from "@/services/api/swap";
 
 export const runtime = "nodejs";
@@ -30,13 +31,15 @@ export async function POST(request: Request) {
         .filter((chain) => chain.type === "evm" && typeof chain.id === "number")
         .map((chain) => Number(chain.id)),
     );
-    const from = step.action.fromToken.address.toLowerCase();
-    const to = step.action.toToken.address.toLowerCase();
     if (
       !supportedChainIds.has(step.action.fromChainId) ||
       !supportedChainIds.has(step.action.toChainId) ||
-      step.action.fromChainId !== step.action.toChainId ||
-      from === to
+      !isNativeToStableSwap({
+        fromChainId: step.action.fromChainId,
+        toChainId: step.action.toChainId,
+        fromTokenAddress: step.action.fromToken.address,
+        toTokenAddress: step.action.toToken.address,
+      })
     ) {
       return NextResponse.json(
         { message: "Unsupported Kellon swap transaction" },
