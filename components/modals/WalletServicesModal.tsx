@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowLeftRight,
   ChevronRight,
   FileText,
   Gift,
@@ -57,6 +58,11 @@ export default function WalletServicesModal({
     router.push("/bridge");
   };
 
+  const handleSwap = () => {
+    onClose(false);
+    router.push("/swap");
+  };
+
   const content = (
     <div className="px-4 pb-8 md:px-0 md:pb-0">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -85,6 +91,12 @@ export default function WalletServicesModal({
           title="Bridge"
           description="Move USDC and USDT across networks"
           onClick={handleBridge}
+        />
+        <ServiceOption
+          icon={<ArrowLeftRight className="h-6 w-6 text-pink-500" />}
+          title="Swap"
+          description="Exchange tokens on supported networks"
+          onClick={handleSwap}
         />
         <ServiceOption
           icon={<FileText className="h-6 w-6 text-pink-500" />}
