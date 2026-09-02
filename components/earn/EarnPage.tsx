@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import {
@@ -88,6 +89,7 @@ function EarnSkeleton({
 }
 
 export default function EarnPage({ profile }: EarnPageProps) {
+  const router = useRouter();
   const { isConnected } = useRealtime();
   const [activeTab, setActiveTab] = useState<"yield" | "stocks">("yield");
   const [stockProviderFilter, setStockProviderFilter] = useState<string>("all");
@@ -732,12 +734,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() =>
-                                setSelectedStockAction({
-                                  action: "sell",
-                                  holding,
-                                })
-                              }
+                              disabled
+                              title="Selling is temporarily unavailable while on-chain settlement is being enabled."
                             >
                               Sell
                             </Button>
@@ -916,6 +914,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
             refetchStockPortfolio(),
             refresh(),
           ]);
+          router.refresh();
         }}
       />
 

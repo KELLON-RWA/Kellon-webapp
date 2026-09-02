@@ -239,6 +239,12 @@ export default function StockActionDialog({
         : {};
 
       if (action === "buy") {
+        const transactionChain = getStockSettlementChain(currentStock.provider);
+        if (transactionChain !== targetStockChain) {
+          throw new Error(
+            "Funding chain does not match the chain this stock settles on.",
+          );
+        }
         if (!walletsReady) {
           throw new Error("Your wallet is still loading. Please try again.");
         }
@@ -277,13 +283,20 @@ export default function StockActionDialog({
         }
 
         if (buildRes.data.approveTx) {
-          await client.sendTransaction({
-            account: client.account,
-            chain: client.chain,
-            to: buildRes.data.approveTx.to as `0x${string}`,
-            data: (buildRes.data.approveTx.data || "0x") as `0x${string}`,
-            value: BigInt(buildRes.data.approveTx.value || "0"),
-          });
+          try {
+            await client.sendTransaction({
+              account: client.account,
+              chain: client.chain,
+              to: buildRes.data.approveTx.to as `0x${string}`,
+              data: (buildRes.data.approveTx.data || "0x") as `0x${string}`,
+              value: BigInt(buildRes.data.approveTx.value || "0"),
+            });
+          } catch (error) {
+            console.error("[StockActionDialog] USDC approve failed:", error);
+            throw new Error(
+              "Could not approve USDC for the swap. Please try again.",
+            );
+          }
         }
 
         const txHash = await client.sendTransaction({

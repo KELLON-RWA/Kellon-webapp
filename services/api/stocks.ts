@@ -12,13 +12,6 @@ export interface StockListing {
   rwaCategory?: string;
 }
 
-export interface StockQuote {
-  symbol: string;
-  price: number;
-  currency: string;
-  provider: string;
-}
-
 export interface BuyStockParams {
   symbol: string;
   amountFiat: number;
@@ -134,28 +127,6 @@ export const stocksService = {
     return handleResponse<StockListing[]>(res);
   },
 
-  async getQuote(
-    symbol: string,
-    provider: string,
-  ): Promise<ApiResponse<StockQuote>> {
-    const res = await apiFetch(
-      `/api/v1/stocks/quote/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}`,
-      { method: "GET" },
-      { signed: false },
-    );
-    return handleResponse<StockQuote>(res);
-  },
-
-  async buyStock(
-    params: BuyStockParams,
-  ): Promise<ApiResponse<BuyStockResponse>> {
-    const res = await apiFetch("/api/v1/stocks/buy", {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
-    return handleTransferResponse<BuyStockResponse>(res);
-  },
-
   async sellStock(
     params: SellStockParams,
   ): Promise<ApiResponse<SellStockResponse>> {
@@ -169,7 +140,7 @@ export const stocksService = {
   async buildBuyTransaction(
     params: BuildStockBuyTransactionParams,
   ): Promise<ApiResponse<BuildStockBuyTransactionResponse>> {
-    const res = await apiFetch("/api/v1/stocks/buy/build-tx", {
+    const res = await apiFetch("/api/v1/stocks/build-tx", {
       method: "POST",
       body: JSON.stringify(params),
     });
@@ -179,7 +150,7 @@ export const stocksService = {
   async confirmTransaction(
     params: ConfirmStockBuyTransactionParams,
   ): Promise<ApiResponse<BuyStockResponse>> {
-    const res = await apiFetch("/api/v1/stocks/buy/confirm-tx", {
+    const res = await apiFetch("/api/v1/stocks/confirm-tx", {
       method: "POST",
       body: JSON.stringify(params),
     });
