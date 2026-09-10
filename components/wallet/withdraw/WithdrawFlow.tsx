@@ -792,7 +792,7 @@ export default function WithdrawFlow({
       <TransferVerificationModal
         isOpen={Boolean(verificationRequest)}
         isSubmitting={isSubmitting}
-        verificationType={verificationRequest?.verificationType || "otp"}
+        verificationType={verificationRequest?.verificationType || "email_otp"}
         availableMethods={verificationRequest?.availableMethods}
         selectedMethod={verificationRequest?.verificationMethod}
         onMethodChange={selectWithdrawalVerificationMethod}

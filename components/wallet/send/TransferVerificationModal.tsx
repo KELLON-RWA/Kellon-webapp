@@ -14,7 +14,7 @@ import type { VerificationMethod } from "@/services/api/transfers";
 interface TransferVerificationModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
-  verificationType: "email_otp" | "sms_otp" | "totp" | "otp";
+  verificationType: "email_otp" | "sms_otp" | "totp";
   onClose: () => void;
   onSubmit: (code: string) => void;
   title?: string;
@@ -87,7 +87,7 @@ export default function TransferVerificationModal({
           <p className="mx-auto mt-2 max-w-[280px] text-sm text-gray-20 dark:text-gray-40">
             {description ||
               (isOtpMethod && !otpSent
-                ? activeMethod === "email_otp" || activeMethod === "otp"
+                ? activeMethod === "email_otp"
                   ? "We'll send a verification code to your email to authorize this transaction."
                   : showMethodPicker
                   ? "Choose a verification method, then request your code."
@@ -178,7 +178,7 @@ export default function TransferVerificationModal({
               {isChoosingOtpChannel
                 ? isResending
                   ? "Sending..."
-                  : activeMethod === "email_otp" || activeMethod === "otp"
+                  : activeMethod === "email_otp"
                     ? "Send code"
                     : `Send ${methodLabel} code`
                 : isSubmitting

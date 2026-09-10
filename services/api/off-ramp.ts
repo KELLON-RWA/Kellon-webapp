@@ -44,7 +44,7 @@ export interface OfframpInitRequest {
 
   // Security / MFA Fields
   verificationCode?: string; // OTP or TOTP code
-  verificationType?: "email_otp" | "sms_otp" | "totp" | "otp" | string;
+  verificationType?: "email_otp" | "sms_otp" | "totp" | string;
   verificationCodes?: Record<string, string>;
 
   paymentMethod?: string;
@@ -111,13 +111,13 @@ type OfframpErrorBody = {
 };
 
 export class OfframpVerificationRequiredError extends Error {
-  verificationType: "email_otp" | "sms_otp" | "totp" | "otp";
+  verificationType: "email_otp" | "sms_otp" | "totp";
   availableMethods?: string[];
   action?: string;
 
   constructor(
     message: string,
-    verificationType: "email_otp" | "sms_otp" | "totp" | "otp" = "email_otp",
+    verificationType: "email_otp" | "sms_otp" | "totp" = "email_otp",
     availableMethods?: string[],
     action?: string,
   ) {

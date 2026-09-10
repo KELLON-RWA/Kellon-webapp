@@ -175,7 +175,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
       <TransferVerificationModal
         isOpen={Boolean(verificationRequest)}
         isSubmitting={isSubmitting}
-        verificationType={verificationRequest?.verificationType || "otp"}
+        verificationType={verificationRequest?.verificationType || "email_otp"}
         availableMethods={verificationRequest?.availableMethods}
         selectedMethod={verificationRequest?.selectedMethod}
         onMethodChange={selectTransferVerificationMethod}

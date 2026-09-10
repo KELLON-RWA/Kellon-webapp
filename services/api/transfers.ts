@@ -10,7 +10,7 @@ export interface InternalTransferPayload {
   recipientTag?: string
   metadata?: Record<string, string | number | boolean | null>
   verificationCode?: string
-  verificationType?: VerificationType | "otp"
+  verificationType?: VerificationType
   verificationCodes?: Record<string, string>
 }
 
@@ -73,7 +73,7 @@ type TransferErrorBody = {
 }
 
 export type VerificationType = "email_otp" | "sms_otp" | "totp"
-export type VerificationMethod = VerificationType | "otp"
+export type VerificationMethod = VerificationType
 
 export class TransferVerificationRequiredError extends Error {
   verificationType: VerificationType
@@ -98,7 +98,6 @@ const SUPPORTED_VERIFICATION_METHODS = new Set<VerificationMethod>([
   "email_otp",
   "sms_otp",
   "totp",
-  "otp",
 ])
 
 export function getAvailableVerificationMethods(
@@ -106,23 +105,19 @@ export function getAvailableVerificationMethods(
   fallback: VerificationMethod = "email_otp",
 ): VerificationMethod[] {
   const methods = (availableMethods || [])
-    .map((method) => method.toLowerCase())
+    .map((method) =>
+      method.toLowerCase() === "otp" ? "email_otp" : method.toLowerCase(),
+    )
     .filter((method): method is VerificationMethod =>
       SUPPORTED_VERIFICATION_METHODS.has(method as VerificationMethod),
     )
 
   const uniqueMethods = [...new Set(methods)]
-  const withoutDuplicateLegacyOtp = uniqueMethods.includes("email_otp")
-    ? uniqueMethods.filter((method) => method !== "otp")
-    : uniqueMethods
-
-  return withoutDuplicateLegacyOtp.length
-    ? withoutDuplicateLegacyOtp
-    : [fallback]
+  return uniqueMethods.length ? uniqueMethods : [fallback]
 }
 
 export function getVerificationTypeForMethod(
-  method: VerificationMethod,
+  method: VerificationMethod | "otp",
 ): VerificationType {
   if (method === "totp") return "totp"
   if (method === "sms_otp") return "sms_otp"
@@ -133,7 +128,7 @@ export function getOtpChannelForMethod(
   method: VerificationMethod,
 ): "email" | "sms" | null {
   if (method === "sms_otp") return "sms"
-  if (method === "email_otp" || method === "otp") return "email"
+  if (method === "email_otp") return "email"
   return null
 }
 
@@ -163,7 +158,7 @@ export function resolveVerificationMethod(
   if (!availableMethods?.length) return fallback
   const methods = availableMethods.map((method) => method.toLowerCase())
   if (methods.includes("email_otp")) return "email_otp"
-  if (methods.includes("otp")) return "otp"
+  if (methods.includes("otp")) return "email_otp"
   if (methods.includes("sms_otp")) return "sms_otp"
   if (methods.includes("totp")) return "totp"
   return fallback
