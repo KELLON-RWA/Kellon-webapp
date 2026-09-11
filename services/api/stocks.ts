@@ -6,6 +6,9 @@ export interface StockListing {
   name: string;
   price: number;
   currency: string;
+  change24hPercentage?: number | string;
+  changePercentage?: number | string;
+  change?: number | string;
   logoUrl?: string;
   category?: string;
   provider: string;

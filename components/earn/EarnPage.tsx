@@ -8,13 +8,15 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Loader2,
   Search,
   ShieldCheck,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SearchBar from "@/components/SearchBar";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import { Button } from "@/components/ui/button";
@@ -103,6 +105,18 @@ function getHoldingListing(
       stock.symbol.toLowerCase() === holding.symbol.toLowerCase() &&
       stock.provider.toLowerCase() === holding.provider.toLowerCase(),
   );
+}
+
+function getListingChange(listing: StockListing): number | undefined {
+  const change = [
+    listing.change24hPercentage,
+    listing.changePercentage,
+    listing.change,
+  ]
+    .map((value) => Number(value))
+    .find(Number.isFinite);
+
+  return change;
 }
 
 const STOCK_DOMAINS: Record<string, string> = {
@@ -287,6 +301,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isConnected } = useRealtime();
+  const marketEtfsRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<EarnCategory>("yield");
   const [stockProviderFilter, setStockProviderFilter] = useState<string>("all");
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
@@ -528,7 +543,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
         name: stock.name.replace(/\s+bStock$/i, ""),
         price: Number(stock.price) || 0,
         currency: stock.currency,
-        change: undefined as number | undefined,
+        change: getListingChange(stock),
       }));
   }, [marketIndices, stocks]);
   const categoryPortfolioHoldings = useMemo(() => {
@@ -1081,12 +1096,23 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             </p>
                             <p
                               className={cn(
-                                "mt-1 text-[10px] font-bold",
+                                "mt-1 flex items-center justify-end gap-1 text-[10px] font-bold",
                                 pnl >= 0
                                   ? "text-emerald-600 dark:text-emerald-300"
                                   : "text-rose-600 dark:text-rose-300",
                               )}
                             >
+                              {pnl > 0 ? (
+                                <ArrowUpRight
+                                  className="h-3 w-3 shrink-0"
+                                  aria-hidden="true"
+                                />
+                              ) : pnl < 0 ? (
+                                <ArrowDownRight
+                                  className="h-3 w-3 shrink-0"
+                                  aria-hidden="true"
+                                />
+                              ) : null}
                               {pnl >= 0 ? "+" : ""}
                               {formatUsd(pnl)} ({pnlPercentage.toFixed(2)}%)
                             </p>
@@ -1119,25 +1145,58 @@ export default function EarnPage({ profile }: EarnPageProps) {
             {/* Market ETFs */}
             {activeTab === "stocks" && marketEtfs.length > 0 && (
               <div className="mb-6">
-                <h4 className="mb-3 text-sm font-bold text-cryptoNight dark:text-white">
-                  Market ETFs
-                </h4>
-                <div className="mr-[calc(50%_-_50vw)] flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mr-0 md:grid md:grid-cols-3 md:overflow-visible md:pr-0">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-bold text-cryptoNight dark:text-white">
+                    Market ETFs
+                  </h4>
+                  <div className="hidden items-center gap-1 md:flex">
+                    <button
+                      type="button"
+                      aria-label="Show previous market ETFs"
+                      onClick={() =>
+                        marketEtfsRef.current?.scrollBy({
+                          left: -220,
+                          behavior: "smooth",
+                        })
+                      }
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-30"
+                    >
+                      <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Show more market ETFs"
+                      onClick={() =>
+                        marketEtfsRef.current?.scrollBy({
+                          left: 220,
+                          behavior: "smooth",
+                        })
+                      }
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-30"
+                    >
+                      <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+                <div
+                  ref={marketEtfsRef}
+                  className="mr-[calc(50%_-_50vw)] flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mr-0 md:pr-0"
+                >
                   {marketEtfs.map((idx) => (
                     <div
                       key={idx.symbol}
-                      className="flex min-h-[128px] w-[44%] min-w-32 shrink-0 snap-start flex-col rounded-xl border border-gray-80 bg-white/60 p-3 dark:border-white/10 dark:bg-secondary-50/50 md:min-h-[140px] md:w-auto"
+                      className="flex min-h-[128px] w-[44%] min-w-32 shrink-0 snap-start flex-col rounded-xl border border-gray-80 bg-white/60 p-3 dark:border-white/10 dark:bg-secondary-50/50 md:min-h-[116px] md:w-44 md:min-w-44"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-cryptoNight dark:text-white">
                           {idx.symbol}
                         </span>
-                        {idx.change !== undefined && idx.change >= 0 ? (
+                        {idx.change !== undefined && idx.change > 0 ? (
                           <ArrowUpRight
                             className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
                             aria-hidden="true"
                           />
-                        ) : idx.change !== undefined ? (
+                        ) : idx.change !== undefined && idx.change < 0 ? (
                           <ArrowDownRight
                             className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400"
                             aria-hidden="true"
