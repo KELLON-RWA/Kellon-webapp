@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { useForm } from "react-hook-form"
@@ -234,6 +234,7 @@ export function useSendFlow(profile: User) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const latestUrlParams = useRef(new URLSearchParams(searchParams.toString()))
   const { wallets, ready: walletsReady } = useWallets()
   const { wallets: solanaWallets, ready: solanaWalletsReady } =
     useSolanaWallets()
@@ -312,6 +313,7 @@ export function useSendFlow(profile: User) {
   // keeps step, selectedAssetId, and amount consistent with the URL at all
   // times — including browser back/forward navigation.
   useEffect(() => {
+    latestUrlParams.current = new URLSearchParams(searchParams.toString())
     dispatch({ type: "SYNC_FROM_URL", params: searchParams, sendableAssets })
   }, [searchParams, sendableAssets])
 
@@ -366,7 +368,10 @@ export function useSendFlow(profile: User) {
       updates: Record<string, string | null>,
       options: { replace?: boolean } = {},
     ) => {
-      const params = new URLSearchParams(searchParams.toString())
+      // Router navigation is asynchronous. Preserve writes made earlier in the
+      // same interaction instead of starting each update from stale search
+      // params (for example: choosing a network then immediately continuing).
+      const params = new URLSearchParams(latestUrlParams.current)
       let changed = false
 
       Object.entries(updates).forEach(([key, value]) => {
@@ -383,10 +388,11 @@ export function useSendFlow(profile: User) {
       if (!changed) return
       const query = params.toString()
       const nextUrl = query ? `${pathname}?${query}` : pathname
+      latestUrlParams.current = params
       if (options.replace) router.replace(nextUrl, { scroll: false })
       else router.push(nextUrl, { scroll: false })
     },
-    [pathname, router, searchParams],
+    [pathname, router],
   )
 
   // ── Self-recipient detection ───────────────────────────────────────────────

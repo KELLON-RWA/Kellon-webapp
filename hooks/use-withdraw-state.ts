@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useReducer, useEffect } from "react";
+import { useCallback, useMemo, useReducer, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupportedChainsForToken } from "@/lib/chains";
 
@@ -192,26 +192,39 @@ export function useWithdrawState() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
 
   useEffect(() => {
-    dispatch({ type: "SYNC_FROM_URL", params: searchParams });
+    const action: Action = { type: "SYNC_FROM_URL", params: searchParams };
+    stateRef.current = reducer(stateRef.current, action);
+    dispatch(action);
   }, [searchParams]);
 
-  const updateUrl = useCallback(
-    (updates: Record<string, string | null>, replace = false) => {
+  // URL transitions are asynchronous. Write the entire latest flow state so a
+  // rapid selection followed by Continue cannot overwrite the selected chain.
+  const writeStateToUrl = useCallback(
+    (nextState: State, replace = false) => {
       const params = new URLSearchParams(searchParams.toString());
-      let changed = false;
-      Object.entries(updates).forEach(([key, value]) => {
+      const values: Record<string, string | null> = {
+        step: nextState.step,
+        asset: nextState.asset,
+        network: nextState.networkName,
+        amount: nextState.amount || null,
+        currency: nextState.currency,
+        country: nextState.country,
+        countrySource: nextState.countrySource,
+        providerId: nextState.providerId,
+        bankId: nextState.bankId,
+      };
+
+      Object.entries(values).forEach(([key, value]) => {
         const current = params.get(key);
         if (value === null && current !== null) {
           params.delete(key);
-          changed = true;
         } else if (value !== null && current !== value) {
           params.set(key, value);
-          changed = true;
         }
       });
-      if (!changed) return;
       const url = `?${params.toString()}`;
       if (replace) router.replace(url, { scroll: false });
       else router.push(url, { scroll: false });
@@ -219,79 +232,84 @@ export function useWithdrawState() {
     [router, searchParams],
   );
 
+  const applyAction = useCallback(
+    (action: Exclude<Action, { type: "SYNC_FROM_URL" }>, replace = false) => {
+      const nextState = reducer(stateRef.current, action);
+      stateRef.current = nextState;
+      dispatch(action);
+      writeStateToUrl(nextState, replace);
+    },
+    [writeStateToUrl],
+  );
+
   const setStep = useCallback(
     (step: WithdrawStep) => {
-      dispatch({ type: "SET_STEP", step });
-      updateUrl({ step });
+      if (step === stateRef.current.step) return;
+      applyAction({ type: "SET_STEP", step });
     },
-    [updateUrl],
+    [applyAction],
   );
 
   const setAsset = useCallback(
     (asset: string) => {
-      dispatch({ type: "SET_ASSET", asset });
-      updateUrl({ asset, network: null, providerId: null, bankId: null });
+      if (asset === stateRef.current.asset) return;
+      applyAction({ type: "SET_ASSET", asset });
     },
-    [updateUrl],
+    [applyAction],
   );
 
   const setNetwork = useCallback(
     (name: string, id: string) => {
-      dispatch({ type: "SET_NETWORK", name, id });
-      updateUrl({ network: name, providerId: null, bankId: null });
+      if (name === stateRef.current.networkName) return;
+      applyAction({ type: "SET_NETWORK", name, id });
     },
-    [updateUrl],
+    [applyAction],
   );
 
   const setAssetAndNetwork = useCallback(
     (asset: string, name: string, id: string) => {
-      dispatch({ type: "SET_ASSET_AND_NETWORK", asset, name, id });
-      updateUrl({
-        asset,
-        network: name,
-        amount: null,
-        providerId: null,
-        bankId: null,
-      });
+      applyAction({ type: "SET_ASSET_AND_NETWORK", asset, name, id });
     },
-    [updateUrl],
+    [applyAction],
   );
 
   const setAmount = useCallback(
     (amount: string) => {
-      dispatch({ type: "SET_AMOUNT", amount });
-      updateUrl({ amount }, true);
+      if (amount === stateRef.current.amount) return;
+      applyAction({ type: "SET_AMOUNT", amount }, true);
     },
-    [updateUrl],
+    [applyAction],
   );
 
   const setCountryAndCurrency = useCallback(
     (country: string, currency: string, source: "auto" | "manual" = "auto") => {
-      dispatch({
+      if (country === stateRef.current.country &&
+        currency === stateRef.current.currency &&
+        source === stateRef.current.countrySource) return;
+      applyAction({
         type: "SET_COUNTRY_AND_CURRENCY",
         country,
         currency,
         source,
-      });
-      updateUrl({ country, currency, countrySource: source }, true);
+      }, true);
     },
-    [updateUrl],
+    [applyAction],
   );
 
   const setProviderId = useCallback(
     (providerId: string) => {
-      dispatch({ type: "SET_PROVIDER", providerId });
-      updateUrl({ providerId, bankId: null });
+      if (providerId === stateRef.current.providerId) return;
+      applyAction({ type: "SET_PROVIDER", providerId });
     },
-    [updateUrl],
+    [applyAction],
   );
 
   const setBankId = useCallback(
     (bankId: string | null) => {
-      dispatch({ type: "SET_BANK", bankId });
-      updateUrl({ bankId }, true);
+      if (bankId === stateRef.current.bankId) return;
+      applyAction({ type: "SET_BANK", bankId }, true);
     },
-    [updateUrl],
+    [applyAction],
   );
 
   return {

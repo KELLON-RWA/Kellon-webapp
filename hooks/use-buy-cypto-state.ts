@@ -1,5 +1,5 @@
 // hooks/useBuyCryptoState.ts
-import { useCallback, useMemo, useReducer, useEffect } from "react";
+import { useCallback, useMemo, useReducer, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupportedChainsForToken } from "@/lib/chains";
 
@@ -174,28 +174,42 @@ export function useBuyCryptoState() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
 
-  // Sync with URL changes (browser back/forward) – atomic update
+  // Keep a synchronous copy of the latest flow state. Router updates are
+  // asynchronous, so useSearchParams can still describe the previous step
+  // when a user selects a network and immediately continues.
   useEffect(() => {
-    dispatch({ type: "SYNC_FROM_URL", params: searchParams });
+    const action: Action = { type: "SYNC_FROM_URL", params: searchParams };
+    stateRef.current = reducer(stateRef.current, action);
+    dispatch(action);
   }, [searchParams]);
 
-  // Helper: update URL without loops
-  const updateUrl = useCallback(
-    (updates: Record<string, string | null>, replace = false) => {
+  // Persist a complete flow snapshot, rather than layering a partial update on
+  // top of a potentially stale URL. This keeps asset, network and step in
+  // lockstep during fast selections and navigation.
+  const writeStateToUrl = useCallback(
+    (nextState: State, replace = false) => {
       const params = new URLSearchParams(searchParams.toString());
-      let changed = false;
-      Object.entries(updates).forEach(([key, value]) => {
+      const values: Record<string, string | null> = {
+        step: nextState.step,
+        asset: nextState.asset,
+        network: nextState.networkName,
+        amount: nextState.amount || null,
+        currency: nextState.currency,
+        country: nextState.country,
+        countrySource: nextState.countrySource,
+        bankId: nextState.bankId,
+      };
+
+      Object.entries(values).forEach(([key, value]) => {
         const current = params.get(key);
         if (value === null && current !== null) {
           params.delete(key);
-          changed = true;
         } else if (value !== null && current !== value) {
           params.set(key, value);
-          changed = true;
         }
       });
-      if (!changed) return;
       const url = `?${params.toString()}`;
       if (replace) router.replace(url, { scroll: false });
       else router.push(url, { scroll: false });
@@ -203,69 +217,71 @@ export function useBuyCryptoState() {
     [router, searchParams],
   );
 
+  const applyAction = useCallback(
+    (action: Exclude<Action, { type: "SYNC_FROM_URL" }>, replace = false) => {
+      const nextState = reducer(stateRef.current, action);
+      stateRef.current = nextState;
+      dispatch(action);
+      writeStateToUrl(nextState, replace);
+    },
+    [writeStateToUrl],
+  );
+
   // Stable action creators
   const setStep = useCallback(
     (step: Step) => {
-      if (step === state.step) return;
-      dispatch({ type: "SET_STEP", step });
-      updateUrl({ step });
+      if (step === stateRef.current.step) return;
+      applyAction({ type: "SET_STEP", step });
     },
-    [state.step, updateUrl],
+    [applyAction],
   );
 
   const setAsset = useCallback(
     (asset: string) => {
-      if (asset === state.asset) return;
-      dispatch({ type: "SET_ASSET", asset });
-      updateUrl({ asset, network: null, bankId: null });
+      if (asset === stateRef.current.asset) return;
+      applyAction({ type: "SET_ASSET", asset });
     },
-    [state.asset, updateUrl],
+    [applyAction],
   );
 
   const setNetwork = useCallback(
     (name: string, id: string) => {
-      if (name === state.networkName) return;
-      dispatch({ type: "SET_NETWORK", name, id });
-      updateUrl({ network: name, bankId: null });
+      if (name === stateRef.current.networkName) return;
+      applyAction({ type: "SET_NETWORK", name, id });
     },
-    [state.networkName, updateUrl],
+    [applyAction],
   );
 
   const setAmount = useCallback(
     (amount: string) => {
-      if (amount === state.amount) return;
-      dispatch({ type: "SET_AMOUNT", amount });
-      updateUrl({ amount }, true);
+      if (amount === stateRef.current.amount) return;
+      applyAction({ type: "SET_AMOUNT", amount }, true);
     },
-    [state.amount, updateUrl],
+    [applyAction],
   );
 
   const setCountryAndCurrency = useCallback(
     (country: string, currency: string, source: "auto" | "manual" = "auto") => {
-      if (
-        country === state.country &&
-        currency === state.currency &&
-        source === state.countrySource
-      )
+      if (country === stateRef.current.country &&
+        currency === stateRef.current.currency &&
+        source === stateRef.current.countrySource)
         return;
-      dispatch({
+      applyAction({
         type: "SET_COUNTRY_AND_CURRENCY",
         country,
         currency,
         source,
-      });
-      updateUrl({ country, currency, countrySource: source }, true);
+      }, true);
     },
-    [state.country, state.currency, state.countrySource, updateUrl],
+    [applyAction],
   );
 
   const setBankId = useCallback(
     (bankId: string | null) => {
-      if (bankId === state.bankId) return;
-      dispatch({ type: "SET_BANK", bankId });
-      updateUrl({ bankId }, true);
+      if (bankId === stateRef.current.bankId) return;
+      applyAction({ type: "SET_BANK", bankId }, true);
     },
-    [state.bankId, updateUrl],
+    [applyAction],
   );
 
   return {
