@@ -12,6 +12,30 @@ export interface StockListing {
   rwaCategory?: string;
 }
 
+const RWA_CATEGORIES = new Set([
+  "rwa",
+  "real world asset",
+  "real world assets",
+  "real estate",
+  "commodity",
+  "commodities",
+  "bond",
+  "bonds",
+  "treasury",
+  "treasuries",
+  "private credit",
+]);
+
+function normalizeStockCategory(value?: string): string {
+  return (value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+}
+
+export function isRwaStockListing(listing: StockListing): boolean {
+  return [listing.rwaCategory, listing.category].some((category) =>
+    RWA_CATEGORIES.has(normalizeStockCategory(category)),
+  );
+}
+
 export interface BuyStockParams {
   symbol: string;
   amountFiat: number;
@@ -120,7 +144,7 @@ export const stocksService = {
     provider = "all",
   ): Promise<ApiResponse<StockListing[]>> {
     const res = await apiFetch(
-      `/api/v1/stocks?provider=${encodeURIComponent(provider)}`,
+      `/api/stocks?provider=${encodeURIComponent(provider)}`,
       { method: "GET" },
       { signed: false },
     );
@@ -166,7 +190,7 @@ export const stocksService = {
 
   async getIndices(): Promise<ApiResponse<MarketIndex[]>> {
     const res = await apiFetch(
-      "/api/v1/stocks/indices",
+      "/api/stocks/indices",
       { method: "GET" },
       { signed: false },
     );
