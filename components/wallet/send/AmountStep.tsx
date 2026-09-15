@@ -3,6 +3,9 @@
 import type { UseFormReturn } from "react-hook-form";
 import Keypad from "@/components/Keypad";
 import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton";
+import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
+import { cn } from "@/lib/utils";
 import {
   Form,
   FormControl,
@@ -23,6 +26,13 @@ interface AmountStepProps {
   onBridge: () => void;
 }
 
+const QUICK_PERCENTAGES = [25, 50, 75] as const;
+
+function formatAssetAmount(value: number) {
+  if (!Number.isFinite(value)) return "0";
+  return value.toFixed(6).replace(/\.?0+$/, "");
+}
+
 export default function AmountStep({
   amountForm,
   amount,
@@ -38,8 +48,36 @@ export default function AmountStep({
     Boolean(selectedAsset) &&
     Number.isFinite(amountValue) &&
     amountValue > (selectedAsset?.amount || 0);
+  const hasAmount = amount.length > 0;
+  const quickAmounts = [
+    ...QUICK_PERCENTAGES.map((percentage) => ({
+      label: `${percentage}%`,
+      value: formatAssetAmount(((selectedAsset?.amount || 0) * percentage) / 100),
+    })),
+    { label: "Max", value: formatAssetAmount(selectedAsset?.amount || 0) },
+  ];
+
+  const QuickAmountButtons = () => (
+    <div className="grid grid-cols-4 gap-3">
+      {quickAmounts.map((quickAmount) => (
+        <button
+          key={quickAmount.label}
+          type="button"
+          onClick={() => onAmountChange(quickAmount.value)}
+          className={cn(
+            "h-14 rounded-2xl border text-sm font-medium transition active:scale-[0.98]",
+            amount === quickAmount.value
+              ? "border-primary-60 bg-primary-70/10 text-primary-60"
+              : "border-transparent bg-gray-95 text-gray-700 dark:bg-secondary-60 dark:text-gray-300",
+          )}
+        >
+          {quickAmount.label}
+        </button>
+      ))}
+    </div>
+  );
   return (
-    <div className="flex h-full flex-col gap-5 md:gap-6">
+    <div className="flex min-h-[calc(100dvh-230px)] flex-col gap-5 md:min-h-0 md:gap-6">
       <Form {...amountForm}>
         <form
           onSubmit={amountForm.handleSubmit(() => {
@@ -53,8 +91,24 @@ export default function AmountStep({
             render={({ field }) => (
               <FormItem>
                 <div>
+                  <div
+                    className="flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5 md:hidden"
+                  >
+                    <span className="text-xl font-bold text-gray-400">
+                      {selectedAsset?.symbol || "Asset"}
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="text-2xl font-bold text-black dark:text-white">
+                        {amount ? formatNumberWithCommas(amount) : "0"}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="h-5 w-px shrink-0 animate-pulse rounded-full bg-primary-60"
+                      />
+                    </span>
+                  </div>
                   <FormControl>
-                    <div className="relative">
+                    <div className="relative hidden md:block">
                       <div className="absolute left-0 top-0 hidden h-full items-center justify-center rounded-l-xl border-r border-slate-200 bg-gray-100 px-4 dark:border-white/10 dark:bg-secondary-50/50 md:flex">
                         <span className="text-lg font-bold text-gray-600 dark:text-gray-300">
                           {selectedAsset?.symbol || "Asset"}
@@ -70,9 +124,6 @@ export default function AmountStep({
                         placeholder="0.00"
                         className="h-16 w-full rounded-2xl border border-black/5 bg-gray-95 px-4 pr-20 text-4xl font-bold tracking-tight text-black outline-none placeholder:text-gray-60 focus-visible:ring-[3px] focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white dark:placeholder:text-white/15 md:h-12 md:pl-16 md:pr-16 md:text-center md:text-base"
                       />
-                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-30 dark:text-gray-40 md:hidden">
-                        {selectedAsset?.symbol || "Asset"}
-                      </span>
                       <button
                         type="button"
                         onClick={() =>
@@ -85,7 +136,7 @@ export default function AmountStep({
                     </div>
                   </FormControl>
                 </div>
-                <FormMessage className="text-xs" />
+                <FormMessage className="hidden text-xs md:block" />
               </FormItem>
             )}
           />
@@ -101,8 +152,30 @@ export default function AmountStep({
         </div>
       ) : null}
 
-      <div className="block md:hidden">
-        <Keypad onPress={onKeypadPress} />
+      <div className="mt-auto space-y-4 md:hidden">
+        {hasAmount ? (
+          <FlowActionFooter
+            sticky={false}
+            onClick={() => {
+              amountForm.handleSubmit(() => {
+                if (isAmountValid) onReview();
+              })();
+            }}
+            disabled={!isAmountValid}
+            buttonClassName={!isAmountValid ? "from-gray-400 to-gray-500" : undefined}
+            textClassName="text-sm"
+            showShimmer={isAmountValid}
+          >
+            {isAmountValid ? "Review Send" : "Enter Valid Amount"}
+          </FlowActionFooter>
+        ) : (
+          <QuickAmountButtons />
+        )}
+        <Keypad
+          onPress={onKeypadPress}
+          className="gap-3"
+          buttonClassName="h-14 rounded-2xl bg-white dark:bg-secondary-60"
+        />
       </div>
     </div>
   );

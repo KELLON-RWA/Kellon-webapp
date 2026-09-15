@@ -110,7 +110,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
   };
 
   return (
-    <div className="container mx-auto flex min-h-[90dvh] max-w-2xl flex-col pb-32 md:pt-20">
+    <div className="container mx-auto flex min-h-[100dvh] max-w-2xl flex-col pb-[env(safe-area-inset-bottom)] md:min-h-[90dvh] md:pb-32 md:pt-20">
       <FlowHeader
         title={isCombinedAssetAndAmountStep ? "Send" : stepTitles[step]}
         onBack={goBack}
@@ -234,7 +234,11 @@ export default function SendFlow({ profile }: SendFlowProps) {
 
           <FlowActionFooter
             sticky={false}
-            className="w-full min-w-0 max-w-full"
+            className={
+              step === "amount"
+                ? "hidden w-full min-w-0 max-w-full md:block"
+                : "w-full min-w-0 max-w-full"
+            }
             innerClassName="w-full min-w-0"
             buttonClassName="min-w-0"
             onClick={handlePrimaryAction}
@@ -246,7 +250,9 @@ export default function SendFlow({ profile }: SendFlowProps) {
                 : "Send Now"
               : step === "recipient" && isVerifyingRecipient
                 ? "Verifying..."
-                : "Continue"}
+                : step === "amount" || isCombinedAssetAndAmountStep
+                  ? "Review Send"
+                  : "Continue"}
             {step !== "review" ? (
               <ArrowRight className="h-5 w-5" />
             ) : null}

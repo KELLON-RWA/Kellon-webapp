@@ -623,7 +623,7 @@ export default function WithdrawFlow({
 
   return (
     <>
-      <div className="container mx-auto flex min-h-[90dvh] max-w-2xl flex-col pb-32 md:pt-20">
+      <div className="container mx-auto flex min-h-[100dvh] max-w-2xl flex-col pb-[env(safe-area-inset-bottom)] md:min-h-[90dvh] md:pb-32 md:pt-20">
         <FlowHeader
           title={
             step === "provider"

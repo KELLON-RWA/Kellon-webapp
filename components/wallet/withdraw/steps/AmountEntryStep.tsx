@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { ArrowRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,12 +12,6 @@ import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton";
 import Keypad from "@/components/Keypad";
 import { Input } from "@/components/ui/input";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import {
   Form,
   FormControl,
@@ -56,8 +50,6 @@ export function WithdrawAmountEntryStep({
   onAmountChange,
   onBridge,
 }: AmountEntryStepProps) {
-  const [isAmountEditorOpen, setIsAmountEditorOpen] = useState(false);
-
   const amountSchema = useMemo(
     () =>
       z.object({
@@ -99,6 +91,7 @@ export function WithdrawAmountEntryStep({
   const isOverBalance =
     Number.isFinite(Number(currentAmount)) &&
     Number(currentAmount) > assetBalance;
+  const hasAmount = currentAmount.length > 0;
   const quickAmounts = useMemo(
     () => [
       ...QUICK_PERCENTAGES.map((percentage) => ({
@@ -182,11 +175,8 @@ export function WithdrawAmountEntryStep({
           />
 
           <div className="block w-full lg:hidden">
-            <button
-              type="button"
-              onClick={() => setIsAmountEditorOpen(true)}
+            <div
               className="mb-0 mt-8 flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5"
-              aria-label="Edit withdrawal amount"
             >
               <span className="text-xl font-bold text-gray-400">{asset}</span>
               <span className="inline-flex items-center gap-2">
@@ -198,7 +188,7 @@ export function WithdrawAmountEntryStep({
                   className="h-5 w-px shrink-0 animate-pulse rounded-full bg-primary-60"
                 />
               </span>
-            </button>
+            </div>
             <div className="mb-4 text-center">
               <div className="mt-0 flex items-center justify-center gap-2">
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -221,9 +211,6 @@ export function WithdrawAmountEntryStep({
               ) : null}
             </div>
 
-            <div className="mb-6">
-              <QuickAmountButtons />
-            </div>
           </div>
 
           <div className="hidden w-full lg:block">
@@ -293,40 +280,13 @@ export function WithdrawAmountEntryStep({
           </div>
         </div>
 
-        {!isAmountEditorOpen ? (
-          <FlowActionFooter
-            className="lg:hidden"
-            onClick={form.handleSubmit(handleFormSubmit)}
-            disabled={!isAmountValid}
-            buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
-            textClassName="text-sm"
-            showShimmer={isAmountValid}
-          >
-            {isAmountValid ? "Select Provider" : "Enter Valid Amount"}
-            {isAmountValid ? (
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            ) : null}
-          </FlowActionFooter>
-        ) : null}
-      </div>
-
-      <Drawer open={isAmountEditorOpen} onOpenChange={setIsAmountEditorOpen}>
-        <DrawerContent className="lg:hidden rounded-t-[28px] border-black/5 bg-gray-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 dark:border-white/10 dark:bg-secondary-50 [&>div:first-child]:hidden">
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>Enter withdrawal amount</DrawerTitle>
-          </DrawerHeader>
-          <div className="mx-auto w-full max-w-md">
+        <div className="mt-auto space-y-4 lg:hidden">
+          {hasAmount ? (
             <FlowActionFooter
               sticky={false}
-              className="mb-4"
-              onClick={() => {
-                setIsAmountEditorOpen(false);
-                form.handleSubmit(handleFormSubmit)();
-              }}
+              onClick={form.handleSubmit(handleFormSubmit)}
               disabled={!isAmountValid}
-              buttonClassName={cn(
-                !isAmountValid && "from-gray-400 to-gray-500",
-              )}
+              buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
               textClassName="text-sm"
               showShimmer={isAmountValid}
             >
@@ -335,22 +295,16 @@ export function WithdrawAmountEntryStep({
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               ) : null}
             </FlowActionFooter>
-            <Keypad
-              onPress={handleKeypadPress}
-              className="gap-3"
-              buttonClassName="h-14 rounded-2xl bg-white dark:bg-secondary-60"
-            />
-            {isOverBalance ? (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-                <p className="text-center text-xs text-destructive">
-                  Insufficient balance. Bridge funds to continue.
-                </p>
-                <BridgeDeficitButton onClick={onBridge} />
-              </div>
-            ) : null}
-          </div>
-        </DrawerContent>
-      </Drawer>
+          ) : (
+            <QuickAmountButtons />
+          )}
+          <Keypad
+            onPress={handleKeypadPress}
+            className="gap-3"
+            buttonClassName="h-14 rounded-2xl bg-white dark:bg-secondary-60"
+          />
+        </div>
+      </div>
     </Form>
   );
 }
