@@ -10,9 +10,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { getChainLabel } from "@/lib/chains";
 import type { AmountFormValues, SendableAsset } from "./send-types";
-import { formatAssetAmount } from "./send-utils";
 
 interface AmountStepProps {
   amountForm: UseFormReturn<AmountFormValues>;
@@ -47,7 +45,7 @@ export default function AmountStep({
           onSubmit={amountForm.handleSubmit(() => {
             if (isAmountValid) onReview();
           })}
-          className="space-y-6"
+          className="space-y-0"
         >
           <FormField
             control={amountForm.control}
@@ -55,12 +53,13 @@ export default function AmountStep({
             render={({ field }) => (
               <FormItem>
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-tight text-gray-30 dark:text-gray-40 md:text-xs">
-                    Sending {selectedAsset?.symbol || "asset"} on{" "}
-                    {getChainLabel(selectedAsset?.chain)}
-                  </p>
                   <FormControl>
-                    <div className="relative mt-3">
+                    <div className="relative">
+                      <div className="absolute left-0 top-0 hidden h-full items-center justify-center rounded-l-xl border-r border-slate-200 bg-gray-100 px-4 dark:border-white/10 dark:bg-secondary-50/50 md:flex">
+                        <span className="text-lg font-bold text-gray-600 dark:text-gray-300">
+                          {selectedAsset?.symbol || "Asset"}
+                        </span>
+                      </div>
                       <input
                         {...field}
                         onChange={(event) => {
@@ -69,17 +68,22 @@ export default function AmountStep({
                         }}
                         inputMode="decimal"
                         placeholder="0.00"
-                        className="h-16 w-full rounded-2xl border border-black/5 bg-gray-95 px-4 pr-20 text-4xl font-bold tracking-tight text-black outline-none placeholder:text-gray-60 focus-visible:ring-[3px] focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white dark:placeholder:text-white/15 md:h-[72px] md:px-5 md:pr-24 md:text-5xl"
+                        className="h-16 w-full rounded-2xl border border-black/5 bg-gray-95 px-4 pr-20 text-4xl font-bold tracking-tight text-black outline-none placeholder:text-gray-60 focus-visible:ring-[3px] focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white dark:placeholder:text-white/15 md:h-12 md:pl-16 md:pr-16 md:text-center md:text-base"
                       />
-                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-30 dark:text-gray-40 md:right-5 md:text-base">
+                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-30 dark:text-gray-40 md:hidden">
                         {selectedAsset?.symbol || "Asset"}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onAmountChange(String(selectedAsset?.amount || 0))
+                        }
+                        className="absolute right-2 top-1/2 hidden -translate-y-1/2 cursor-pointer rounded-full border border-black/10 px-2.5 py-1 text-xs font-semibold text-primary-60 transition hover:border-primary-60/30 hover:bg-primary-70/5 dark:border-white/10 dark:hover:bg-white/5 md:block"
+                      >
+                        Max
+                      </button>
                     </div>
                   </FormControl>
-                  <p className="mt-3 text-sm font-medium text-gray-20 dark:text-gray-40 md:text-base">
-                    Available: {formatAssetAmount(selectedAsset?.amount || 0)}{" "}
-                    {selectedAsset?.symbol}
-                  </p>
                 </div>
                 <FormMessage className="text-xs" />
               </FormItem>

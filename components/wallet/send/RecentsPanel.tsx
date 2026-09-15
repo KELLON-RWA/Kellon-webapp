@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ContactRound, ChevronRight } from "lucide-react";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import type { RecentRecipient } from "./send-types";
 import {
@@ -19,14 +19,11 @@ export default function RecentsPanel({
   onSelectRecipient,
 }: RecentsPanelProps) {
   return (
-    <aside className="w-full min-w-0 overflow-hidden rounded-[24px] border border-black/5 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/80 dark:shadow-none md:p-5">
-      <div className="mb-4 flex items-center justify-between">
+    <aside className="w-full min-w-0 overflow-hidden md:rounded-[24px] md:border md:border-black/5 md:bg-white/80 md:p-5 md:shadow-sm md:dark:border-white/10 md:dark:bg-secondary-50/80 md:dark:shadow-none">
+      <div className="mb-4">
         <h2 className="text-sm font-semibold text-black dark:text-white">
           Recents
         </h2>
-        <span className="text-[10px] font-bold uppercase tracking-tight text-gray-30 dark:text-gray-40">
-          Transfer methods
-        </span>
       </div>
 
       <div className="grid gap-3">
@@ -62,6 +59,8 @@ export default function RecentsPanel({
         ) : (
           <FlowEmptyState
             className="p-5"
+            icon={<ContactRound className="h-5 w-5 text-primary-50 dark:text-gray-600" />}
+            iconClassName="mb-3 h-10 w-10"
             title="No recent recipients"
             titleClassName="mb-0 text-sm text-black dark:text-white"
             text="People you send to will appear here."
