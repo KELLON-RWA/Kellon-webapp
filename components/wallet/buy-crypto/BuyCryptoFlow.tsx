@@ -646,7 +646,11 @@ export default function BuyCryptoFlow({
         totalSteps={flowSteps.length}
       />
 
-      <div className="flex-1 flex flex-col pt-4 w-11/12 mx-auto md:w-lg md:mx-auto ">
+      <div
+        className={`flex-1 flex w-11/12 flex-col mx-auto md:w-lg md:mx-auto ${
+          step === "asset" ? "pt-4" : "pt-1"
+        }`}
+      >
         {step === "asset" && (
           <AssetSelectionStep
             asset={asset}

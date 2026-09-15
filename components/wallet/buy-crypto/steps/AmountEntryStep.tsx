@@ -54,7 +54,7 @@ const amountSchema = z.object({
 
 type AmountFormValues = z.infer<typeof amountSchema>;
 
-// Quick amount suggestions - exactly 6 amounts
+// Quick amount suggestions - arranged as a compact 3-by-2 grid.
 const QUICK_AMOUNTS = [500, 2000, 5000, 10000, 25000, 50000];
 
 export function AmountEntryStep({
@@ -97,34 +97,25 @@ export function AmountEntryStep({
 
   const displayAmount = amount ? formatNumberWithCommas(amount) : "0";
 
-  // Quick amount buttons component
-  // Minimalist design
   const QuickAmountButtons = () => (
-    <div className="space-y-3">
-      <p className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-        or choose amount
-      </p>
-      <div className="flex flex-wrap justify-center gap-2">
-        {QUICK_AMOUNTS.map((quickAmount) => (
-          <button
-            key={quickAmount}
-            type="button"
-            onClick={() => handleQuickAmount(quickAmount)}
-            className={cn(
-              "cursor-pointer",
-              "rounded-full px-4 py-2 text-sm font-medium transition-all",
-              "border",
-              amount === quickAmount.toString()
-                ? "border-primary-60 bg-primary-70/10 text-primary-60"
-                : "border-black/10 bg-white text-gray-700 hover:border-primary-60/30 hover:bg-primary-70/5 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-300",
-              "active:scale-95",
-            )}
-          >
-            {fiatSymbol}
-            {formatNumberWithCommas(quickAmount.toString())}
-          </button>
-        ))}
-      </div>
+    <div className="grid grid-cols-3 gap-3">
+      {QUICK_AMOUNTS.map((quickAmount) => (
+        <button
+          key={quickAmount}
+          type="button"
+          onClick={() => handleQuickAmount(quickAmount)}
+          className={cn(
+            "h-14 cursor-pointer rounded-2xl border text-sm font-medium transition-all md:h-16 md:text-base",
+            amount === quickAmount.toString()
+              ? "border-primary-60 bg-primary-70/10 text-primary-60"
+              : "border-transparent bg-gray-95 text-gray-700 hover:border-primary-60/30 hover:bg-primary-70/5 dark:bg-secondary-60 dark:text-gray-300 dark:hover:bg-secondary-60/80",
+            "active:scale-[0.98]",
+          )}
+        >
+          {fiatSymbol}
+          {formatNumberWithCommas(quickAmount.toString())}
+        </button>
+      ))}
     </div>
   );
 

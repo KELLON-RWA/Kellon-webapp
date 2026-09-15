@@ -127,7 +127,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
       <div
         className={
           step === "review"
-            ? "mx-auto flex w-11/12 min-w-0 flex-1 flex-col gap-8 pt-4 md:w-lg"
+            ? "mx-auto flex w-11/12 min-w-0 flex-1 flex-col gap-8 pt-1 md:w-lg"
             : "mx-auto flex w-11/12 min-w-0 flex-1 flex-col gap-5 pt-4 md:w-lg"
         }
       >

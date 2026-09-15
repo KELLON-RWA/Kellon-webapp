@@ -651,7 +651,11 @@ export default function WithdrawFlow({
           totalSteps={WITHDRAW_STEPS.length}
         />
 
-        <div className="mx-auto flex w-11/12 flex-1 flex-col pt-4 md:mx-auto md:w-lg">
+        <div
+          className={`mx-auto flex w-11/12 flex-1 flex-col md:mx-auto md:w-lg ${
+            step === "asset" ? "pt-4" : "pt-1"
+          }`}
+        >
           {step === "asset" ? (
             <WithdrawAssetSelectionStep
               asset={asset}
