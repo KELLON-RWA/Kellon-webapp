@@ -20,6 +20,8 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
 
   const iconUrl = (symbol: string) =>
     `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol}.png`
+  const solanaLogomarkUrl =
+    "https://raw.githubusercontent.com/solana-foundation/solana-com/main/apps/docs/public/img/logomark-color.svg"
 
   switch (normalizedName) {
     case "base":
@@ -50,18 +52,33 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
         </svg>
       )
 
+    case "solana":
+      return (
+        <div
+          className={cn("relative shrink-0", className)}
+          style={{ width: size, height: size }}
+        >
+          <Image
+            src={solanaLogomarkUrl}
+            alt="Solana"
+            fill
+            sizes={`${size}px`}
+            unoptimized
+            className="object-contain"
+          />
+        </div>
+      )
+
     // Now these will catch "BNB Chain", "bnbchain", or "BNB"
     case "polygon":
     case "bnb":
     case "bnbchain":
     case "stellar":
-    case "solana":
       const symbolMap: Record<string, string> = {
         polygon: "matic",
         bnb: "bnb",
         bnbchain: "bnb",
         stellar: "xlm",
-        solana: "sol",
       }
 
       return (
