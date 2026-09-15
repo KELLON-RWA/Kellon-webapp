@@ -1,43 +1,50 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo } from "react"
-import { ArrowRight, Delete } from "lucide-react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { cn } from "@/lib/utils"
-import { formatNumberWithCommas } from "@/lib/format-number-with-comma"
-import SummaryPill from "@/components/wallet/shared/FlowSummaryPill"
-import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter"
-import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton"
-import { Input } from "@/components/ui/input"
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { cn } from "@/lib/utils";
+import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
+import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
+import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton";
+import Keypad from "@/components/Keypad";
+import { Input } from "@/components/ui/input";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
-} from "@/components/ui/form"
+} from "@/components/ui/form";
 
 interface AmountEntryStepProps {
-  asset: string | null
-  selectedChain?: { name: string } | null
-  amount: string
-  assetBalance: number
-  onContinue: () => void
-  onAmountChange: (value: string) => void
-  onBridge: () => void
+  asset: string | null;
+  selectedChain?: { name: string } | null;
+  amount: string;
+  assetBalance: number;
+  onContinue: () => void;
+  onAmountChange: (value: string) => void;
+  onBridge: () => void;
 }
 
 type AmountFormValues = {
-  amount: string
-}
+  amount: string;
+};
 
-const FIXED_QUICK_AMOUNTS = [10, 25, 50, 100, 250, 500]
+const QUICK_PERCENTAGES = [25, 50, 75] as const;
 
 function formatAssetAmount(value: number) {
-  if (!Number.isFinite(value)) return "0"
-  return value.toFixed(6).replace(/\.?0+$/, "")
+  if (!Number.isFinite(value)) return "0";
+  return value.toFixed(6).replace(/\.?0+$/, "");
 }
 
 export function WithdrawAmountEntryStep({
@@ -49,6 +56,8 @@ export function WithdrawAmountEntryStep({
   onAmountChange,
   onBridge,
 }: AmountEntryStepProps) {
+  const [isAmountEditorOpen, setIsAmountEditorOpen] = useState(false);
+
   const amountSchema = useMemo(
     () =>
       z.object({
@@ -66,7 +75,7 @@ export function WithdrawAmountEntryStep({
           ),
       }),
     [asset, assetBalance],
-  )
+  );
 
   const form = useForm<AmountFormValues>({
     resolver: zodResolver(amountSchema),
@@ -74,80 +83,92 @@ export function WithdrawAmountEntryStep({
       amount: amount || "",
     },
     mode: "onChange",
-  })
+  });
 
   useEffect(() => {
     if (form.getValues("amount") !== amount) {
-      form.setValue("amount", amount, { shouldValidate: true })
+      form.setValue("amount", amount, { shouldValidate: true });
     }
-  }, [amount, form])
+  }, [amount, form]);
 
-  const currentAmount = form.watch("amount")
+  const currentAmount = form.watch("amount");
   const displayAmount = currentAmount
     ? formatNumberWithCommas(currentAmount)
-    : "0"
-  const isAmountValid = form.formState.isValid
+    : "0";
+  const isAmountValid = form.formState.isValid;
   const isOverBalance =
-    Number.isFinite(Number(currentAmount)) && Number(currentAmount) > assetBalance
+    Number.isFinite(Number(currentAmount)) &&
+    Number(currentAmount) > assetBalance;
   const quickAmounts = useMemo(
-    () =>
-      FIXED_QUICK_AMOUNTS.filter((value) => value <= assetBalance).slice(0, 6),
+    () => [
+      ...QUICK_PERCENTAGES.map((percentage) => ({
+        label: `${percentage}%`,
+        value: formatAssetAmount((assetBalance * percentage) / 100),
+      })),
+      { label: "Max", value: formatAssetAmount(assetBalance) },
+    ],
     [assetBalance],
-  )
-
-  const keypadKeys = [
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    ".",
-    "0",
-    "delete",
-  ]
+  );
 
   const syncAmount = (nextValue: string) => {
     if (nextValue !== "" && !/^\d+(\.\d{0,6})?$/.test(nextValue)) {
-      return
+      return;
     }
 
     form.setValue("amount", nextValue, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
-    })
-    onAmountChange(nextValue)
-  }
+    });
+    onAmountChange(nextValue);
+  };
 
   const handleKeypadPress = (value: string) => {
-    const currentValue = form.getValues("amount")
-    let nextAmount = currentValue
+    const currentValue = form.getValues("amount");
+    let nextAmount = currentValue;
 
     if (value === "delete") {
-      nextAmount = currentValue.slice(0, -1)
+      nextAmount = currentValue.slice(0, -1);
     } else if (value === "." && currentValue.includes(".")) {
-      return
+      return;
     } else if (currentValue === "0" && value !== ".") {
-      nextAmount = value
+      nextAmount = value;
     } else {
-      nextAmount = currentValue + value
+      nextAmount = currentValue + value;
     }
 
-    syncAmount(nextAmount)
-  }
+    syncAmount(nextAmount);
+  };
 
   const handleFormSubmit = ({ amount: enteredAmount }: AmountFormValues) => {
     if (Number(enteredAmount) <= assetBalance) {
-      onContinue()
+      onContinue();
     }
-  }
+  };
 
   const balanceLabel =
-    `${formatAssetAmount(assetBalance)} ${asset || ""}`.trim()
+    `${formatAssetAmount(assetBalance)} ${asset || ""}`.trim();
+
+  const QuickAmountButtons = () => (
+    <div className="grid grid-cols-4 gap-3">
+      {quickAmounts.map((quickAmount) => (
+        <button
+          key={quickAmount.label}
+          type="button"
+          onClick={() => syncAmount(quickAmount.value)}
+          className={cn(
+            "h-14 cursor-pointer rounded-2xl border text-sm font-medium transition-all md:h-16 md:text-base",
+            currentAmount === quickAmount.value
+              ? "border-primary-60 bg-primary-70/10 text-primary-60"
+              : "border-transparent bg-gray-95 text-gray-700 hover:border-primary-60/30 hover:bg-primary-70/5 dark:bg-secondary-60 dark:text-gray-300 dark:hover:bg-secondary-60/80",
+            "active:scale-[0.98]",
+          )}
+        >
+          {quickAmount.label}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <Form {...form}>
@@ -161,24 +182,28 @@ export function WithdrawAmountEntryStep({
           />
 
           <div className="block w-full lg:hidden">
-            <div className="mb-4 mt-8 text-center">
-              <div className="flex items-baseline justify-center gap-2">
-                <span className="text-xl font-bold text-gray-400">{asset}</span>
+            <button
+              type="button"
+              onClick={() => setIsAmountEditorOpen(true)}
+              className="mb-0 mt-8 flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5"
+              aria-label="Edit withdrawal amount"
+            >
+              <span className="text-xl font-bold text-gray-400">{asset}</span>
+              <span className="inline-flex items-center gap-2">
                 <span className="text-2xl font-bold text-black dark:text-white">
                   {displayAmount}
                 </span>
-              </div>
-              <div className="mt-3 flex items-center justify-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="h-5 w-px shrink-0 animate-pulse rounded-full bg-primary-60"
+                />
+              </span>
+            </button>
+            <div className="mb-4 text-center">
+              <div className="mt-0 flex items-center justify-center gap-2">
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Available: {balanceLabel}
+                  {balanceLabel} available
                 </p>
-                <button
-                  type="button"
-                  onClick={() => syncAmount(formatAssetAmount(assetBalance))}
-                  className="rounded-full border border-black/10 px-2 py-0.5 text-[11px] font-semibold text-primary-60 transition hover:border-primary-60/30 hover:bg-primary-70/5 dark:border-white/10 dark:hover:bg-white/5 cursor-pointer"
-                >
-                  Max
-                </button>
               </div>
               {isOverBalance ? (
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
@@ -196,50 +221,8 @@ export function WithdrawAmountEntryStep({
               ) : null}
             </div>
 
-            {quickAmounts.length ? (
-              <div className="mb-6 space-y-3">
-                <p className="text-center text-[11px] font-medium uppercase tracking-wider text-gray-400">
-                  or choose amount
-                </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {quickAmounts.map((quickAmount) => (
-                    <button
-                      key={quickAmount}
-                      type="button"
-                      onClick={() => syncAmount(formatAssetAmount(quickAmount))}
-                      className={cn(
-                        "cursor-pointer",
-                        "rounded-full border px-4 py-2 text-sm font-medium transition-all active:scale-95",
-                        currentAmount === formatAssetAmount(quickAmount)
-                          ? "border-primary-60 bg-primary-70/10 text-primary-60"
-                          : "border-black/10 bg-white text-gray-700 hover:border-primary-60/30 hover:bg-primary-70/5 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-300",
-                      )}
-                    >
-                      {formatNumberWithCommas(formatAssetAmount(quickAmount))}{" "}
-                      {asset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="w-full pb-4">
-              <div className="grid grid-cols-3 gap-2">
-                {keypadKeys.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => handleKeypadPress(key)}
-                    className="flex h-14 items-center justify-center rounded-2xl border border-black/5 bg-white text-xl font-bold transition-colors active:scale-95 hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50 cursor-pointer"
-                  >
-                    {key === "delete" ? (
-                      <Delete className="h-6 w-6 text-gray-500" />
-                    ) : (
-                      key
-                    )}
-                  </button>
-                ))}
-              </div>
+            <div className="mb-6">
+              <QuickAmountButtons />
             </div>
           </div>
 
@@ -263,28 +246,19 @@ export function WithdrawAmountEntryStep({
                               type="text"
                               inputMode="decimal"
                               placeholder="0.00"
-                              className="h-12 rounded-2xl border-black/5 bg-gray-95 pl-16 pr-16 text-center placeholder:text-gray-400 focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white"
+                              className="h-12 rounded-2xl border-black/5 bg-gray-95 pl-16 text-center placeholder:text-gray-400 focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white"
                               {...field}
                               onChange={(event) =>
                                 syncAmount(event.target.value.trim())
                               }
                             />
                           </FormControl>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              syncAmount(formatAssetAmount(assetBalance))
-                            }
-                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-black/10 px-2.5 py-1 text-xs font-semibold text-primary-60 transition hover:border-primary-60/30 hover:bg-primary-70/5 dark:border-white/10 dark:hover:bg-white/5 cursor-pointer"
-                          >
-                            Max
-                          </button>
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-4">
                           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                            Available balance: {balanceLabel}
+                            {balanceLabel} available
                           </p>
-                          <FormMessage className="text-right text-sm" />
+                          <FormMessage className="text-right text-xs font-medium" />
                         </div>
                         {isOverBalance ? (
                           <div className="mt-3 flex justify-end">
@@ -295,36 +269,7 @@ export function WithdrawAmountEntryStep({
                     )}
                   />
 
-                  {quickAmounts.length ? (
-                    <div className="space-y-3">
-                      <p className="text-center text-[11px] font-medium uppercase tracking-wider text-gray-400">
-                        or choose amount
-                      </p>
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {quickAmounts.map((quickAmount) => (
-                          <button
-                            key={quickAmount}
-                            type="button"
-                            onClick={() =>
-                              syncAmount(formatAssetAmount(quickAmount))
-                            }
-                            className={cn(
-                              "cursor-pointer",
-                              "rounded-full border px-4 py-2 text-sm font-medium transition-all active:scale-95",
-                              currentAmount === formatAssetAmount(quickAmount)
-                                ? "border-primary-60 bg-primary-70/10 text-primary-60"
-                                : "border-black/10 bg-white text-gray-700 hover:border-primary-60/30 hover:bg-primary-70/5 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-300",
-                            )}
-                          >
-                            {formatNumberWithCommas(
-                              formatAssetAmount(quickAmount),
-                            )}{" "}
-                            {asset}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
+                  <QuickAmountButtons />
                 </div>
               </form>
             </div>
@@ -348,20 +293,64 @@ export function WithdrawAmountEntryStep({
           </div>
         </div>
 
-        <FlowActionFooter
-          className="lg:hidden"
-          onClick={form.handleSubmit(handleFormSubmit)}
-          disabled={!isAmountValid}
-          buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
-          textClassName="text-sm"
-          showShimmer={isAmountValid}
-        >
-          {isAmountValid ? "Select Provider" : "Enter Valid Amount"}
-          {isAmountValid ? (
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          ) : null}
-        </FlowActionFooter>
+        {!isAmountEditorOpen ? (
+          <FlowActionFooter
+            className="lg:hidden"
+            onClick={form.handleSubmit(handleFormSubmit)}
+            disabled={!isAmountValid}
+            buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
+            textClassName="text-sm"
+            showShimmer={isAmountValid}
+          >
+            {isAmountValid ? "Select Provider" : "Enter Valid Amount"}
+            {isAmountValid ? (
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            ) : null}
+          </FlowActionFooter>
+        ) : null}
       </div>
+
+      <Drawer open={isAmountEditorOpen} onOpenChange={setIsAmountEditorOpen}>
+        <DrawerContent className="lg:hidden rounded-t-[28px] border-black/5 bg-gray-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 dark:border-white/10 dark:bg-secondary-50 [&>div:first-child]:hidden">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Enter withdrawal amount</DrawerTitle>
+          </DrawerHeader>
+          <div className="mx-auto w-full max-w-md">
+            <FlowActionFooter
+              sticky={false}
+              className="mb-4"
+              onClick={() => {
+                setIsAmountEditorOpen(false);
+                form.handleSubmit(handleFormSubmit)();
+              }}
+              disabled={!isAmountValid}
+              buttonClassName={cn(
+                !isAmountValid && "from-gray-400 to-gray-500",
+              )}
+              textClassName="text-sm"
+              showShimmer={isAmountValid}
+            >
+              {isAmountValid ? "Select Provider" : "Enter Valid Amount"}
+              {isAmountValid ? (
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              ) : null}
+            </FlowActionFooter>
+            <Keypad
+              onPress={handleKeypadPress}
+              className="gap-3"
+              buttonClassName="h-14 rounded-2xl bg-white dark:bg-secondary-60"
+            />
+            {isOverBalance ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+                <p className="text-center text-xs text-destructive">
+                  Insufficient balance. Bridge funds to continue.
+                </p>
+                <BridgeDeficitButton onClick={onBridge} />
+              </div>
+            ) : null}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </Form>
-  )
+  );
 }

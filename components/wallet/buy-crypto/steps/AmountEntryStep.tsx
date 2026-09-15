@@ -1,11 +1,7 @@
 "use client";
 
-import {
-  CreditCard,
-  Landmark,
-  Smartphone,
-  ArrowRight,
-} from "lucide-react";
+import { CreditCard, Landmark, Smartphone, ArrowRight } from "lucide-react";
+import { useState } from "react";
 import type { PaymentRail } from "@/lib/payment-rails";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +19,12 @@ import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import Keypad from "@/components/Keypad";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 interface AmountEntryStepProps {
   asset: string | null;
@@ -71,6 +73,8 @@ export function AmountEntryStep({
   onContinue,
   onAmountChange,
 }: AmountEntryStepProps) {
+  const [isAmountEditorOpen, setIsAmountEditorOpen] = useState(false);
+
   // Form for desktop
   const form = useForm<AmountFormValues>({
     resolver: zodResolver(amountSchema),
@@ -132,16 +136,25 @@ export function AmountEntryStep({
         {/* Mobile View */}
         <div className="block w-full lg:hidden">
           {/* Amount Display */}
-          <div className="mb-4 mt-8 text-center">
-            <div className="flex items-baseline justify-center gap-2">
-              <span className="text-xl font-bold text-gray-400">
-                {fiatCurrency}
-              </span>
+          <button
+            type="button"
+            onClick={() => setIsAmountEditorOpen(true)}
+            className="mb-4 mt-8 flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5"
+            aria-label="Edit amount"
+          >
+            <span className="text-xl font-bold text-gray-400">
+              {fiatCurrency}
+            </span>
+            <span className="inline-flex items-center gap-2">
               <span className="text-2xl font-bold text-black dark:text-white">
                 {displayAmount}
               </span>
-            </div>
-          </div>
+              <span
+                aria-hidden="true"
+                className="h-5 w-px shrink-0 animate-pulse rounded-full bg-primary-60"
+              />
+            </span>
+          </button>
 
           {/* Quick Amount Buttons */}
           <div className="mb-6">
@@ -170,11 +183,6 @@ export function AmountEntryStep({
                 {paymentMethodLabel}
               </div>
             </div>
-          </div>
-
-          {/* Keypad */}
-          <div className="w-full pb-4">
-            <Keypad onPress={onKeypadPress} />
           </div>
         </div>
 
@@ -267,25 +275,68 @@ export function AmountEntryStep({
         </div>
       </div>
 
-      {/* Mobile Sticky Footer */}
-      <FlowActionFooter
-        className="lg:hidden"
-        onClick={onContinue}
-        disabled={!isAmountValid || isRateLoading}
-        buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
-        textClassName="text-sm"
-        showShimmer={isAmountValid && !isRateLoading}
-        helperText="Enter the amount you want to spend • Providers will show you their best rates"
-      >
-        {isRateLoading
-          ? "Fetching Rate..."
-          : isAmountValid
-            ? "Select Provider"
-            : "Enter Amount"}
-        {isAmountValid && !isRateLoading && (
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        )}
-      </FlowActionFooter>
+      {!isAmountEditorOpen ? (
+        <FlowActionFooter
+          className="lg:hidden"
+          onClick={onContinue}
+          disabled={!isAmountValid || isRateLoading}
+          buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
+          textClassName="text-sm"
+          showShimmer={isAmountValid && !isRateLoading}
+          helperText="Enter the amount you want to spend • Providers will show you their best rates"
+        >
+          {isRateLoading
+            ? "Fetching Rate..."
+            : isAmountValid
+              ? "Select Provider"
+              : "Enter Amount"}
+          {isAmountValid && !isRateLoading && (
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          )}
+        </FlowActionFooter>
+      ) : null}
+
+      <Drawer open={isAmountEditorOpen} onOpenChange={setIsAmountEditorOpen}>
+        <DrawerContent className="lg:hidden rounded-t-[28px] border-black/5 bg-gray-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 dark:border-white/10 dark:bg-secondary-50 [&>div:first-child]:hidden">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Enter amount</DrawerTitle>
+          </DrawerHeader>
+          <div className="mx-auto w-full max-w-md">
+            <FlowActionFooter
+              sticky={false}
+              className="mb-4"
+              onClick={() => {
+                setIsAmountEditorOpen(false);
+                onContinue();
+              }}
+              disabled={!isAmountValid || isRateLoading}
+              buttonClassName={cn(
+                !isAmountValid && "from-gray-400 to-gray-500",
+              )}
+              textClassName="text-sm"
+              showShimmer={isAmountValid && !isRateLoading}
+            >
+              {isRateLoading
+                ? "Fetching Rate..."
+                : isAmountValid
+                  ? "Select Provider"
+                  : "Enter Amount"}
+              {isAmountValid && !isRateLoading && (
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              )}
+            </FlowActionFooter>
+            <Keypad
+              onPress={onKeypadPress}
+              className="gap-3"
+              buttonClassName="h-14 rounded-2xl bg-white dark:bg-secondary-60"
+            />
+            <p className="mt-3 px-4 text-center text-[11px] leading-relaxed text-gray-400">
+              Enter the amount you want to spend • Providers will show you their
+              best rates
+            </p>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

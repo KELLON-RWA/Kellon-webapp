@@ -107,7 +107,7 @@ export function WithdrawProviderSelectionStep({
         <div className="mt-6 md:mt-8">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 md:text-xs">
-              Available Providers
+              Recommended Providers
             </h3>
             <span className="text-[9px] text-gray-400 md:text-[10px]">
               {isRatesLoading ? providers.length : visibleProviderCount} options

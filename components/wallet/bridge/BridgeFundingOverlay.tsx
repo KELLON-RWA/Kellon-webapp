@@ -507,8 +507,8 @@ export default function BridgeFundingOverlay({
   }
 
   const content = setup ? (
-    <div className="min-w-0 overflow-hidden px-4 pb-4 pt-1 md:px-5 md:pb-5">
-      <div className="mb-4 flex min-w-0 items-start gap-3">
+    <div className="min-w-0 overflow-hidden px-5 py-5 md:px-8 md:py-7">
+      <div className="mb-5 flex min-w-0 items-start gap-3">
         {view === "review" ? (
           <button
             type="button"
@@ -589,10 +589,7 @@ export default function BridgeFundingOverlay({
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
               Source networks
             </p>
-            <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
-              Select one or more networks to fund {getCompactChainLabel(setup.targetChain)}.
-            </p>
-            <div className="mt-2 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
               {availableSources.map((source) => {
                 const isSelected = selectedSourceChains.includes(source.chainKey)
                 return (

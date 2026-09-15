@@ -213,15 +213,13 @@ export function WithdrawBankSelectionStep({
 
         <div className="mt-8">
           <h3 className="mb-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-            {isPaycrest ? "Payout Account (Required)" : "Bank Details"}
+            Bank Details
           </h3>
 
           {usesVerifiedBankFlow ? (
             <>
               <p className="mb-5 max-w-xl text-sm leading-6 text-gray-500 dark:text-gray-400">
-                {isPaycrest ? "Paycrest" : providerName || "This provider"}{" "}
-                requires a verified bank account where your fiat payout will be
-                sent.
+                Add a verified bank account to receive your fiat payout.
               </p>
 
               <div className="mb-5">

@@ -227,11 +227,10 @@ export function BuyBankSelectionStep({
 
         <div className="mt-8">
           <h3 className="mb-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-            Refund Account (Required)
+            Bank Details
           </h3>
           <p className="mb-5 max-w-xl text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Paycrest requires a bank account for potential fiat refunds if the
-            crypto purchase fails.
+            Add a verified bank account to complete this transaction.
           </p>
 
           <div className="mb-5">

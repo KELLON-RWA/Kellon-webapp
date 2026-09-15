@@ -116,7 +116,7 @@ export function ProviderSelectionStep({
         <div className="mt-6 md:mt-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Available Providers
+              Recommended Providers
             </h3>
             <span className="text-[9px] md:text-[10px] text-gray-400">
               {isRatesLoading ? providers.length : visibleProviderCount} options
