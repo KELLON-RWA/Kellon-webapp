@@ -5,7 +5,7 @@ import { ChevronDown, Copy, Check, ReceiptText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import ChainIcon from "@/components/wallet/ChainIcon";
-import { ChainAccount } from "@/types/db";
+import { ChainType, type ChainAccount } from "@/types/db";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import SelectNetworkModal from "@/components/modals/SelectNetworkModal";
 import { Button } from "@/components/ui/button";
@@ -40,15 +40,25 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
     [filteredChainAccounts, selectedChainId],
   );
 
-  // Get address based on chain type
   const address = useMemo(() => {
     if (!selectedAccount) return "";
-    // For Stellar, use publicKey
-    if (selectedAccount.chain.toLowerCase() === "stellar") {
-      return selectedAccount.publicKey || "";
+
+    const normalizedChain = selectedAccount.chain.trim().toLowerCase();
+    const usesPublicKey =
+      selectedAccount.chainType === ChainType.STELLAR ||
+      selectedAccount.chainType === ChainType.SOLANA ||
+      normalizedChain === "stellar" ||
+      normalizedChain === "solana";
+
+    if (usesPublicKey) {
+      return (
+        selectedAccount.publicKey || selectedAccount.smartAccountAddress || ""
+      );
     }
-    // For other chains, use smartAccountAddress
-    return selectedAccount.smartAccountAddress || "";
+
+    return (
+      selectedAccount.smartAccountAddress || selectedAccount.publicKey || ""
+    );
   }, [selectedAccount]);
 
   const chainName = selectedAccount?.chain || "";
@@ -57,7 +67,10 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
   const networks = useMemo(() => {
     return filteredChainAccounts.map((account) => ({
       id: account.id,
-      name: account.chain.charAt(0).toUpperCase() + account.chain.slice(1),
+      name:
+        account.chain.toLowerCase() === "bnb"
+          ? "BNB"
+          : account.chain.charAt(0).toUpperCase() + account.chain.slice(1),
     }));
   }, [filteredChainAccounts]);
 
@@ -206,7 +219,7 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
       {/* Disclaimers */}
       <div className="text-center text-[10px] text-gray-400 px-4 space-y-1 mb-8">
         <p>Only deposit USDC or USDT on {chainName} to this address.</p>
-        <p>Do not send BNB, FLURRY, or unsupported tokens here.</p>
+        <p>Do not send other or unsupported tokens to this address.</p>
         <p>Unsupported deposits may not be usable in Kellon.</p>
         <p>Always verify the address before transferring.</p>
       </div>
