@@ -29,7 +29,7 @@ const Provider: FC<ProviderProps> = async ({ children }) => {
                 <div className="font-manrope text-cryptoNight dark:text-white relative min-h-screen">
                   {/* Enhanced Glass Texture */}
                   <div className="fixed inset-0 z-0">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white1 via-gray-90 to-violet1/10 dark:from-violet1/10 dark:via-secondary-50 dark:to-secondary-40" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-90 to-violet1/10 dark:from-violet1/10 dark:via-secondary-50 dark:to-secondary-40" />
                     <div className="absolute inset-0 backdrop-blur-xl" />
                     <div className="absolute inset-0 bg-white/5 dark:bg-black/10" />
                   </div>
