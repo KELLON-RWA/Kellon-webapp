@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import {
@@ -48,13 +48,16 @@ import {
   getProtocolName,
   toNumber,
 } from "./earn-utils";
-import EarnMetricSparkline from "./EarnMetricSparkline";
+import { getStockCharts, StockSparkline } from "./StockSparkline";
 
 interface EarnPageProps {
   profile: User;
 }
 
 type EarnCategory = "yield" | "stocks" | "rwa";
+type StockSortKey = "name" | "price" | "change";
+
+const STOCKS_PER_DESKTOP_PAGE = 15;
 
 const earnCategories: Array<{
   id: EarnCategory;
@@ -107,7 +110,10 @@ function getHoldingListing(
   );
 }
 
-function getListingChange(listing: StockListing): number | undefined {
+function getListingChange(
+  listing: StockListing,
+  yahooChange?: number,
+): number | undefined {
   const change = [
     listing.change24hPercentage,
     listing.changePercentage,
@@ -116,20 +122,38 @@ function getListingChange(listing: StockListing): number | undefined {
     .map((value) => Number(value))
     .find(Number.isFinite);
 
-  return change;
+  return change ?? yahooChange;
+}
+
+function stockProviderPriority(provider: string): number {
+  const normalizedProvider = provider.toLowerCase();
+
+  if (normalizedProvider.includes("base")) return 0;
+  if (normalizedProvider.includes("pancake")) return 1;
+  return 2;
 }
 
 const STOCK_DOMAINS: Record<string, string> = {
   AAPL: "apple.com",
+  ARM: "arm.com",
   AMZN: "amazon.com",
+  AVGO: "broadcom.com",
   BABA: "alibaba.com",
+  BE: "bloomenergy.com",
   COIN: "coinbase.com",
   CRCL: "circle.com",
+  CRWV: "coreweave.com",
+  DJT: "tmtgcorp.com",
+  FLNC: "fluenceenergy.com",
   GME: "gamestop.com",
   GOOGL: "google.com",
   HOOD: "robinhood.com",
   INTC: "intel.com",
+  KO: "coca-colacompany.com",
+  LITE: "lumentum.com",
   META: "meta.com",
+  MRNA: "modernatx.com",
+  MRVL: "marvell.com",
   MSFT: "microsoft.com",
   MSTR: "strategy.com",
   NFLX: "netflix.com",
@@ -137,29 +161,49 @@ const STOCK_DOMAINS: Record<string, string> = {
   NVDA: "nvidia.com",
   QQQ: "invesco.com",
   SNDK: "sandisk.com",
+  SKHY: "skhynix.com",
   SOXL: "direxion.com",
   SOXS: "direxion.com",
   SPCX: "spacex.com",
+  SPY: "ssga.com",
   TQQQ: "proshares.com",
   TSLA: "tesla.com",
   TSM: "tsmc.com",
 };
 
-function getStockLogoUrl(symbol: string, logoUrl?: string): string | undefined {
+function getUnderlyingTicker(symbol: string): string {
+  const raw = symbol.trim();
+  const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
+
+  return (
+    withoutProviderSuffix.startsWith("b")
+      ? withoutProviderSuffix.slice(1)
+      : withoutProviderSuffix
+  ).toUpperCase();
+}
+
+function getStockLogoUrl(symbol: string, logoUrl?: string): string {
+  // Prefer a known company mark to an inconsistent provider-supplied image.
+  if (STOCK_DOMAINS[getUnderlyingTicker(symbol)]) {
+    return getStockLogoFallbackUrl(symbol);
+  }
+
   if (logoUrl) return logoUrl;
 
-  const upperSymbol = symbol.toUpperCase();
-  const symbolCandidates = [
-    upperSymbol.replace(/[BC]$/, ""),
-    upperSymbol.replace(/^B/, ""),
-  ];
-  const domain = symbolCandidates
-    .map((candidate) => STOCK_DOMAINS[candidate])
-    .find(Boolean);
+  return `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getUnderlyingTicker(symbol))}.png`;
+}
+
+function getDisplayStockName(name: string): string {
+  return name.replace(/\s+[bc]stock$/i, "").trim();
+}
+
+function getStockLogoFallbackUrl(symbol: string): string {
+  const ticker = getUnderlyingTicker(symbol);
+  const domain = STOCK_DOMAINS[ticker];
 
   return domain
     ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
-    : undefined;
+    : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker)}&backgroundType=gradientLinear`;
 }
 
 function StockLogo({
@@ -171,6 +215,8 @@ function StockLogo({
   src?: string;
   size?: "sm" | "md";
 }) {
+  const fallbackSrc = getStockLogoFallbackUrl(symbol);
+
   return (
     <span
       className={cn(
@@ -179,18 +225,24 @@ function StockLogo({
       )}
     >
       {symbol.slice(0, 2).toUpperCase()}
-      {src ? (
-        // Stock logos are supplied by the catalogue API and can use provider CDNs.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
-          alt={`${symbol} logo`}
-          className="absolute inset-0 h-full w-full bg-white object-contain p-1 dark:bg-secondary-60"
-          onError={(event) => {
-            event.currentTarget.hidden = true;
-          }}
-        />
-      ) : null}
+      {/* Provider logos are preferred; market-ticker and generated image fallbacks
+          ensure every stock renders an image rather than a text-only placeholder. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src || fallbackSrc}
+        alt={`${symbol} logo`}
+        className="absolute inset-0 h-full w-full bg-white object-contain p-1 dark:bg-secondary-60"
+        data-fallback-src={fallbackSrc}
+        onError={(event) => {
+          const image = event.currentTarget;
+          const fallback = image.dataset.fallbackSrc;
+          if (fallback && image.src !== fallback) {
+            image.src = fallback;
+            return;
+          }
+          image.hidden = true;
+        }}
+      />
     </span>
   );
 }
@@ -303,7 +355,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const { isConnected } = useRealtime();
   const marketEtfsRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<EarnCategory>("yield");
-  const [stockProviderFilter, setStockProviderFilter] = useState<string>("all");
+  const [stockSort, setStockSort] = useState<{
+    key: StockSortKey;
+    direction: "asc" | "desc";
+  }>({ key: "name", direction: "asc" });
+  const [stockPage, setStockPage] = useState(1);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<SelectedAction>(null);
   const [selectedStockAction, setSelectedStockAction] = useState<{
@@ -367,7 +423,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
       requestedCategory === "rwa"
     ) {
       setActiveTab(requestedCategory);
-      setStockProviderFilter("all");
     }
   }, [searchParams]);
 
@@ -458,49 +513,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
           0,
         ) / totalSupplied
       : 0;
-  const totalSuppliedPoints = useMemo(() => {
-    let runningTotal = 0;
-    const dateFormatter = new Intl.DateTimeFormat(undefined, {
-      month: "short",
-      day: "numeric",
-    });
-    const positionHistory = [...activePositions]
-      .sort((left, right) => {
-        const leftDate = left.createdAt
-          ? new Date(left.createdAt).getTime()
-          : 0;
-        const rightDate = right.createdAt
-          ? new Date(right.createdAt).getTime()
-          : 0;
-        return leftDate - rightDate;
-      })
-      .map((position, index) => {
-        runningTotal += getPositionValue(position);
-        return {
-          label: position.createdAt
-            ? dateFormatter.format(new Date(position.createdAt))
-            : `Position ${index + 1}`,
-          value: runningTotal,
-        };
-      });
-
-    return positionHistory.length
-      ? positionHistory
-      : [{ label: "No active positions", value: 0 }];
-  }, [activePositions]);
-  const averageApyPoints = currentPositionMetrics.length
-    ? currentPositionMetrics.map(({ apy, label }) => ({
-        label,
-        value: apy,
-      }))
-    : [{ label: "No active positions", value: 0 }];
-  const annualYieldPoints = Array.from({ length: 13 }, (_, month) => ({
-    label: month === 0 ? "Now" : `Month ${month}`,
-    value:
-      totalSupplied > 0
-        ? totalSupplied * (Math.pow(1 + averageApy / 100, month / 12) - 1)
-        : 0,
-  }));
   const categoryStocks = useMemo(
     () =>
       stocks.filter((stock) =>
@@ -510,23 +522,106 @@ export default function EarnPage({ profile }: EarnPageProps) {
       ),
     [activeTab, stocks],
   );
-  const filteredStocks = useMemo(() => {
-    return categoryStocks.filter(
-      (stock) =>
-        stockProviderFilter === "all" ||
-        (stock.provider || "").toLowerCase() ===
-          stockProviderFilter.toLowerCase(),
-    );
-  }, [categoryStocks, stockProviderFilter]);
-  const stockProviders = useMemo(
-    () => [
-      "all",
-      ...Array.from(
-        new Set(categoryStocks.map((stock) => stock.provider).filter(Boolean)),
-      ).sort(),
-    ],
-    [categoryStocks],
+  const unifiedStocks = useMemo(() => {
+    const preferredListings = new Map<string, StockListing>();
+    categoryStocks.forEach((stock) => {
+      const ticker = getUnderlyingTicker(stock.symbol);
+      const existing = preferredListings.get(ticker);
+
+      if (
+        !existing ||
+        stockProviderPriority(stock.provider) <
+          stockProviderPriority(existing.provider)
+      ) {
+        preferredListings.set(ticker, stock);
+      }
+    });
+
+    return [...preferredListings.values()];
+  }, [categoryStocks]);
+  const chartSymbolGroups = useMemo(
+    () =>
+      Array.from(
+        { length: Math.ceil(unifiedStocks.length / 20) },
+        (_, index) =>
+          unifiedStocks
+            .slice(index * 20, (index + 1) * 20)
+            .map((stock) => stock.symbol),
+      ),
+    [unifiedStocks],
   );
+  const chartQueries = useQueries({
+    queries: chartSymbolGroups.map((symbols) => ({
+      queryKey: ["stock-charts", symbols],
+      queryFn: () => getStockCharts(symbols),
+      enabled: activeTab !== "yield" && symbols.length > 0,
+      staleTime: 60_000,
+      refetchInterval: isConnected ? 60_000 : (false as const),
+    })),
+  });
+  const stockChartData = useMemo(
+    () =>
+      chartQueries.reduce(
+        (data, query) => ({
+          charts: { ...data.charts, ...(query.data?.charts || {}) },
+          changes: { ...data.changes, ...(query.data?.changes || {}) },
+        }),
+        {
+          charts: {} as Record<string, number[]>,
+          changes: {} as Record<string, number>,
+        },
+      ),
+    [chartQueries],
+  );
+  const stockCharts = stockChartData.charts;
+  const stockChartChanges = stockChartData.changes;
+  const sortedStocks = useMemo(() => {
+    const multiplier = stockSort.direction === "asc" ? 1 : -1;
+    return [...unifiedStocks].sort((left, right) => {
+      if (stockSort.key === "name") {
+        return multiplier * left.symbol.localeCompare(right.symbol);
+      }
+
+      const leftValue =
+        stockSort.key === "price"
+          ? Number(left.price) || 0
+          : getListingChange(left, stockChartChanges[left.symbol]) || 0;
+      const rightValue =
+        stockSort.key === "price"
+          ? Number(right.price) || 0
+          : getListingChange(right, stockChartChanges[right.symbol]) || 0;
+      return multiplier * (leftValue - rightValue);
+    });
+  }, [unifiedStocks, stockChartChanges, stockSort]);
+  const stockPageCount = Math.max(
+    1,
+    Math.ceil(sortedStocks.length / STOCKS_PER_DESKTOP_PAGE),
+  );
+  const activeStockPage = Math.min(stockPage, stockPageCount);
+  const desktopStocks = useMemo(
+    () =>
+      sortedStocks.slice(
+        (activeStockPage - 1) * STOCKS_PER_DESKTOP_PAGE,
+        activeStockPage * STOCKS_PER_DESKTOP_PAGE,
+      ),
+    [activeStockPage, sortedStocks],
+  );
+  useEffect(() => {
+    setStockPage(1);
+  }, [activeTab, stockSort]);
+  const toggleStockSort = (key: StockSortKey) => {
+    setStockSort((current) => ({
+      key,
+      direction:
+        current.key === key
+          ? current.direction === "asc"
+            ? "desc"
+            : "asc"
+          : key === "name"
+            ? "asc"
+            : "desc",
+    }));
+  };
   const marketEtfs = useMemo(() => {
     if (marketIndices.length) {
       return marketIndices.map((index) => ({
@@ -539,8 +634,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
       .filter((stock) => /\b(etf|trust|s&p 500|nasdaq 100)\b/i.test(stock.name))
       .slice(0, 6)
       .map((stock) => ({
-        symbol: stock.symbol.replace(/[bBcC]$/, ""),
-        name: stock.name.replace(/\s+bStock$/i, ""),
+        symbol: getUnderlyingTicker(stock.symbol),
+        name: getDisplayStockName(stock.name),
         price: Number(stock.price) || 0,
         currency: stock.currency,
         change: getListingChange(stock),
@@ -599,10 +694,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
   return (
     <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28">
-      <div className="mb-6 flex items-center gap-2">
+      <div className="mb-5 flex items-center gap-2 md:mb-6">
         <section
           aria-label="Earn categories"
-          className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-gray-80 bg-white/60 p-1 shadow-sm backdrop-blur-xl md:gap-2 md:p-2 dark:border-white/10 dark:bg-secondary-50/40"
+          className="inline-flex min-w-0 items-center gap-1 rounded-full border border-gray-80 bg-white/60 p-1 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/40"
         >
           {earnCategories.map((category) => {
             const isActive = activeTab === category.id;
@@ -614,16 +709,15 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 aria-pressed={isActive}
                 onClick={() => {
                   setActiveTab(category.id);
-                  setStockProviderFilter("all");
                 }}
                 className={cn(
-                  "min-w-0 rounded-lg px-2 py-2 text-center transition md:px-4 md:py-3",
+                  "min-w-0 rounded-full px-3 py-1.5 text-center transition md:px-4",
                   isActive
                     ? "bg-primary-90 text-white shadow-sm dark:bg-primary-70"
                     : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
                 )}
               >
-                <span className="block truncate text-xs font-bold min-[360px]:text-sm md:text-base">
+                <span className="block truncate text-xs font-bold min-[360px]:text-sm">
                   {category.label}
                 </span>
               </button>
@@ -687,187 +781,153 @@ export default function EarnPage({ profile }: EarnPageProps) {
             ]}
           />
 
-          <section className="relative mb-8 hidden min-h-44 grid-cols-3! overflow-hidden rounded-xl border border-white/70 bg-white/70 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:grid lg:min-h-52 dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_18%_0%,rgba(138,22,133,0.16),transparent_42%),linear-gradient(115deg,rgba(255,255,255,0.72),rgba(246,232,242,0.5)_44%,rgba(255,255,255,0.24))] dark:hidden lg:h-52" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-44 dark:block dark:bg-[radial-gradient(circle_at_20%_0%,rgba(193,92,165,0.45),transparent_48%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,0.14),transparent_38%)] lg:h-52" />
-
-            <div className="relative flex min-h-44 min-w-0 flex-col justify-between border-r border-gray-80 p-3 lg:min-h-52 lg:p-5 dark:border-white/10">
-              <div className="min-w-0">
-                <p className="text-[9px] leading-tight font-medium text-gray-30 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:text-xs dark:text-gray-40">
-                  <span>Total supplied</span>
-                  <span className="hidden text-[9px] font-semibold uppercase lg:inline">
-                    Position history
-                  </span>
-                </p>
-                <p className="mt-1 max-w-full whitespace-nowrap text-xs leading-tight font-bold text-cryptoNight tabular-nums lg:text-xl dark:text-white">
-                  <span className="lg:hidden">
-                    {formatMetricUsd(totalSupplied)}
-                  </span>
-                  <span className="hidden lg:inline">
-                    {formatUsd(totalSupplied)}
-                  </span>
-                </p>
-              </div>
-              <EarnMetricSparkline
-                points={totalSuppliedPoints}
-                label="Cumulative supplied position history in US dollars"
-                tone="primary"
-                formatValue={formatUsd}
-                className="-mx-3 -mb-3 mt-4 w-[calc(100%+1.5rem)] lg:-mx-5 lg:-mb-5 lg:w-[calc(100%+2.5rem)]"
-              />
-            </div>
-            <div className="relative flex min-h-44 min-w-0 flex-col justify-between border-r border-gray-80 p-3 lg:min-h-52 lg:p-5 dark:border-white/10">
-              <div>
-                <p className="text-[9px] leading-tight font-medium text-gray-30 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:text-xs dark:text-gray-40">
-                  <span>Average APY</span>
-                  <span className="hidden text-[9px] font-semibold uppercase lg:inline">
-                    Current rates
-                  </span>
-                </p>
-                <p className="mt-1 text-base font-bold text-cryptoNight tabular-nums lg:text-2xl dark:text-white">
-                  {averageApy.toFixed(2)}%
-                </p>
-              </div>
-              <EarnMetricSparkline
-                points={averageApyPoints}
-                label="Current APY by active position in percent"
-                tone="positive"
-                formatValue={(value) => `${value.toFixed(2)}%`}
-                className="-mx-3 -mb-3 mt-4 w-[calc(100%+1.5rem)] lg:-mx-5 lg:-mb-5 lg:w-[calc(100%+2.5rem)]"
-              />
-            </div>
-            <div className="relative flex min-h-44 min-w-0 flex-col justify-between p-3 lg:min-h-52 lg:p-5">
-              <div className="min-w-0">
-                <p className="text-[9px] leading-tight font-medium text-gray-30 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:text-xs dark:text-gray-40">
-                  <span className="lg:hidden">Annual yield</span>
-                  <span className="hidden lg:inline">Est. annual yield</span>
-                  <span className="hidden text-[9px] font-semibold uppercase lg:inline">
-                    12 months
-                  </span>
-                </p>
-                <p className="mt-1 max-w-full whitespace-nowrap text-xs leading-tight font-bold text-cryptoNight tabular-nums lg:text-xl dark:text-white">
-                  <span className="lg:hidden">
-                    {formatMetricUsd(estimatedAnnualYield)}
-                  </span>
-                  <span className="hidden lg:inline">
-                    {formatUsd(estimatedAnnualYield)}
-                  </span>
-                </p>
-              </div>
-              <EarnMetricSparkline
-                points={annualYieldPoints}
-                label="Twelve month estimated yield projection in US dollars"
-                tone="info"
-                formatValue={formatUsd}
-                className="-mx-3 -mb-3 mt-4 w-[calc(100%+1.5rem)] lg:-mx-5 lg:-mb-5 lg:w-[calc(100%+2.5rem)]"
-              />
-            </div>
-          </section>
-
-          <section className="mb-9">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold text-cryptoNight dark:text-white md:text-lg">
-                Your positions
-              </h2>
-              <span className="rounded-full bg-gray-90 px-2.5 py-1 text-[10px] font-bold text-gray-20 dark:bg-white/5 dark:text-gray-40">
-                {activePositions.length} active
-              </span>
-            </div>
-
-            {positionsLoading ? (
-              <EarnSkeleton />
-            ) : activePositions.length ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {activePositions.map((position) => {
-                  const opportunity = getPositionOpportunity(
-                    position,
-                    opportunities,
-                  );
-                  if (!opportunity) return null;
-
-                  return (
-                    <article
-                      key={position.id}
-                      className="rounded-lg border border-gray-80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <AssetNetworkIcon
-                            symbol={opportunity.symbol}
-                            network={opportunity.chain}
-                            size="sm"
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
-                              {opportunity.symbol}
-                            </p>
-                            <p className="truncate text-xs capitalize text-gray-30 dark:text-gray-40">
-                              {getProtocolName(opportunity.protocol)} ·{" "}
-                              {opportunity.chain}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-                          {position.status}
-                        </span>
-                      </div>
-                      <div className="mt-5 flex items-end justify-between">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                            Supplied
-                          </p>
-                          <p className="mt-1 text-xl font-bold text-cryptoNight dark:text-white">
-                            {formatTokenAmount(getPositionValue(position))}{" "}
-                            <span className="text-xs text-gray-30 dark:text-gray-40">
-                              {opportunity.symbol}
-                            </span>
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                            Entry APY
-                          </p>
-                          <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-300">
-                            {formatApy(position.entryApy)}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="flowSecondary"
-                        size="sm"
-                        className="mt-4 w-full"
-                        onClick={() =>
-                          setSelectedAction({
-                            action: "withdraw",
-                            opportunity,
-                            position,
-                          })
-                        }
-                      >
-                        <span className="relative z-10 flex items-center justify-center gap-2">
-                          <ArrowDownToLine className="transition-transform group-hover:-translate-y-0.5" />
-                          Withdraw
-                        </span>
-                        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-primary-80/10 to-transparent transition-transform duration-500 group-hover:translate-x-full dark:via-white/10" />
-                      </Button>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-gray-80 bg-white/65 p-4 dark:border-white/10 dark:bg-secondary-50/55">
-                <div>
-                  <p className="text-sm font-semibold text-cryptoNight dark:text-white">
-                    No active positions yet
+          <section className="relative mb-8 hidden overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-7 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:block dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
+                Total portfolio balance
+              </p>
+              <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
+                {formatUsd(totalSupplied)}
+              </p>
+              <div className="mt-8 grid max-w-2xl grid-cols-3 border-t border-gray-80 pt-5 dark:border-white/10">
+                <div className="pr-6">
+                  <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                    Active pools
                   </p>
-                  <p className="text-xs text-gray-30 dark:text-gray-40">
-                    Choose an opportunity below to start earning.
+                  <p className="mt-2 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
+                    {activePositions.length}
+                  </p>
+                </div>
+                <div className="border-l border-gray-80 px-6 dark:border-white/10">
+                  <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                    Average APY
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-2 text-lg font-bold tabular-nums",
+                      averageApy > 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-cryptoNight dark:text-white",
+                    )}
+                  >
+                    {averageApy.toFixed(2)}%
+                  </p>
+                </div>
+                <div className="border-l border-gray-80 pl-6 dark:border-white/10">
+                  <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                    Est. annual yield
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-2 text-lg font-bold tabular-nums",
+                      estimatedAnnualYield > 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-cryptoNight dark:text-white",
+                    )}
+                  >
+                    {formatUsd(estimatedAnnualYield)}
                   </p>
                 </div>
               </div>
-            )}
+            </div>
           </section>
+
+          {positionsLoading || activePositions.length > 0 ? (
+            <section className="mb-9">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-bold text-cryptoNight dark:text-white md:text-lg">
+                  Your positions
+                </h2>
+                <span className="rounded-full bg-gray-90 px-2.5 py-1 text-[10px] font-bold text-gray-20 dark:bg-white/5 dark:text-gray-40">
+                  {activePositions.length} active
+                </span>
+              </div>
+
+              {positionsLoading ? (
+                <EarnSkeleton />
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {activePositions.map((position) => {
+                    const opportunity = getPositionOpportunity(
+                      position,
+                      opportunities,
+                    );
+                    if (!opportunity) return null;
+
+                    return (
+                      <article
+                        key={position.id}
+                        className="rounded-lg border border-gray-80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <AssetNetworkIcon
+                              symbol={opportunity.symbol}
+                              network={opportunity.chain}
+                              size="sm"
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
+                                {opportunity.symbol}
+                              </p>
+                              <p className="truncate text-xs capitalize text-gray-30 dark:text-gray-40">
+                                {getProtocolName(opportunity.protocol)} ·{" "}
+                                {opportunity.chain}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                            {position.status}
+                          </span>
+                        </div>
+                        <div className="mt-5 flex items-end justify-between">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
+                              Supplied
+                            </p>
+                            <p className="mt-1 text-xl font-bold text-cryptoNight dark:text-white">
+                              {formatTokenAmount(getPositionValue(position))}{" "}
+                              <span className="text-xs text-gray-30 dark:text-gray-40">
+                                {opportunity.symbol}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
+                              Entry APY
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-300">
+                              {formatApy(position.entryApy)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="flowSecondary"
+                          size="sm"
+                          className="mt-4 w-full"
+                          onClick={() =>
+                            setSelectedAction({
+                              action: "withdraw",
+                              opportunity,
+                              position,
+                            })
+                          }
+                        >
+                          <span className="relative z-10 flex items-center justify-center gap-2">
+                            <ArrowDownToLine className="transition-transform group-hover:-translate-y-0.5" />
+                            Withdraw
+                          </span>
+                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-primary-80/10 to-transparent transition-transform duration-500 group-hover:translate-x-full dark:via-white/10" />
+                        </Button>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ) : null}
         </>
       ) : null}
 
@@ -1010,35 +1070,48 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
             {/* Portfolio Performance Summary */}
             {stockPortfolio && (
-              <div className="mb-6 hidden rounded-xl border border-gray-80 bg-white/80 p-5 shadow-sm md:block dark:border-white/10 dark:bg-secondary-50/75">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
-                      {activeTab === "rwa" ? "RWA" : "Stock"} Portfolio Value
-                    </p>
-                    <p className="text-2xl font-extrabold text-cryptoNight dark:text-white">
-                      {formatUsd(categoryPortfolio.totalPortfolioValue)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold",
-                        categoryPortfolio.totalUnrealizedPnL >= 0
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
-                          : "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300",
-                      )}
-                    >
-                      {categoryPortfolio.totalUnrealizedPnL >= 0 ? "+" : ""}
-                      {formatUsd(categoryPortfolio.totalUnrealizedPnL)} (
-                      {categoryPortfolio.totalUnrealizedPnLPercentage.toFixed(
-                        2,
-                      )}
-                      %)
-                    </span>
-                    <p className="text-xs text-gray-30 dark:text-gray-40">
-                      Cost Basis: {formatUsd(categoryPortfolio.totalCostBasis)}
-                    </p>
+              <div className="relative mb-8 hidden overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-7 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:block dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
+
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
+                    {activeTab === "rwa" ? "RWA" : "Stock"} portfolio value
+                  </p>
+                  <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
+                    {formatUsd(categoryPortfolio.totalPortfolioValue)}
+                  </p>
+
+                  <div className="mt-8 grid max-w-xl grid-cols-2 border-t border-gray-80 pt-5 dark:border-white/10">
+                    <div className="pr-8">
+                      <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                        Total return (PnL)
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-2 text-lg font-bold tabular-nums",
+                          categoryPortfolio.totalUnrealizedPnL > 0
+                            ? "text-emerald-600 dark:text-emerald-300"
+                            : categoryPortfolio.totalUnrealizedPnL < 0
+                              ? "text-rose-600 dark:text-rose-300"
+                              : "text-cryptoNight dark:text-white",
+                        )}
+                      >
+                        {categoryPortfolio.totalUnrealizedPnL >= 0 ? "+" : ""}
+                        {formatUsd(categoryPortfolio.totalUnrealizedPnL)} (
+                        {categoryPortfolio.totalUnrealizedPnLPercentage.toFixed(
+                          2,
+                        )}
+                        %)
+                      </p>
+                    </div>
+                    <div className="border-l border-gray-80 pl-8 dark:border-white/10">
+                      <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                        Cost basis
+                      </p>
+                      <p className="mt-2 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
+                        {formatUsd(categoryPortfolio.totalCostBasis)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1234,110 +1307,271 @@ export default function EarnPage({ profile }: EarnPageProps) {
               </div>
             )}
 
-            <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">
-              {activeTab === "rwa"
-                ? "RWA opportunities"
-                : "Stock opportunities"}
-            </h2>
+            <div className="mb-4">
+              <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">
+                {activeTab === "rwa"
+                  ? "RWA opportunities"
+                  : "Stock opportunities"}
+              </h2>
 
-            {stockProviders.length > 1 ? (
-              <div className="mb-4 flex flex-wrap gap-2">
-                {stockProviders.map((provider) => (
-                  <button
-                    key={provider}
-                    type="button"
-                    onClick={() => setStockProviderFilter(provider)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-semibold transition",
-                      stockProviderFilter === provider
-                        ? "bg-primary-90 text-white dark:bg-primary-70"
-                        : "bg-gray-90 text-gray-30 hover:bg-gray-80 dark:bg-white/5 dark:text-gray-40 dark:hover:bg-white/10",
-                    )}
-                  >
-                    {provider === "all"
-                      ? "All providers"
-                      : getProtocolName(provider)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            </div>
 
             {stocksLoading ? (
               <EarnSkeleton threeColumnsOnDesktop />
-            ) : filteredStocks.length ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3!">
-                {filteredStocks.map((stock) => (
-                  <article
-                    key={`${stock.provider}_${stock.symbol}`}
-                    className="group rounded-xl border border-gray-80 bg-white/80 p-4 shadow-sm transition hover:border-primary-90 hover:bg-white dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none dark:hover:border-primary-70/40 dark:hover:bg-secondary-50"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <StockLogo
-                          symbol={stock.symbol}
-                          src={getStockLogoUrl(stock.symbol, stock.logoUrl)}
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
-                              {stock.symbol}
+            ) : unifiedStocks.length ? (
+              <>
+                <div className="grid grid-cols-1 gap-3 md:hidden">
+                  {sortedStocks.map((stock) => (
+                    <article
+                      key={`${stock.provider}_${stock.symbol}`}
+                      className="group rounded-xl border border-gray-80 bg-white/80 p-4 shadow-sm transition hover:border-primary-90 hover:bg-white dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none dark:hover:border-primary-70/40 dark:hover:bg-secondary-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <StockLogo
+                            symbol={stock.symbol}
+                            src={getStockLogoUrl(stock.symbol, stock.logoUrl)}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
+                                {getUnderlyingTicker(stock.symbol)}
+                              </p>
+                              <span className="rounded-full bg-primary-90/10 px-1.5 py-0.5 text-[8px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                                {getProtocolName(stock.provider)}
+                              </span>
+                            </div>
+                            <p className="truncate text-xs text-gray-30 dark:text-gray-40">
+                              {getDisplayStockName(stock.name)}
                             </p>
-                            <span className="rounded-full bg-primary-90/10 px-1.5 py-0.5 text-[8px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
-                              {getProtocolName(stock.provider)}
-                            </span>
                           </div>
-                          <p className="truncate text-xs text-gray-30 dark:text-gray-40">
-                            {stock.name}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-lg font-bold text-cryptoNight dark:text-white">
+                            {formatUsd(Number(stock.price) || 0)}
+                          </p>
+                          <p className="text-[9px] font-semibold uppercase text-gray-30 dark:text-gray-40">
+                            {stock.currency}
                           </p>
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-lg font-bold text-cryptoNight dark:text-white">
-                          {formatUsd(Number(stock.price) || 0)}
-                        </p>
-                        <p className="text-[9px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                          {stock.currency}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="mt-4 flex items-center gap-3 border-t border-gray-80 pt-4 dark:border-white/10">
-                      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
-                        <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span>
-                          {activeTab === "rwa"
-                            ? stock.rwaCategory || stock.category || "Tokenized"
-                            : "Tokenized"}
-                        </span>
+                      <div className="mt-4 flex items-center gap-3 border-t border-gray-80 pt-4 dark:border-white/10">
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
+                          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <span>
+                            {activeTab === "rwa"
+                              ? stock.rwaCategory ||
+                                stock.category ||
+                                "Tokenized"
+                              : "Tokenized"}
+                          </span>
+                        </div>
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
+                          <Clock3 className="h-4 w-4 shrink-0 text-primary-90 dark:text-primary-30" />
+                          <span>24/7 trading</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="flow"
+                          size="sm"
+                          className="h-9 shrink-0 px-4"
+                          onClick={() =>
+                            setSelectedStockAction({ action: "buy", stock })
+                          }
+                        >
+                          <span className="relative z-10 flex items-center justify-center gap-1.5">
+                            Buy
+                            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                          </span>
+                        </Button>
                       </div>
-                      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
-                        <Clock3 className="h-4 w-4 shrink-0 text-primary-90 dark:text-primary-30" />
-                        <span>24/7 trading</span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="flow"
-                        size="sm"
-                        className="h-9 shrink-0 px-4"
-                        onClick={() =>
-                          setSelectedStockAction({ action: "buy", stock })
-                        }
-                      >
-                        <span className="relative z-10 flex items-center justify-center gap-1.5">
-                          Buy
-                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                        </span>
-                      </Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
+                  <table className="w-full min-w-[780px] border-collapse text-left">
+                    <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
+                      <tr>
+                        <th className="px-5 py-3 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => toggleStockSort("name")}
+                            className="inline-flex items-center gap-1 hover:text-cryptoNight dark:hover:text-white"
+                          >
+                            Name
+                            {stockSort.key === "name"
+                              ? stockSort.direction === "asc"
+                                ? " ↑"
+                                : " ↓"
+                              : ""}
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-right font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => toggleStockSort("price")}
+                            className="inline-flex items-center gap-1 hover:text-cryptoNight dark:hover:text-white"
+                          >
+                            Price
+                            {stockSort.key === "price"
+                              ? stockSort.direction === "asc"
+                                ? " ↑"
+                                : " ↓"
+                              : ""}
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-right font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => toggleStockSort("change")}
+                            className="inline-flex items-center gap-1 hover:text-cryptoNight dark:hover:text-white"
+                          >
+                            24h change
+                            {stockSort.key === "change"
+                              ? stockSort.direction === "asc"
+                                ? " ↑"
+                                : " ↓"
+                              : ""}
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 font-semibold">Last 24h</th>
+                        <th className="px-4 py-3 font-semibold">Provider</th>
+                        <th className="px-5 py-3" aria-label="Action" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-80 dark:divide-white/10">
+                      {desktopStocks.map((stock) => {
+                        const change = getListingChange(
+                          stock,
+                          stockChartChanges[stock.symbol],
+                        );
+                        return (
+                          <tr
+                            key={`${stock.provider}_${stock.symbol}`}
+                            className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
+                          >
+                            <td className="px-5 py-3.5">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <StockLogo
+                                  symbol={stock.symbol}
+                                  src={getStockLogoUrl(
+                                    stock.symbol,
+                                    stock.logoUrl,
+                                  )}
+                                  size="sm"
+                                />
+                                <div className="min-w-0">
+                                  <p className="font-bold text-cryptoNight dark:text-white">
+                                    {getUnderlyingTicker(stock.symbol)}
+                                  </p>
+                                  <p className="max-w-48 truncate text-xs text-gray-30 dark:text-gray-40">
+                                    {getDisplayStockName(stock.name)}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <p className="font-normal tabular-nums text-cryptoNight dark:text-white">
+                                {formatUsd(Number(stock.price) || 0)}
+                              </p>
+                              <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
+                                {stock.currency}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              {change === undefined ? (
+                                <span className="text-sm text-gray-30 dark:text-gray-40">
+                                  —
+                                </span>
+                              ) : (
+                                <span
+                                  className={cn(
+                                    "font-normal tabular-nums",
+                                    change >= 0
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : "text-rose-600 dark:text-rose-400",
+                                  )}
+                                >
+                                  {change >= 0 ? "+" : ""}
+                                  {change.toFixed(2)}%
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <StockSparkline
+                                values={stockCharts[stock.symbol]}
+                              />
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className="inline-flex rounded-full bg-primary-90/10 px-2 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                                {getProtocolName(stock.provider)}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <Button
+                                type="button"
+                                variant="flow"
+                                size="sm"
+                                className="h-9 px-4"
+                                onClick={() =>
+                                  setSelectedStockAction({
+                                    action: "buy",
+                                    stock,
+                                  })
+                                }
+                              >
+                                <span className="relative z-10 flex items-center gap-1.5">
+                                  Buy <ArrowRight className="h-3.5 w-3.5" />
+                                </span>
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {stockPageCount > 1 ? (
+                  <nav
+                    className="mt-4 hidden items-center justify-center gap-2 md:flex"
+                    aria-label="Stock listing pages"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStockPage((page) => Math.max(1, page - 1))
+                      }
+                      disabled={activeStockPage === 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
+                      aria-label="Previous stock page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="min-w-14 text-center text-sm font-semibold tabular-nums text-cryptoNight dark:text-white">
+                      {activeStockPage} / {stockPageCount}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStockPage((page) =>
+                          Math.min(stockPageCount, page + 1),
+                        )
+                      }
+                      disabled={activeStockPage === stockPageCount}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
+                      aria-label="Next stock page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </nav>
+                ) : null}
+              </>
             ) : (
               <div className="flex min-h-36 items-center justify-center rounded-lg border border-gray-80 bg-white/65 px-4 text-center dark:border-white/10 dark:bg-secondary-50/55">
                 <p className="text-sm font-semibold text-cryptoNight dark:text-white">
-                  {stockProviderFilter !== "all"
-                    ? `No ${activeTab === "rwa" ? "RWA products" : "stocks"} are available from ${getProtocolName(stockProviderFilter)}.`
-                    : `No ${activeTab === "rwa" ? "RWA products" : "stocks"} are available yet.`}
+                  {`No ${activeTab === "rwa" ? "RWA products" : "stocks"} are available yet.`}
                 </p>
               </div>
             )}
