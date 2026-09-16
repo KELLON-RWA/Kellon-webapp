@@ -49,4 +49,25 @@ describe("swap policy", () => {
       }),
     ).toBe(false);
   });
+
+  it("allows only different stablecoin pairs on the same network", () => {
+    const usdc = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const usdt = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
+    expect(
+      isNativeToStableSwap({
+        fromChainId: 8453,
+        toChainId: 8453,
+        fromTokenAddress: usdc,
+        toTokenAddress: usdt,
+      }),
+    ).toBe(true);
+    expect(
+      isNativeToStableSwap({
+        fromChainId: 8453,
+        toChainId: 8453,
+        fromTokenAddress: usdc,
+        toTokenAddress: usdc,
+      }),
+    ).toBe(false);
+  });
 });

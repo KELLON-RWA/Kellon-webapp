@@ -34,9 +34,13 @@ export function isNativeToStableSwap(input: {
   fromTokenAddress: string;
   toTokenAddress: string;
 }) {
-  return (
-    input.fromChainId === input.toChainId &&
+  if (input.fromChainId !== input.toChainId) return false;
+  const nativeToStable =
     isNativeSwapAddress(input.fromTokenAddress) &&
-    isStableSwapToken(input.toChainId, input.toTokenAddress)
-  );
+    isStableSwapToken(input.toChainId, input.toTokenAddress);
+  const stableToDifferentStable =
+    isStableSwapToken(input.fromChainId, input.fromTokenAddress) &&
+    isStableSwapToken(input.toChainId, input.toTokenAddress) &&
+    input.fromTokenAddress.toLowerCase() !== input.toTokenAddress.toLowerCase();
+  return nativeToStable || stableToDifferentStable;
 }

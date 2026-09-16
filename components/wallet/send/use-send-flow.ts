@@ -616,6 +616,10 @@ export function useSendFlow(profile: User) {
   const handleAmountKeypadPress = useCallback(
     (value: string) => {
       const current = amountForm.getValues("amount")
+      if (value === "clear") {
+        setAmountValue("")
+        return
+      }
       if (value === "delete") {
         setAmountValue(current.slice(0, -1))
         return

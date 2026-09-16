@@ -120,7 +120,9 @@ export function WithdrawAmountEntryStep({
     const currentValue = form.getValues("amount");
     let nextAmount = currentValue;
 
-    if (value === "delete") {
+    if (value === "clear") {
+      nextAmount = "";
+    } else if (value === "delete") {
       nextAmount = currentValue.slice(0, -1);
     } else if (value === "." && currentValue.includes(".")) {
       return;

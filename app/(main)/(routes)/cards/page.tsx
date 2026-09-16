@@ -1,5 +1,7 @@
-import { FC } from "react";
 import type { Metadata } from "next";
+import VirtualCardsPage from "@/components/cards/VirtualCardsPage";
+import { currentProfile } from "@/lib/current-profile";
+import type { User } from "@/types/db";
 
 export const metadata: Metadata = {
   title: "Cards",
@@ -10,12 +12,9 @@ export const metadata: Metadata = {
   },
 };
 
-// interface pageProps {
-
-// }
-
-const page: FC = ({}) => {
-  return <section>Cards</section>;
+const page = async () => {
+  const profile = (await currentProfile()) as User;
+  return <VirtualCardsPage profile={profile} />;
 };
 
 export default page;

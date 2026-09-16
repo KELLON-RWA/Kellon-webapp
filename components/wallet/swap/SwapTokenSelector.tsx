@@ -38,7 +38,7 @@ function TokenLogo({ token }: { token: SwapAssetOption }) {
       aria-hidden="true"
       className="h-10 w-10 shrink-0 rounded-full bg-gray-90 bg-cover bg-center dark:bg-secondary-60"
       style={{
-        backgroundImage: `url("${token.logoURI || getTokenIcon(token.symbol)}")`,
+        backgroundImage: `url("${token.symbol.toUpperCase() === "USDT" ? getTokenIcon(token.symbol) : token.logoURI || getTokenIcon(token.symbol)}")`,
       }}
     />
   );

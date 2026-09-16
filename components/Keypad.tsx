@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Delete } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,13 +17,41 @@ export default function Keypad({
   className,
   buttonClassName,
 }: KeypadProps) {
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  const cancelClearTimer = () => {
+    if (clearTimer.current) {
+      clearTimeout(clearTimer.current);
+      clearTimer.current = null;
+    }
+  };
+
+  const startClearTimer = () => {
+    didLongPress.current = false;
+    clearTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      onPress("clear");
+    }, 600);
+  };
+
   return (
     <div className={cn("grid w-full grid-cols-3 gap-2", className)}>
       {KEYS.map((key) => (
         <button
           key={key}
           type="button"
-          onClick={() => onPress(key)}
+          onPointerDown={key === "delete" ? startClearTimer : undefined}
+          onPointerUp={key === "delete" ? cancelClearTimer : undefined}
+          onPointerCancel={key === "delete" ? cancelClearTimer : undefined}
+          onPointerLeave={key === "delete" ? cancelClearTimer : undefined}
+          onClick={() => {
+            if (key === "delete" && didLongPress.current) {
+              didLongPress.current = false;
+              return;
+            }
+            onPress(key);
+          }}
           className={cn(
             "cursor-pointer",
             "flex h-14 select-none items-center justify-center rounded-2xl border border-black/5 bg-white text-xl font-bold transition-colors active:scale-95 hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50",

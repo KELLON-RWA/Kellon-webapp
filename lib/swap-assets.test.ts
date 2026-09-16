@@ -85,7 +85,7 @@ describe("swap assets", () => {
     ).toEqual(new Set(["evm", "solana", "stellar"]));
   });
 
-  it("uses only funded native balances as swap sources", () => {
+  it("uses funded native and stablecoin balances as swap sources", () => {
     const catalog = getSwapTokens(tokens);
     const sources = getSwapSources(
       [
@@ -96,14 +96,12 @@ describe("swap assets", () => {
       catalog,
     );
 
-    expect(sources).toHaveLength(6);
-    expect(sources[0]).toMatchObject({
+    expect(sources.find((source) => source.chainKey === "base" && source.symbol === "ETH")).toMatchObject({
       symbol: "ETH",
       chainKey: "base",
       balance: 0.1,
     });
-    expect(isNativeSwapToken(sources[0])).toBe(true);
-    expect(sources.slice(1).every((source) => source.balance === 0)).toBe(true);
+    expect(sources.find((source) => source.chainKey === "base" && source.symbol === "USDC")?.balance).toBe(20);
   });
 
   it("uses the live on-chain native balance without double counting profile data", () => {
@@ -114,19 +112,27 @@ describe("swap assets", () => {
       [{ chainKey: "base", amount: 0.4 }],
     );
 
-    expect(sources[0].balance).toBe(0.4);
+    expect(sources.find((source) => source.chainKey === "base" && source.symbol === "ETH")?.balance).toBe(0.4);
   });
 
   it("offers only same-network USDC and USDT destinations", () => {
     const catalog = getSwapTokens(tokens);
     const source = getSwapSources([], catalog, [
       { chainKey: "base", amount: 0.25 },
-    ])[0];
-    const destinations = getSwapDestinations(source, catalog);
+    ]).find((token) => token.chainKey === "base" && isNativeSwapToken(token));
+    const destinations = getSwapDestinations(source || null, catalog);
 
     expect(destinations.map((token) => token.symbol)).toEqual(["USDC", "USDT"]);
-    expect(getDefaultSwapDestination(source, destinations)?.symbol).toBe(
+    expect(getDefaultSwapDestination(source || null, destinations)?.symbol).toBe(
       "USDC",
     );
+  });
+
+  it("allows a stablecoin source to select only the other stablecoin", () => {
+    const catalog = getSwapTokens(tokens);
+    const source = catalog.find(
+      (token) => token.chainKey === "base" && token.symbol === "USDC",
+    );
+    expect(getSwapDestinations(source || null, catalog).map((token) => token.symbol)).toEqual(["USDT"]);
   });
 });

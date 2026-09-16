@@ -365,7 +365,9 @@ export default function BuyCryptoFlow({
   // Handlers
   const handleKeypadPress = (val: string) => {
     let nextAmount = amount
-    if (val === "delete") {
+    if (val === "clear") {
+      nextAmount = ""
+    } else if (val === "delete") {
       nextAmount = amount.slice(0, -1)
     } else if (val === "." && (amount.includes(".") || decimals === 0)) {
       return

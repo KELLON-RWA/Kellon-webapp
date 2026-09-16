@@ -183,7 +183,12 @@ export function getSwapSources(
   liveNativeBalances: NativeSwapBalance[] = [],
 ): SwapAssetOption[] {
   const balances = new Map<string, number>();
-  const nativeTokens = tokens.filter(isNativeSwapToken);
+  const sourceTokens = tokens.filter(
+    (token) =>
+      isNativeSwapToken(token) ||
+      ["USDC", "USDT"].includes(token.symbol.toUpperCase()),
+  );
+  const nativeTokens = sourceTokens.filter(isNativeSwapToken);
 
   assets.forEach((asset) => {
     if (!asset?.chain) return;
@@ -192,7 +197,7 @@ export function getSwapSources(
     if (!chainKey || !Number.isFinite(amount) || amount <= 0) return;
 
     const address = getMetadataAddress(asset);
-    const candidates = nativeTokens.filter(
+    const candidates = sourceTokens.filter(
       (token) => token.chainKey === chainKey,
     );
     const token = address
@@ -221,7 +226,7 @@ export function getSwapSources(
     balances.set(token.key, Math.max(balances.get(token.key) || 0, amount));
   });
 
-  return nativeTokens
+  return sourceTokens
     .map((token) => ({ ...token, balance: balances.get(token.key) || 0 }))
     .sort(
       (left, right) =>
@@ -235,11 +240,13 @@ export function getSwapDestinations(
   tokens: SwapAssetOption[],
 ) {
   if (!source) return [];
+  const sourceIsNative = isNativeSwapToken(source);
   return tokens.filter(
     (token) =>
       token.chainKey === source.chainKey &&
       !isNativeSwapToken(token) &&
-      ["USDC", "USDT"].includes(token.symbol.toUpperCase()),
+      ["USDC", "USDT"].includes(token.symbol.toUpperCase()) &&
+      (sourceIsNative || token.symbol.toUpperCase() !== source.symbol.toUpperCase()),
   );
 }
 
