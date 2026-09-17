@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import {
@@ -10,14 +10,13 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Loader2,
   Search,
   ShieldCheck,
+  X,
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import SearchBar from "@/components/SearchBar";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -110,7 +109,7 @@ function getHoldingListing(
   );
 }
 
-function getListingChange(
+export function getListingChange(
   listing: StockListing,
   yahooChange?: number,
 ): number | undefined {
@@ -171,7 +170,7 @@ const STOCK_DOMAINS: Record<string, string> = {
   TSM: "tsmc.com",
 };
 
-function getUnderlyingTicker(symbol: string): string {
+export function getUnderlyingTicker(symbol: string): string {
   const raw = symbol.trim();
   const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
 
@@ -182,7 +181,7 @@ function getUnderlyingTicker(symbol: string): string {
   ).toUpperCase();
 }
 
-function getStockLogoUrl(symbol: string, logoUrl?: string): string {
+export function getStockLogoUrl(symbol: string, logoUrl?: string): string {
   // Prefer a known company mark to an inconsistent provider-supplied image.
   if (STOCK_DOMAINS[getUnderlyingTicker(symbol)]) {
     return getStockLogoFallbackUrl(symbol);
@@ -193,7 +192,7 @@ function getStockLogoUrl(symbol: string, logoUrl?: string): string {
   return `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getUnderlyingTicker(symbol))}.png`;
 }
 
-function getDisplayStockName(name: string): string {
+export function getDisplayStockName(name: string): string {
   return name.replace(/\s+[bc]stock$/i, "").trim();
 }
 
@@ -206,7 +205,7 @@ function getStockLogoFallbackUrl(symbol: string): string {
     : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker)}&backgroundType=gradientLinear`;
 }
 
-function StockLogo({
+export function StockLogo({
   symbol,
   src,
   size = "md",
@@ -286,6 +285,53 @@ function EarnSkeleton({
   );
 }
 
+function StockListSkeleton() {
+  const rows = Array.from({ length: 8 });
+
+  return (
+    <div aria-label="Loading stock opportunities">
+      <div className="md:hidden">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-1 pb-2 text-[11px] font-semibold text-gray-30 dark:text-gray-40">
+          <span>Name</span>
+          <span>Price | 24h change</span>
+        </div>
+        <div className="space-y-1">
+          {rows.map((_, index) => (
+            <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+                <div className="space-y-2">
+                  <div className="h-3 w-14 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                  <div className="h-2.5 w-24 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                </div>
+              </div>
+              <div className="space-y-2 text-right">
+                <div className="ml-auto h-3 w-14 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                <div className="ml-auto h-2.5 w-10 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="hidden overflow-hidden rounded-2xl border border-gray-80 dark:border-white/10 md:block">
+        <div className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_1fr_5rem] gap-4 border-b border-gray-80 px-5 py-3 text-[11px] font-semibold text-gray-30 dark:border-white/10 dark:text-gray-40">
+          <span>Name</span><span className="text-right">Price</span><span className="text-right">24h change</span><span>Last 24h</span><span>Provider</span><span />
+        </div>
+        {rows.map((_, index) => (
+          <div key={index} className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_1fr_5rem] items-center gap-4 border-b border-gray-80 px-5 py-3.5 last:border-b-0 dark:border-white/10">
+            <div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" /><div className="space-y-2"><div className="h-3 w-16 animate-pulse rounded bg-gray-90 dark:bg-white/10" /><div className="h-2.5 w-28 animate-pulse rounded bg-gray-90 dark:bg-white/10" /></div></div>
+            <div className="ml-auto h-3 w-16 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+            <div className="ml-auto h-3 w-12 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+            <div className="h-7 w-24 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+            <div className="h-5 w-16 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+            <div className="h-8 w-14 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type BalanceSummaryStat = {
   label: string;
   value: string;
@@ -354,13 +400,16 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const searchParams = useSearchParams();
   const { isConnected } = useRealtime();
   const marketEtfsRef = useRef<HTMLDivElement>(null);
+  const mobileStockSearchInputRef = useRef<HTMLInputElement>(null);
+  const desktopStockSearchInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<EarnCategory>("yield");
   const [stockSort, setStockSort] = useState<{
     key: StockSortKey;
     direction: "asc" | "desc";
   }>({ key: "name", direction: "asc" });
   const [stockPage, setStockPage] = useState(1);
-  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
+  const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [selectedAction, setSelectedAction] = useState<SelectedAction>(null);
   const [selectedStockAction, setSelectedStockAction] = useState<{
     action: StockActionType;
@@ -539,45 +588,20 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
     return [...preferredListings.values()];
   }, [categoryStocks]);
-  const chartSymbolGroups = useMemo(
-    () =>
-      Array.from(
-        { length: Math.ceil(unifiedStocks.length / 20) },
-        (_, index) =>
-          unifiedStocks
-            .slice(index * 20, (index + 1) * 20)
-            .map((stock) => stock.symbol),
-      ),
-    [unifiedStocks],
-  );
-  const chartQueries = useQueries({
-    queries: chartSymbolGroups.map((symbols) => ({
-      queryKey: ["stock-charts", symbols],
-      queryFn: () => getStockCharts(symbols),
-      enabled: activeTab !== "yield" && symbols.length > 0,
-      staleTime: 60_000,
-      refetchInterval: isConnected ? 60_000 : (false as const),
-    })),
-  });
-  const stockChartData = useMemo(
-    () =>
-      chartQueries.reduce(
-        (data, query) => ({
-          charts: { ...data.charts, ...(query.data?.charts || {}) },
-          changes: { ...data.changes, ...(query.data?.changes || {}) },
-        }),
-        {
-          charts: {} as Record<string, number[]>,
-          changes: {} as Record<string, number>,
-        },
-      ),
-    [chartQueries],
-  );
-  const stockCharts = stockChartData.charts;
-  const stockChartChanges = stockChartData.changes;
+  const searchedStocks = useMemo(() => {
+    const query = stockSearchQuery.trim().toLowerCase();
+    if (!query) return unifiedStocks;
+
+    return unifiedStocks.filter((stock) =>
+      [
+        getUnderlyingTicker(stock.symbol),
+        getDisplayStockName(stock.name),
+      ].some((value) => value.toLowerCase().includes(query)),
+    );
+  }, [stockSearchQuery, unifiedStocks]);
   const sortedStocks = useMemo(() => {
     const multiplier = stockSort.direction === "asc" ? 1 : -1;
-    return [...unifiedStocks].sort((left, right) => {
+    return [...searchedStocks].sort((left, right) => {
       if (stockSort.key === "name") {
         return multiplier * left.symbol.localeCompare(right.symbol);
       }
@@ -585,14 +609,14 @@ export default function EarnPage({ profile }: EarnPageProps) {
       const leftValue =
         stockSort.key === "price"
           ? Number(left.price) || 0
-          : getListingChange(left, stockChartChanges[left.symbol]) || 0;
+          : getListingChange(left) || 0;
       const rightValue =
         stockSort.key === "price"
           ? Number(right.price) || 0
-          : getListingChange(right, stockChartChanges[right.symbol]) || 0;
+          : getListingChange(right) || 0;
       return multiplier * (leftValue - rightValue);
     });
-  }, [unifiedStocks, stockChartChanges, stockSort]);
+  }, [searchedStocks, stockSort]);
   const stockPageCount = Math.max(
     1,
     Math.ceil(sortedStocks.length / STOCKS_PER_DESKTOP_PAGE),
@@ -606,9 +630,33 @@ export default function EarnPage({ profile }: EarnPageProps) {
       ),
     [activeStockPage, sortedStocks],
   );
+  const chartSymbols = useMemo(
+    () =>
+      activeTab !== "yield"
+        ? desktopStocks.map((stock) => stock.symbol)
+        : [],
+    [activeTab, desktopStocks],
+  );
+  const chartQuery = useQuery({
+    queryKey: ["stock-charts", chartSymbols],
+    queryFn: () => getStockCharts(chartSymbols),
+    enabled: chartSymbols.length > 0,
+    staleTime: 60_000,
+    refetchInterval: isConnected ? 60_000 : false,
+  });
+  const stockCharts = chartQuery.data?.charts || {};
+  const stockChartChanges = chartQuery.data?.changes || {};
   useEffect(() => {
     setStockPage(1);
-  }, [activeTab, stockSort]);
+  }, [activeTab, stockSearchQuery, stockSort]);
+  useEffect(() => {
+    if (!isStockSearchOpen) return;
+
+    const input = window.matchMedia("(min-width: 768px)").matches
+      ? desktopStockSearchInputRef.current
+      : mobileStockSearchInputRef.current;
+    input?.focus();
+  }, [isStockSearchOpen]);
   const toggleStockSort = (key: StockSortKey) => {
     setStockSort((current) => ({
       key,
@@ -621,6 +669,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
             ? "asc"
             : "desc",
     }));
+  };
+  const openStockDetails = (stock: StockListing) => {
+    const provider = encodeURIComponent(stock.provider);
+    router.push(
+      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol))}?provider=${provider}`,
+    );
   };
   const marketEtfs = useMemo(() => {
     if (marketIndices.length) {
@@ -725,24 +779,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
           })}
         </section>
 
-        <button
-          type="button"
-          onClick={() => setIsGlobalSearchOpen(true)}
-          aria-label="Search Kellon"
-          aria-expanded={isGlobalSearchOpen}
-          title="Search Kellon"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-80 bg-white/70 text-gray-20 shadow-sm transition hover:border-primary-80 hover:text-primary-50 md:hidden dark:border-white/10 dark:bg-secondary-50/55 dark:text-gray-40 dark:hover:border-primary-80/60 dark:hover:text-primary-90"
-        >
-          <Search className="h-[18px] w-[18px]" />
-        </button>
-
-        <SearchBar
-          profile={profile}
-          variant="overlay"
-          open={isGlobalSearchOpen}
-          onOpenChange={setIsGlobalSearchOpen}
-          className="md:hidden"
-        />
       </div>
 
       {error ? (
@@ -938,7 +974,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               Yield opportunities
             </h2>
             {opportunitiesLoading ? (
-              <EarnSkeleton threeColumnsOnDesktop />
+              <EarnSkeleton />
             ) : opportunities.length ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3!">
                 {opportunities.map((opportunity) => {
@@ -1307,87 +1343,189 @@ export default function EarnPage({ profile }: EarnPageProps) {
               </div>
             )}
 
-            <div className="mb-4">
-              <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">
-                {activeTab === "rwa"
-                  ? "RWA opportunities"
-                  : "Stock opportunities"}
-              </h2>
+            <div className="mb-4 min-h-8">
+              {isStockSearchOpen ? (
+                <>
+                  <div className="flex w-full items-center gap-3 border-b border-gray-80 pb-2 dark:border-white/10 md:hidden">
+                    <Search
+                      className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
+                      aria-hidden="true"
+                    />
+                    <input
+                      ref={mobileStockSearchInputRef}
+                      value={stockSearchQuery}
+                      onChange={(event) => setStockSearchQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          setIsStockSearchOpen(false);
+                          setStockSearchQuery("");
+                        }
+                      }}
+                      placeholder="Search stocks"
+                      aria-label="Search stock opportunities"
+                      className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
+                    />
+                    {stockSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => setStockSearchQuery("")}
+                        aria-label="Clear stock search"
+                        className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsStockSearchOpen(false);
+                        setStockSearchQuery("");
+                      }}
+                      className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
+                    >
+                      Cancel
+                    </button>
+                  </div>
 
+                  <div className="hidden items-center gap-4 pb-2 md:flex">
+                    <h2 className="text-base font-bold text-cryptoNight dark:text-white">
+                      {activeTab === "rwa"
+                        ? "RWA opportunities"
+                        : "Stock opportunities"}
+                    </h2>
+                    <div className="ml-auto flex w-full max-w-sm items-center gap-3">
+                      <Search
+                        className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
+                        aria-hidden="true"
+                      />
+                      <input
+                        ref={desktopStockSearchInputRef}
+                        value={stockSearchQuery}
+                        onChange={(event) => setStockSearchQuery(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            setIsStockSearchOpen(false);
+                            setStockSearchQuery("");
+                          }
+                        }}
+                        placeholder="Search"
+                        aria-label="Search stock opportunities"
+                        className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
+                      />
+                      {stockSearchQuery ? (
+                        <button
+                          type="button"
+                          onClick={() => setStockSearchQuery("")}
+                          aria-label="Clear stock search"
+                          className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsStockSearchOpen(false);
+                          setStockSearchQuery("");
+                        }}
+                        className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-base font-bold text-cryptoNight dark:text-white">
+                    {activeTab === "rwa"
+                      ? "RWA opportunities"
+                      : "Stock opportunities"}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsStockSearchOpen(true)}
+                    aria-label="Search stock opportunities"
+                    aria-expanded={isStockSearchOpen}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {stocksLoading ? (
-              <EarnSkeleton threeColumnsOnDesktop />
-            ) : unifiedStocks.length ? (
+              <StockListSkeleton />
+            ) : sortedStocks.length ? (
               <>
-                <div className="grid grid-cols-1 gap-3 md:hidden">
-                  {sortedStocks.map((stock) => (
-                    <article
-                      key={`${stock.provider}_${stock.symbol}`}
-                      className="group rounded-xl border border-gray-80 bg-white/80 p-4 shadow-sm transition hover:border-primary-90 hover:bg-white dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none dark:hover:border-primary-70/40 dark:hover:bg-secondary-50"
+                <div className="md:hidden">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 pb-2 text-[11px] text-gray-30 dark:text-gray-40">
+                    <span className="font-semibold">Name</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleStockSort("change")}
+                      className="text-right font-semibold"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <StockLogo
-                            symbol={stock.symbol}
-                            src={getStockLogoUrl(stock.symbol, stock.logoUrl)}
-                          />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
-                                {getUnderlyingTicker(stock.symbol)}
-                              </p>
-                              <span className="rounded-full bg-primary-90/10 px-1.5 py-0.5 text-[8px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
-                                {getProtocolName(stock.provider)}
-                              </span>
-                            </div>
-                            <p className="truncate text-xs text-gray-30 dark:text-gray-40">
-                              {getDisplayStockName(stock.name)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-lg font-bold text-cryptoNight dark:text-white">
-                            {formatUsd(Number(stock.price) || 0)}
-                          </p>
-                          <p className="text-[9px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                            {stock.currency}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center gap-3 border-t border-gray-80 pt-4 dark:border-white/10">
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
-                          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                          <span>
-                            {activeTab === "rwa"
-                              ? stock.rwaCategory ||
-                                stock.category ||
-                                "Tokenized"
-                              : "Tokenized"}
-                          </span>
-                        </div>
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
-                          <Clock3 className="h-4 w-4 shrink-0 text-primary-90 dark:text-primary-30" />
-                          <span>24/7 trading</span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="flow"
+                      Price | 24h change
+                      {stockSort.key === "change"
+                        ? stockSort.direction === "asc"
+                          ? " ↑"
+                          : " ↓"
+                        : ""}
+                    </button>
+                  </div>
+                  <div className="overflow-hidden bg-transparent">
+                  {desktopStocks.map((stock) => (
+                    <button
+                      key={`${stock.provider}_${stock.symbol}`}
+                      type="button"
+                      onClick={() => openStockDetails(stock)}
+                      aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
+                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3 text-left transition-colors hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <StockLogo
+                          symbol={stock.symbol}
+                          src={getStockLogoUrl(stock.symbol, stock.logoUrl)}
                           size="sm"
-                          className="h-9 shrink-0 px-4"
-                          onClick={() =>
-                            setSelectedStockAction({ action: "buy", stock })
-                          }
-                        >
-                          <span className="relative z-10 flex items-center justify-center gap-1.5">
-                            Buy
-                            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                          </span>
-                        </Button>
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-cryptoNight dark:text-white">
+                            {getUnderlyingTicker(stock.symbol)}
+                          </p>
+                          <p className="truncate text-xs text-gray-30 dark:text-gray-40">
+                            {getDisplayStockName(stock.name)}
+                          </p>
+                        </div>
                       </div>
-                    </article>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-normal tabular-nums text-cryptoNight dark:text-white">
+                          {formatUsd(Number(stock.price) || 0)}
+                        </p>
+                        {(() => {
+                          const change = getListingChange(
+                            stock,
+                            stockChartChanges[stock.symbol],
+                          );
+                          return change === undefined ? null : (
+                            <p
+                              className={cn(
+                                "mt-0.5 text-xs font-normal tabular-nums",
+                                change >= 0
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-rose-600 dark:text-rose-400",
+                              )}
+                            >
+                              {change >= 0 ? "+" : ""}
+                              {change.toFixed(2)}%
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    </button>
                   ))}
+                  </div>
                 </div>
 
                 <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
@@ -1450,7 +1588,17 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         return (
                           <tr
                             key={`${stock.provider}_${stock.symbol}`}
-                            className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
+                            onClick={() => openStockDetails(stock)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openStockDetails(stock);
+                              }
+                            }}
+                            tabIndex={0}
+                            role="link"
+                            aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
+                            className="cursor-pointer transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
                           >
                             <td className="px-5 py-3.5">
                               <div className="flex min-w-0 items-center gap-3">
@@ -1515,12 +1663,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 variant="flow"
                                 size="sm"
                                 className="h-9 px-4"
-                                onClick={() =>
-                                  setSelectedStockAction({
-                                    action: "buy",
-                                    stock,
-                                  })
-                                }
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openStockDetails(stock);
+                                }}
                               >
                                 <span className="relative z-10 flex items-center gap-1.5">
                                   Buy <ArrowRight className="h-3.5 w-3.5" />
@@ -1535,7 +1681,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </div>
                 {stockPageCount > 1 ? (
                   <nav
-                    className="mt-4 hidden items-center justify-center gap-2 md:flex"
+                    className="mt-4 flex items-center justify-center gap-2"
                     aria-label="Stock listing pages"
                   >
                     <button
@@ -1571,7 +1717,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
             ) : (
               <div className="flex min-h-36 items-center justify-center rounded-lg border border-gray-80 bg-white/65 px-4 text-center dark:border-white/10 dark:bg-secondary-50/55">
                 <p className="text-sm font-semibold text-cryptoNight dark:text-white">
-                  {`No ${activeTab === "rwa" ? "RWA products" : "stocks"} are available yet.`}
+                  {stockSearchQuery
+                    ? "No stocks match your search."
+                    : `No ${activeTab === "rwa" ? "RWA products" : "stocks"} are available yet.`}
                 </p>
               </div>
             )}

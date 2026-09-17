@@ -2,6 +2,8 @@
 
 import { cn } from "@/lib/utils";
 
+export type StockChartRange = "1D" | "1W" | "1M" | "1Y" | "ALL";
+
 export function StockSparkline({
   values,
   className,
@@ -50,28 +52,38 @@ export function StockSparkline({
   );
 }
 
-export async function getStockCharts(symbols: string[]) {
+export async function getStockCharts(
+  symbols: string[],
+  range?: StockChartRange,
+) {
   if (!symbols.length) {
     return {
       charts: {} as Record<string, number[]>,
+      timestamps: {} as Record<string, number[]>,
       changes: {} as Record<string, number>,
+      stats: {} as Record<string, { high24h: number; low24h: number }>,
     };
   }
-  const response = await fetch(
-    `/api/market/charts?symbols=${encodeURIComponent(symbols.join(","))}`,
-  );
+  const query = new URLSearchParams({ symbols: symbols.join(",") });
+  if (range) query.set("range", range);
+  const response = await fetch(`/api/market/charts?${query.toString()}`);
   if (!response.ok) {
     return {
       charts: {} as Record<string, number[]>,
+      timestamps: {} as Record<string, number[]>,
       changes: {} as Record<string, number>,
     };
   }
   const payload = (await response.json()) as {
     charts?: Record<string, number[]>;
+    timestamps?: Record<string, number[]>;
     changes?: Record<string, number>;
+    stats?: Record<string, { high24h: number; low24h: number }>;
   };
   return {
     charts: payload.charts || {},
+    timestamps: payload.timestamps || {},
     changes: payload.changes || {},
+    stats: payload.stats || {},
   };
 }
