@@ -8,13 +8,14 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpRight,
+  Building2,
+  ChartLine,
   ChevronLeft,
   ChevronRight,
   Loader2,
   Search,
-  ShieldCheck,
+  TrendingUp,
   X,
-  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
@@ -68,7 +69,7 @@ const earnCategories: Array<{
   },
   {
     id: "stocks",
-    label: "Stock",
+    label: "Stocks",
   },
   {
     id: "rwa",
@@ -252,44 +253,103 @@ type SelectedAction = {
   position?: YieldPosition;
 } | null;
 
-const riskStyles: Record<RiskLevel, string> = {
+const yieldRiskStyles: Record<RiskLevel, string> = {
   [RiskLevel.CONSERVATIVE]:
-    "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300",
+    "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   [RiskLevel.MODERATE]:
-    "bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300",
+    "bg-amber-500/10 text-amber-700 dark:text-amber-300",
   [RiskLevel.AGGRESSIVE]:
-    "bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300",
+    "bg-rose-500/10 text-rose-700 dark:text-rose-300",
 };
 
-function EarnSkeleton({
-  threeColumnsOnDesktop = false,
-}: {
-  threeColumnsOnDesktop?: boolean;
-}) {
+function PortfolioSummarySkeleton({ metricCount }: { metricCount: 2 | 3 }) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-1 gap-3",
-        threeColumnsOnDesktop
-          ? "md:grid-cols-2 lg:grid-cols-3!"
-          : "md:grid-cols-2 xl:grid-cols-3",
-      )}
+    <section
+      aria-label="Loading portfolio summary"
+      className="relative mb-6 overflow-hidden rounded-xl border border-white/70 bg-white/70 p-5 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:mb-8 md:rounded-2xl md:p-7 dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none"
     >
-      {[0, 1, 2].map((item) => (
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
+      <div className="relative animate-pulse">
+        <div className="h-2.5 w-32 rounded bg-gray-90 dark:bg-white/10" />
+        <div className="mt-3 h-9 w-36 rounded bg-gray-90 dark:bg-white/10" />
         <div
-          key={item}
-          className="h-44 animate-pulse rounded-lg border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/70"
-        />
-      ))}
+          className={cn(
+            "mt-7 grid border-t border-gray-80 pt-4 md:mt-8 md:pt-5",
+            metricCount === 3 ? "grid-cols-3 max-w-2xl" : "grid-cols-2 max-w-xl",
+          )}
+        >
+          {Array.from({ length: metricCount }).map((_, index) => (
+            <div
+              key={index}
+              className={cn(
+                "min-w-0 px-2 first:pl-0 last:pr-0 md:px-6 md:first:pl-0 md:last:pr-0",
+                index > 0 && "border-l border-gray-80 dark:border-white/10",
+              )}
+            >
+              <div className="h-2.5 w-16 rounded bg-gray-90 dark:bg-white/10" />
+              <div className="mt-2 h-4 w-20 rounded bg-gray-90 dark:bg-white/10" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function YieldOpportunitySkeleton() {
+  const rows = Array.from({ length: 6 });
+
+  return (
+    <div aria-label="Loading yield opportunities">
+      <div className="md:hidden">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-1 pb-2 text-[11px] font-semibold text-gray-30 dark:text-gray-40">
+          <span>Protocol</span>
+          <span>Est. APY</span>
+        </div>
+        <div className="space-y-1">
+          {rows.map((_, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+                <div className="space-y-2">
+                  <div className="h-3 w-20 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                  <div className="h-2.5 w-16 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                </div>
+              </div>
+              <div className="space-y-2 text-right">
+                <div className="ml-auto h-3 w-12 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                <div className="ml-auto h-2.5 w-14 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="hidden overflow-hidden rounded-2xl border border-gray-80 dark:border-white/10 md:block">
+        <div className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_5rem] gap-4 border-b border-gray-80 px-5 py-3 text-[11px] font-semibold text-gray-30 dark:border-white/10 dark:text-gray-40">
+          <span>Protocol</span><span className="text-right">Est. APY</span><span>Risk</span><span>Network</span><span />
+        </div>
+        {rows.map((_, index) => (
+          <div key={index} className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_5rem] items-center gap-4 border-b border-gray-80 px-5 py-3.5 last:border-b-0 dark:border-white/10">
+            <div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" /><div className="space-y-2"><div className="h-3 w-20 animate-pulse rounded bg-gray-90 dark:bg-white/10" /><div className="h-2.5 w-24 animate-pulse rounded bg-gray-90 dark:bg-white/10" /></div></div>
+            <div className="ml-auto h-3 w-12 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+            <div className="h-5 w-16 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+            <div className="h-5 w-14 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+            <div className="h-8 w-16 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function StockListSkeleton() {
+function StockListSkeleton({ category }: { category: "stocks" | "rwa" }) {
   const rows = Array.from({ length: 8 });
 
   return (
-    <div aria-label="Loading stock opportunities">
+    <div aria-label={`Loading ${category === "rwa" ? "RWA" : "stock"} opportunities`}>
       <div className="md:hidden">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-1 pb-2 text-[11px] font-semibold text-gray-30 dark:text-gray-40">
           <span>Name</span>
@@ -328,6 +388,175 @@ function StockListSkeleton() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+const rwaPools = [
+  {
+    name: "US Treasury Yield Pool",
+    symbol: "USDY / TBILL",
+    network: "Base",
+    risk: "Conservative",
+    apy: "~5.15%",
+    protection: "Regulated custody",
+    yieldType: "Daily yield",
+  },
+  {
+    name: "Prime Real Estate Trust",
+    symbol: "RE-YIELD",
+    network: "Base",
+    risk: "Moderate",
+    apy: "~7.85%",
+    protection: "Rental income",
+    yieldType: "Asset-backed",
+  },
+  {
+    name: "Institutional Credit Pool",
+    symbol: "CREDIT-POOL",
+    network: "Ethereum",
+    risk: "Moderate",
+    apy: "~8.40%",
+    protection: "Over-collateralized",
+    yieldType: "Fixed term",
+  },
+] as const;
+
+function RwaComingSoon() {
+  return (
+    <div className="w-full">
+      <section className="relative mb-7 overflow-hidden rounded-2xl border border-white/10 bg-secondary-50/65 p-5 shadow-sm shadow-primary-90/20 md:mb-9 md:p-7">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.34),transparent_48%),radial-gradient(circle_at_90%_18%,rgba(255,255,255,0.08),transparent_38%)]" />
+        <div className="relative">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-gray-40 md:text-xs">
+            Real-world asset yields
+          </p>
+          <h1 className="mt-2 text-3xl font-extrabold text-white md:text-4xl">
+            Coming soon
+          </h1>
+          <div className="mt-6 grid max-w-2xl grid-cols-2 border-t border-white/10 pt-4 md:mt-8 md:pt-5">
+            <div className="pr-4 md:pr-8">
+              <p className="text-[10px] text-gray-40 md:text-xs">Asset protection</p>
+              <p className="mt-1 text-sm font-bold text-primary-30 md:text-base">
+                Audited & regulated
+              </p>
+            </div>
+            <div className="border-l border-white/10 pl-4 md:pl-8">
+              <p className="text-[10px] text-gray-40 md:text-xs">Target APY range</p>
+              <p className="mt-1 text-sm font-bold text-emerald-400 md:text-base">
+                4.5% – 8.4%
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-cryptoNight dark:text-white">
+              Curated asset pools
+            </h2>
+            <p className="mt-1 text-xs text-gray-30 dark:text-gray-40">
+              Coming soon
+            </p>
+          </div>
+          <span className="rounded-full bg-primary-90/10 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+            RWA
+          </span>
+        </div>
+
+        <div className="space-y-3 md:hidden">
+          {rwaPools.map((pool) => (
+            <article
+              key={pool.name}
+              className="rounded-xl border border-gray-80 bg-white/70 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                    <Building2 className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
+                      {pool.name}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-gray-30 dark:text-gray-40">
+                      {pool.symbol} · {pool.network}
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                    {pool.apy}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-gray-30 dark:text-gray-40">Est. APY</p>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-80 pt-3 text-[10px] dark:border-white/10">
+                <div className="min-w-0">
+                  <p className="truncate text-gray-30 dark:text-gray-40">{pool.protection}</p>
+                  <p className="mt-1 font-semibold text-primary-90 dark:text-primary-30">{pool.yieldType}</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" disabled className="h-8 shrink-0 px-3">
+                  Coming soon
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
+          <table className="w-full min-w-[820px] border-collapse text-left">
+            <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Asset pool</th>
+                <th className="px-4 py-3 text-right font-semibold">Est. APY</th>
+                <th className="px-4 py-3 font-semibold">Protection</th>
+                <th className="px-4 py-3 font-semibold">Yield type</th>
+                <th className="px-5 py-3" aria-label="Action" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-80 dark:divide-white/10">
+              {rwaPools.map((pool) => (
+                <tr key={pool.name} className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]">
+                  <td className="px-5 py-3.5">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                        <Building2 className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-bold text-cryptoNight dark:text-white">{pool.name}</p>
+                        <p className="mt-0.5 text-xs text-gray-30 dark:text-gray-40">{pool.symbol} · {pool.network}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-normal tabular-nums text-emerald-600 dark:text-emerald-400">{pool.apy}</td>
+                  <td className="px-4 py-3.5 text-sm text-cryptoNight dark:text-white">{pool.protection}</td>
+                  <td className="px-4 py-3.5"><span className="inline-flex rounded-full bg-primary-90/10 px-2 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">{pool.yieldType}</span></td>
+                  <td className="px-5 py-3.5 text-right"><Button type="button" variant="outline" size="sm" disabled className="h-9 px-4">Coming soon</Button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">Compliance & protection</h2>
+        <div className="rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/65 md:grid md:grid-cols-3 md:gap-4 md:p-5">
+          {[
+            ["Regulated institutional custody", "Direct backing held with tier-1 regulated bank trusts."],
+            ["Real-time proof of reserves", "On-chain transparency and verifiable collateral."],
+            ["Bankruptcy-remote SPVs", "Assets legally separated and insulated from credit risk."],
+          ].map(([title, description], index) => (
+            <div key={title} className={cn("py-3 first:pt-0 last:pb-0 md:py-0", index > 0 && "border-t border-gray-80 md:border-l md:border-t-0 dark:border-white/10")}>
+              <p className="text-sm font-bold text-cryptoNight dark:text-white">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-gray-30 dark:text-gray-40">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -400,6 +629,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const searchParams = useSearchParams();
   const { isConnected } = useRealtime();
   const marketEtfsRef = useRef<HTMLDivElement>(null);
+  const mobileYieldSearchInputRef = useRef<HTMLInputElement>(null);
+  const desktopYieldSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileStockSearchInputRef = useRef<HTMLInputElement>(null);
   const desktopStockSearchInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<EarnCategory>("yield");
@@ -410,6 +641,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [stockPage, setStockPage] = useState(1);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
+  const [isYieldSearchOpen, setIsYieldSearchOpen] = useState(false);
+  const [yieldSearchQuery, setYieldSearchQuery] = useState("");
   const [selectedAction, setSelectedAction] = useState<SelectedAction>(null);
   const [selectedStockAction, setSelectedStockAction] = useState<{
     action: StockActionType;
@@ -438,18 +671,20 @@ export default function EarnPage({ profile }: EarnPageProps) {
   } = useQuery({
     queryKey: ["available-stocks"],
     queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
+    enabled: activeTab === "stocks",
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
 
   const {
     data: stockPortfolio,
+    isLoading: stockPortfolioLoading,
     error: stockPortfolioError,
     refetch: refetchStockPortfolio,
   } = useQuery({
     queryKey: ["stock-portfolio"],
     queryFn: async () => (await stocksService.getPortfolio()).data,
-    enabled: activeTab !== "yield",
+    enabled: activeTab === "stocks",
     staleTime: 30_000,
   });
 
@@ -460,7 +695,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   } = useQuery({
     queryKey: ["market-indices"],
     queryFn: async () => (await stocksService.getIndices()).data,
-    enabled: activeTab !== "yield",
+    enabled: activeTab === "stocks",
     staleTime: 60_000,
   });
 
@@ -526,6 +761,19 @@ export default function EarnPage({ profile }: EarnPageProps) {
       positions.filter((position) => position.status !== PositionStatus.CLOSED),
     [positions],
   );
+  const filteredOpportunities = useMemo(() => {
+    const query = yieldSearchQuery.trim().toLowerCase();
+    if (!query) return opportunities;
+
+    return opportunities.filter((opportunity) =>
+      [
+        opportunity.symbol,
+        opportunity.chain,
+        opportunity.protocol,
+        getProtocolName(opportunity.protocol),
+      ].some((value) => value.toLowerCase().includes(query)),
+    );
+  }, [opportunities, yieldSearchQuery]);
   const totalSupplied = activePositions.reduce(
     (total, position) => total + getPositionValue(position),
     0,
@@ -657,6 +905,14 @@ export default function EarnPage({ profile }: EarnPageProps) {
       : mobileStockSearchInputRef.current;
     input?.focus();
   }, [isStockSearchOpen]);
+  useEffect(() => {
+    if (!isYieldSearchOpen) return;
+
+    const input = window.matchMedia("(min-width: 768px)").matches
+      ? desktopYieldSearchInputRef.current
+      : mobileYieldSearchInputRef.current;
+    input?.focus();
+  }, [isYieldSearchOpen]);
   const toggleStockSort = (key: StockSortKey) => {
     setStockSort((current) => ({
       key,
@@ -678,10 +934,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   };
   const marketEtfs = useMemo(() => {
     if (marketIndices.length) {
-      return marketIndices.map((index) => ({
-        ...index,
-        change: index.change24hPercentage,
-      }));
+      return marketIndices;
     }
 
     return stocks
@@ -727,11 +980,18 @@ export default function EarnPage({ profile }: EarnPageProps) {
     };
   }, [categoryPortfolioHoldings]);
   const isYieldLoading = opportunitiesLoading || positionsLoading;
-  const isLoading = activeTab === "yield" ? isYieldLoading : stocksLoading;
+  const isLoading =
+    activeTab === "yield"
+      ? isYieldLoading
+      : activeTab === "stocks"
+        ? stocksLoading
+        : false;
   const error =
     activeTab === "yield"
       ? opportunitiesError || positionsError
-      : stocksError || stockPortfolioError || marketIndicesError;
+      : activeTab === "stocks"
+        ? stocksError || stockPortfolioError || marketIndicesError
+        : null;
 
   const refresh = async () => {
     if (activeTab === "yield") {
@@ -746,15 +1006,29 @@ export default function EarnPage({ profile }: EarnPageProps) {
     ]);
   };
 
+  const selectCategory = (category: EarnCategory) => {
+    setActiveTab(category);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("category", category);
+    router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
+  };
+
   return (
     <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28">
       <div className="mb-5 flex items-center gap-2 md:mb-6">
         <section
           aria-label="Earn categories"
-          className="inline-flex min-w-0 items-center gap-1 rounded-full border border-gray-80 bg-white/60 p-1 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/40"
+          className="grid w-full grid-cols-3 items-center gap-1 rounded-xl border border-gray-80 bg-white/60 p-1 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/40 md:inline-flex md:w-auto md:rounded-full"
         >
           {earnCategories.map((category) => {
             const isActive = activeTab === category.id;
+            const CategoryIcon =
+              category.id === "yield"
+                ? TrendingUp
+                : category.id === "stocks"
+                  ? ChartLine
+                  : Building2;
 
             return (
               <button
@@ -762,15 +1036,16 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 type="button"
                 aria-pressed={isActive}
                 onClick={() => {
-                  setActiveTab(category.id);
+                  selectCategory(category.id);
                 }}
                 className={cn(
-                  "min-w-0 rounded-full px-3 py-1.5 text-center transition md:px-4",
+                  "flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-3 text-center transition md:rounded-full md:py-1.5 md:px-4",
                   isActive
                     ? "bg-primary-90 text-white shadow-sm dark:bg-primary-70"
                     : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
                 )}
               >
+                <CategoryIcon className="h-4 w-4 shrink-0 md:hidden" aria-hidden="true" />
                 <span className="block truncate text-xs font-bold min-[360px]:text-sm">
                   {category.label}
                 </span>
@@ -796,6 +1071,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
       {activeTab === "yield" ? (
         <>
+          {isYieldLoading ? (
+            <PortfolioSummarySkeleton metricCount={3} />
+          ) : (
+            <>
           <MobileBalanceSummary
             label="Total portfolio balance"
             value={formatMetricUsd(totalSupplied)}
@@ -868,8 +1147,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
               </div>
             </div>
           </section>
+            </>
+          )}
 
-          {positionsLoading || activePositions.length > 0 ? (
+          {activePositions.length > 0 ? (
             <section className="mb-9">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base font-bold text-cryptoNight dark:text-white md:text-lg">
@@ -880,10 +1161,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </span>
               </div>
 
-              {positionsLoading ? (
-                <EarnSkeleton />
-              ) : (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {activePositions.map((position) => {
                     const opportunity = getPositionOpportunity(
                       position,
@@ -960,8 +1238,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       </article>
                     );
                   })}
-                </div>
-              )}
+              </div>
             </section>
           ) : null}
         </>
@@ -970,29 +1247,195 @@ export default function EarnPage({ profile }: EarnPageProps) {
       <section className="w-full">
         {activeTab === "yield" ? (
           <>
-            <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">
-              Yield opportunities
-            </h2>
+            <div className="mb-4 min-h-8">
+              {isYieldSearchOpen ? (
+                <>
+                  <div className="flex w-full items-center gap-3 border-b border-gray-80 pb-2 dark:border-white/10 md:hidden">
+                    <Search
+                      className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
+                      aria-hidden="true"
+                    />
+                    <input
+                      ref={mobileYieldSearchInputRef}
+                      value={yieldSearchQuery}
+                      onChange={(event) => setYieldSearchQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          setIsYieldSearchOpen(false);
+                          setYieldSearchQuery("");
+                        }
+                      }}
+                      placeholder="Search yield"
+                      aria-label="Search yield opportunities"
+                      className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
+                    />
+                    {yieldSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => setYieldSearchQuery("")}
+                        aria-label="Clear yield search"
+                        className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsYieldSearchOpen(false);
+                        setYieldSearchQuery("");
+                      }}
+                      className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div className="hidden items-center gap-4 pb-2 md:flex">
+                    <h2 className="text-base font-bold text-cryptoNight dark:text-white">
+                      Yield opportunities
+                    </h2>
+                    <div className="ml-auto flex w-full max-w-sm items-center gap-3">
+                      <Search
+                        className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
+                        aria-hidden="true"
+                      />
+                      <input
+                        ref={desktopYieldSearchInputRef}
+                        value={yieldSearchQuery}
+                        onChange={(event) => setYieldSearchQuery(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            setIsYieldSearchOpen(false);
+                            setYieldSearchQuery("");
+                          }
+                        }}
+                        placeholder="Search"
+                        aria-label="Search yield opportunities"
+                        className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
+                      />
+                      {yieldSearchQuery ? (
+                        <button
+                          type="button"
+                          onClick={() => setYieldSearchQuery("")}
+                          aria-label="Clear yield search"
+                          className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsYieldSearchOpen(false);
+                          setYieldSearchQuery("");
+                        }}
+                        className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-base font-bold text-cryptoNight dark:text-white">
+                    Yield opportunities
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsYieldSearchOpen(true)}
+                    aria-label="Search yield opportunities"
+                    aria-expanded={isYieldSearchOpen}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
             {opportunitiesLoading ? (
-              <EarnSkeleton />
-            ) : opportunities.length ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3!">
-                {opportunities.map((opportunity) => {
+              <YieldOpportunitySkeleton />
+            ) : filteredOpportunities.length ? (
+              <>
+                <div className="md:hidden">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 pb-2 text-[11px] text-gray-30 dark:text-gray-40">
+                    <span className="font-semibold">Protocol</span>
+                    <span className="text-right font-semibold">Est. APY</span>
+                  </div>
+                  <div className="overflow-hidden bg-transparent">
+                    {filteredOpportunities.map((opportunity) => {
+                      const available = getMaxUsableBalance(
+                        profile,
+                        opportunity.symbol,
+                      );
+                      return (
+                        <button
+                          key={opportunity.id}
+                          type="button"
+                          disabled={available <= 0}
+                          onClick={() =>
+                            setSelectedAction({ action: "supply", opportunity })
+                          }
+                          className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3 text-left transition-colors hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <AssetNetworkIcon
+                              symbol={opportunity.symbol}
+                              network={opportunity.chain}
+                              size="sm"
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-cryptoNight dark:text-white">
+                                {getProtocolName(opportunity.protocol)}
+                              </p>
+                              <p className="truncate text-xs text-gray-30 dark:text-gray-40">
+                                {opportunity.symbol} · {opportunity.chain}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                              {formatApy(opportunity.apy)}
+                            </p>
+                            <p className="mt-0.5 text-xs text-primary-90 dark:text-primary-30">
+                              {available > 0 ? "Deposit" : "Unavailable"}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
+                  <table className="w-full min-w-[720px] border-collapse text-left">
+                    <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
+                      <tr>
+                        <th className="px-5 py-3 font-semibold">Protocol</th>
+                        <th className="px-4 py-3 text-right font-semibold">Est. APY</th>
+                        <th className="px-4 py-3 font-semibold">Risk</th>
+                        <th className="px-4 py-3 font-semibold">Network</th>
+                        <th className="px-5 py-3" aria-label="Action" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-80 dark:divide-white/10">
+                {filteredOpportunities.map((opportunity) => {
                   const available = getMaxUsableBalance(
                     profile,
                     opportunity.symbol,
                   );
-                  const normalizedRisk = Object.values(RiskLevel).includes(
+                  const risk = Object.values(RiskLevel).includes(
                     opportunity.riskLevel,
                   )
                     ? opportunity.riskLevel
-                    : RiskLevel.MODERATE;
+                    : null;
                   return (
-                    <article
+                    <tr
                       key={opportunity.id}
-                      className="group rounded-xl border border-gray-80 bg-white/80 p-4 shadow-sm transition hover:border-primary-90 hover:bg-white dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none dark:hover:border-primary-70/40 dark:hover:bg-secondary-50"
+                      className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <td className="px-5 py-3.5">
                         <div className="flex min-w-0 items-center gap-3">
                           <AssetNetworkIcon
                             symbol={opportunity.symbol}
@@ -1000,46 +1443,42 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             size="sm"
                           />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
+                            <p className="truncate font-bold text-cryptoNight dark:text-white">
                               {getProtocolName(opportunity.protocol)}
                             </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <span className="text-xs font-semibold text-gray-30 dark:text-gray-40">
-                                {opportunity.symbol}
-                              </span>
-                              <span className="rounded-full bg-gray-90 px-1.5 py-0.5 text-[8px] font-bold uppercase text-gray-20 dark:bg-white/5 dark:text-gray-40">
-                                {opportunity.chain}
-                              </span>
-                              <span
-                                className={cn(
-                                  "rounded-full px-1.5 py-0.5 text-[8px] font-bold capitalize",
-                                  riskStyles[normalizedRisk],
-                                )}
-                              >
-                                {normalizedRisk.toLowerCase()}
-                              </span>
-                            </div>
+                            <p className="mt-0.5 text-xs text-gray-30 dark:text-gray-40">
+                              {opportunity.symbol} · {opportunity.chain}
+                            </p>
                           </div>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-300">
-                            {formatApy(opportunity.apy)}
-                          </p>
-                          <p className="text-[9px] font-semibold text-gray-30 dark:text-gray-40">
-                            Est. APY
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center gap-3 border-t border-gray-80 pt-4 dark:border-white/10">
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
-                          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                          <span>Audited</span>
-                        </div>
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-semibold text-gray-30 dark:text-gray-40">
-                          <Zap className="h-4 w-4 shrink-0 text-primary-90 dark:text-primary-30" />
-                          <span>Instant liquidity</span>
-                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <span className="font-normal tabular-nums text-emerald-600 dark:text-emerald-400">
+                          {formatApy(opportunity.apy)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {risk ? (
+                          <span
+                            className={cn(
+                              "inline-flex rounded-full px-2 py-1 text-[10px] font-bold capitalize",
+                              yieldRiskStyles[risk],
+                            )}
+                          >
+                            {risk.toLowerCase()}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-30 dark:text-gray-40">
+                            —
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="inline-flex rounded-full bg-primary-90/10 px-2 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                          {opportunity.chain}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
                         <Button
                           type="button"
                           variant="flow"
@@ -1057,22 +1496,21 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             ) : null}
                           </span>
                         </Button>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between text-[10px] text-gray-30 dark:text-gray-40">
-                        <span>Wallet balance</span>
-                        <span className="font-semibold text-cryptoNight dark:text-white">
-                          {formatTokenAmount(available)} {opportunity.symbol}
-                        </span>
-                      </div>
-                    </article>
+                      </td>
+                    </tr>
                   );
                 })}
-              </div>
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
               <div className="flex min-h-36 items-center justify-center rounded-lg border border-gray-80 bg-white/65 px-4 text-center dark:border-white/10 dark:bg-secondary-50/55">
                 <div>
                   <p className="text-sm font-semibold text-cryptoNight dark:text-white">
-                    No opportunities available
+                    {yieldSearchQuery
+                      ? "No yield opportunities match your search."
+                      : "No opportunities available"}
                   </p>
                   <p className="mt-1 text-xs text-gray-30 dark:text-gray-40">
                     New yield options will appear here when they are enabled.
@@ -1081,10 +1519,16 @@ export default function EarnPage({ profile }: EarnPageProps) {
               </div>
             )}
           </>
+        ) : activeTab === "rwa" ? (
+          <RwaComingSoon />
         ) : (
           <div>
+            {stockPortfolioLoading ? (
+              <PortfolioSummarySkeleton metricCount={2} />
+            ) : (
+              <>
             <MobileBalanceSummary
-              label={`${activeTab === "rwa" ? "RWA" : "Stock"} portfolio value`}
+              label="Stock portfolio value"
               value={formatMetricUsd(categoryPortfolio.totalPortfolioValue)}
               stats={[
                 {
@@ -1111,7 +1555,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
                 <div className="relative">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
-                    {activeTab === "rwa" ? "RWA" : "Stock"} portfolio value
+                    Stock portfolio value
                   </p>
                   <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
                     {formatUsd(categoryPortfolio.totalPortfolioValue)}
@@ -1151,6 +1595,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   </div>
                 </div>
               </div>
+            )}
+              </>
             )}
 
             {categoryPortfolioHoldings.length > 0 ? (
@@ -1294,48 +1740,20 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   {marketEtfs.map((idx) => (
                     <div
                       key={idx.symbol}
-                      className="flex min-h-[128px] w-[44%] min-w-32 shrink-0 snap-start flex-col rounded-xl border border-gray-80 bg-white/60 p-3 dark:border-white/10 dark:bg-secondary-50/50 md:min-h-[116px] md:w-44 md:min-w-44"
+                      className="flex min-h-[100px] w-[39%] min-w-[142px] shrink-0 snap-start flex-col rounded-xl border border-gray-80 bg-white/60 p-2.5 dark:border-white/10 dark:bg-secondary-50/50 md:min-h-[116px] md:w-44 md:min-w-44 md:p-3"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-cryptoNight dark:text-white">
                           {idx.symbol}
                         </span>
-                        {idx.change !== undefined && idx.change > 0 ? (
-                          <ArrowUpRight
-                            className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
-                            aria-hidden="true"
-                          />
-                        ) : idx.change !== undefined && idx.change < 0 ? (
-                          <ArrowDownRight
-                            className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400"
-                            aria-hidden="true"
-                          />
-                        ) : null}
                       </div>
-                      <p className="mt-1 line-clamp-2 flex-1 text-[10px] leading-4 text-gray-30 dark:text-gray-40 md:text-[11px]">
+                      <p className="mt-0.5 line-clamp-2 flex-1 text-[9px] leading-[0.875rem] text-gray-30 dark:text-gray-40 md:mt-1 md:text-[11px] md:leading-4">
                         {idx.name}
                       </p>
-                      <div className="mt-3 flex flex-col items-start gap-0.5">
+                      <div className="mt-2 flex flex-col items-start gap-0.5 md:mt-3">
                         <p className="truncate text-xs font-bold text-cryptoNight dark:text-white min-[360px]:text-sm md:text-base">
                           ${idx.price.toFixed(2)}
                         </p>
-                        {idx.change !== undefined ? (
-                          <span
-                            className={cn(
-                              "text-[9px] font-bold min-[360px]:text-[10px] md:text-xs",
-                              idx.change >= 0
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : "text-rose-600 dark:text-rose-400",
-                            )}
-                          >
-                            {idx.change >= 0 ? "+" : ""}
-                            {idx.change.toFixed(2)}%
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                            {idx.currency}
-                          </span>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -1389,9 +1807,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
                   <div className="hidden items-center gap-4 pb-2 md:flex">
                     <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-                      {activeTab === "rwa"
-                        ? "RWA opportunities"
-                        : "Stock opportunities"}
+                      Stock opportunities
                     </h2>
                     <div className="ml-auto flex w-full max-w-sm items-center gap-3">
                       <Search
@@ -1438,9 +1854,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               ) : (
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-                    {activeTab === "rwa"
-                      ? "RWA opportunities"
-                      : "Stock opportunities"}
+                    Stock opportunities
                   </h2>
                   <button
                     type="button"
@@ -1456,7 +1870,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
             </div>
 
             {stocksLoading ? (
-              <StockListSkeleton />
+              <StockListSkeleton category="stocks" />
             ) : sortedStocks.length ? (
               <>
                 <div className="md:hidden">
@@ -1719,7 +2133,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 <p className="text-sm font-semibold text-cryptoNight dark:text-white">
                   {stockSearchQuery
                     ? "No stocks match your search."
-                    : `No ${activeTab === "rwa" ? "RWA products" : "stocks"} are available yet.`}
+                    : "No stocks are available yet."}
                 </p>
               </div>
             )}
