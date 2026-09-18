@@ -157,6 +157,18 @@ function normalize(value: unknown): string {
   return String(value || "").toLowerCase();
 }
 
+function getStockPageSymbol(symbol: string): string {
+  const raw = symbol.trim();
+  const withoutProviderSuffix = /[bc]$/i.test(raw)
+    ? raw.slice(0, -1)
+    : raw;
+
+  return (withoutProviderSuffix.startsWith("b")
+    ? withoutProviderSuffix.slice(1)
+    : withoutProviderSuffix
+  ).toUpperCase();
+}
+
 const SearchBar = ({
   className,
   profile,
@@ -426,13 +438,12 @@ const SearchBar = ({
       .slice(0, 6)
       .map((stock) => {
         const isRwa = isRwaStockListing(stock);
-        const category = isRwa ? "rwa" : "stocks";
 
         return {
           id: `${isRwa ? "rwa" : "stock"}:${stock.provider}:${stock.symbol}`,
           label: stock.symbol,
           description: `${stock.name} · ${stock.provider}`,
-          href: `/earn?category=${category}&stock=${encodeURIComponent(stock.symbol)}&provider=${encodeURIComponent(stock.provider)}`,
+          href: `/earn/stocks/${encodeURIComponent(getStockPageSymbol(stock.symbol))}?provider=${encodeURIComponent(stock.provider)}`,
           type: (isRwa ? "rwa" : "stock") as "rwa" | "stock",
         };
       });
