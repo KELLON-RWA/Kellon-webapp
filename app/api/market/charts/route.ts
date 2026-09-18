@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export const revalidate = 60;
 
 const CHART_CACHE_TTL_MS = 60_000;
-const MAX_CONCURRENT_YAHOO_REQUESTS = 5;
+const MAX_CONCURRENT_YAHOO_REQUESTS = 2;
 const MAX_CHART_SYMBOLS = 20;
 const HOURS_24_IN_SECONDS = 24 * 60 * 60;
 const ONE_HOUR_IN_SECONDS = 60 * 60;
@@ -28,6 +28,22 @@ const chartCache = new Map<
   { expiresAt: number; chart: ChartData | null }
 >();
 const pendingCharts = new Map<string, Promise<ChartData | null>>();
+const yahooRequestWaiters: Array<() => void> = [];
+let activeYahooRequests = 0;
+
+async function withYahooRequestSlot<T>(request: () => Promise<T>): Promise<T> {
+  if (activeYahooRequests >= MAX_CONCURRENT_YAHOO_REQUESTS) {
+    await new Promise<void>((resolve) => yahooRequestWaiters.push(resolve));
+  }
+
+  activeYahooRequests += 1;
+  try {
+    return await request();
+  } finally {
+    activeYahooRequests -= 1;
+    yahooRequestWaiters.shift()?.();
+  }
+}
 
 function toYahooSymbol(symbol: string) {
   const raw = symbol.trim();
@@ -84,12 +100,11 @@ async function getChart(symbol: string, range: ChartRange) {
         ? rangeStart - ONE_HOUR_IN_SECONDS
         : rangeStart;
       const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?period1=${queryStart}&period2=${now}&interval=${rangeConfig.interval}&includePrePost=${range === "1D"}`;
-      const response = await fetch(
-        chartUrl,
-        {
+      const response = await withYahooRequestSlot(() =>
+        fetch(chartUrl, {
           headers: { "User-Agent": "Kellon market charts" },
           next: { revalidate: 60 },
-        },
+        }),
       );
       if (!response.ok) return null;
 
@@ -110,9 +125,10 @@ async function getChart(symbol: string, range: ChartRange) {
 
       const latest = points.at(-1)!;
       const targetTimestamp = now - HOURS_24_IN_SECONDS;
-      const baseline = [...points]
+      const baseline =
+        [...points]
         .reverse()
-        .find((point) => point.timestamp <= targetTimestamp);
+        .find((point) => point.timestamp <= targetTimestamp) || points[0];
       const change24hPercentage =
         baseline && baseline.value > 0
           ? ((latest.value - baseline.value) / baseline.value) * 100
