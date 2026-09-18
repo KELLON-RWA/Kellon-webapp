@@ -277,6 +277,7 @@ export default function StockDetailsPage({
           </div>
           <Button type="button" variant="flow" className="h-11 px-7" disabled={!stock} onClick={() => setIsBuyOpen(true)}>
             <span className="relative z-10">Buy {title}</span>
+            <span aria-hidden="true" className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
           </Button>
         </div>
 

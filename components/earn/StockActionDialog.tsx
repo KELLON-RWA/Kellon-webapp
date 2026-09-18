@@ -111,7 +111,14 @@ export default function StockActionDialog({
   const otpRequestInFlightRef = useRef(false);
   const lastOtpRequestAtRef = useRef(0);
 
-  const symbol = (stock?.symbol || holding?.symbol || "").toUpperCase();
+  const listingSymbol = stock?.symbol || holding?.symbol || "";
+  const symbol = listingSymbol
+    .replace(/[bc]$/i, "")
+    .replace(/^b/i, "")
+    .toUpperCase();
+  const stockLogoUrl =
+    stock?.logoUrl ||
+    `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(symbol)}.png`;
   const stockPrice = Number(stock?.price || holding?.currentPrice || 0);
   const stockProvider = stock?.provider || holding?.provider || "";
   const targetStockChain = getStockSettlementChain(stockProvider);
@@ -447,6 +454,7 @@ export default function StockActionDialog({
                       symbol={symbol}
                       network={targetStockChain}
                       size="sm"
+                      imageSrc={stockLogoUrl}
                     />
                     <div>
                       <p className="text-sm font-bold text-cryptoNight dark:text-white">

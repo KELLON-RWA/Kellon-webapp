@@ -9,6 +9,7 @@ interface AssetNetworkIconProps {
   network?: string | null;
   size?: "sm" | "md";
   className?: string;
+  imageSrc?: string;
 }
 
 const iconSizes = {
@@ -31,6 +32,7 @@ export default function AssetNetworkIcon({
   network,
   size = "sm",
   className,
+  imageSrc,
 }: AssetNetworkIconProps) {
   const sizes = iconSizes[size];
 
@@ -42,13 +44,33 @@ export default function AssetNetworkIcon({
           sizes.asset,
         )}
       >
-        <Image
-          src={`https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`}
-          alt={symbol}
-          fill
-          sizes={sizes.imageSize}
-          className="object-contain"
-        />
+        {imageSrc ? (
+          // Stock logo hosts are provider-dependent, so render them directly and
+          // retain an initials image if a provider image is unavailable.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageSrc}
+            alt={symbol}
+            className="h-full w-full object-contain"
+            onError={(event) => {
+              const image = event.currentTarget;
+              if (image.dataset.fallbackApplied) {
+                image.hidden = true;
+                return;
+              }
+              image.dataset.fallbackApplied = "true";
+              image.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(symbol)}`;
+            }}
+          />
+        ) : (
+          <Image
+            src={`https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`}
+            alt={symbol}
+            fill
+            sizes={sizes.imageSize}
+            className="object-contain"
+          />
+        )}
       </div>
 
       {network ? (
