@@ -714,6 +714,9 @@ export default function BuyCryptoFlow({
             providerRates={providerRates}
             isRatesLoading={isLoadingRates}
             requiresRefundAccount={requiresRefundBank}
+            country={country}
+            onGoHome={() => router.push("/")}
+            onChangeSelection={() => setStep("asset")}
             fiatCurrency={fiatCurrency}
             fiatSymbol={fiatSymbol}
             decimals={decimals}

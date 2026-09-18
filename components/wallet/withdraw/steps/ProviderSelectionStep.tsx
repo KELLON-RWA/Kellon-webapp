@@ -1,11 +1,12 @@
 "use client"
 
-import { AlertCircle, ArrowRight, Check, Globe, Loader2 } from "lucide-react"
+import { AlertCircle, ArrowRight, Check, Globe, Home, Loader2, MapPin } from "lucide-react"
 import Image from "next/image"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill"
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter"
+import { Button } from "@/components/ui/button"
 
 interface Provider {
   id: string
@@ -36,6 +37,9 @@ interface ProviderSelectionStepProps {
     } | null
   >
   isRatesLoading: boolean
+  country?: string | null
+  onGoHome: () => void
+  onChangeSelection: () => void
 }
 
 function hasUsableProviderRate(
@@ -68,6 +72,9 @@ export function WithdrawProviderSelectionStep({
   onContinue,
   providerRates,
   isRatesLoading,
+  country,
+  onGoHome,
+  onChangeSelection,
 }: ProviderSelectionStepProps) {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
   const visibleProviders = isRatesLoading
@@ -88,6 +95,9 @@ export function WithdrawProviderSelectionStep({
     (isRatesLoading || selectedProviderRate === undefined)
   const canContinue =
     Boolean(selectedProvider) && hasSelectedProviderRate && !isRatesLoading
+  const hasNoProviders = !isRatesLoading && providers.length === 0
+  const hasNoLiveRates =
+    !isRatesLoading && providers.length > 0 && visibleProviderCount === 0
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
@@ -231,25 +241,55 @@ export function WithdrawProviderSelectionStep({
             })}
           </div>
 
-          {!isRatesLoading && visibleProviderCount === 0 ? (
-            <div className="py-12 text-center">
-              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-secondary-60/40">
-                <AlertCircle className="h-8 w-8 text-gray-400" />
+          {hasNoProviders || hasNoLiveRates ? (
+            <div className="rounded-2xl border border-dashed border-black/10 bg-gray-50/80 px-5 py-8 text-center dark:border-white/10 dark:bg-secondary-60/30">
+              <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-70/10 text-primary-60">
+                {hasNoProviders ? (
+                  <MapPin className="h-7 w-7" />
+                ) : (
+                  <AlertCircle className="h-7 w-7" />
+                )}
               </div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {providers.length === 0
-                  ? "No sell providers available"
-                  : "No providers with live rates"}
+              <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                {hasNoProviders
+                  ? `Withdrawals are not available in ${country || "this country"} yet`
+                  : "No providers have a live rate right now"}
               </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Try another asset, network, or country.
+              <p className="mx-auto mt-1.5 max-w-sm text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {hasNoProviders
+                  ? "This service is not available for your current residence."
+                  : "Try a different amount, asset, or network, then check again."}
               </p>
+              <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                {hasNoProviders ? (
+                  <Button
+                    type="button"
+                    onClick={onGoHome}
+                    variant="flow"
+                    size="action"
+                    className="w-full max-w-xs text-xs"
+                  >
+                    <Home className="relative z-10 h-4 w-4" />
+                    <span className="relative z-10">Go to home</span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+                  </Button>
+                ) : null}
+                {!hasNoProviders ? (
+                  <button
+                    type="button"
+                    onClick={onChangeSelection}
+                    className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition hover:border-primary-60/40 hover:text-primary-60 dark:border-white/10 dark:bg-white/5 dark:text-gray-200"
+                  >
+                    Change asset or network
+                  </button>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>
       </div>
 
-      <FlowActionFooter
+      {!hasNoProviders ? <FlowActionFooter
         onClick={onContinue}
         disabled={!canContinue}
         buttonClassName={cn(!canContinue && "from-gray-400 to-gray-500")}
@@ -267,7 +307,7 @@ export function WithdrawProviderSelectionStep({
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </>
         )}
-      </FlowActionFooter>
+      </FlowActionFooter> : null}
     </div>
   )
 }

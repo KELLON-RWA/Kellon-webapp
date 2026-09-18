@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import AddFundsModal from "@/components/modals/AddFundsModal"
 import WalletServicesModal from "@/components/modals/WalletServicesModal"
@@ -14,6 +15,24 @@ import PortfolioBalanceCard from "./PortfolioBalanceCard"
 import QuickActionsPanel from "./QuickActionsPanel"
 import { useDashboardData } from "@/lib/use-dashboard-data"
 import { useUser } from "@/hooks/use-user"
+import { isRwaStockListing, stocksService } from "@/services/api/stocks"
+
+function getStockTicker(symbol: string) {
+  const raw = symbol.trim()
+  const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw
+
+  return (withoutProviderSuffix.startsWith("b")
+    ? withoutProviderSuffix.slice(1)
+    : withoutProviderSuffix
+  ).toUpperCase()
+}
+
+function getStockLogo(symbol: string, logoUrl?: string) {
+  return (
+    logoUrl ||
+    `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getStockTicker(symbol))}.png`
+  )
+}
 
 interface DashboardClientProps {
   profile: User
@@ -27,6 +46,49 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
   const { data: liveProfile } = useUser(profile, { live: true })
   const activeProfile = liveProfile || profile
   const dashboard = useDashboardData(activeProfile)
+  const { data: stockPortfolio, isLoading: isStockPortfolioLoading } = useQuery({
+    queryKey: ["stock-portfolio"],
+    queryFn: async () => (await stocksService.getPortfolio()).data,
+    staleTime: 30_000,
+  })
+  const { data: stockListings = [] } = useQuery({
+    queryKey: ["available-stocks"],
+    queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
+    staleTime: 60_000,
+  })
+  const investmentAssets = useMemo(
+    () =>
+      (stockPortfolio?.holdings || [])
+        .filter((holding) => Number(holding.shares) > 0)
+        .map((holding) => {
+          const listing = stockListings.find(
+            (stock) =>
+              stock.symbol.toLowerCase() === holding.symbol.toLowerCase() &&
+              stock.provider.toLowerCase() === holding.provider.toLowerCase(),
+          )
+          const ticker = getStockTicker(holding.symbol)
+          const isRwa = listing
+            ? isRwaStockListing(listing)
+            : Boolean(holding.rwaCategory)
+
+          return {
+            id: `investment:${holding.provider}:${holding.symbol}`,
+            symbol: ticker,
+            name: (listing?.name || ticker)
+              .replace(/\s+[bc]stock$/i, "")
+              .trim(),
+            shares: Number(holding.shares),
+            usdValue: Number(holding.currentValue) || 0,
+            localValue:
+              (Number(holding.currentValue) || 0) * dashboard.exchangeRate,
+            provider: holding.provider,
+            kind: isRwa ? ("rwa" as const) : ("stock" as const),
+            href: `/earn/stocks/${encodeURIComponent(ticker)}?provider=${encodeURIComponent(holding.provider)}`,
+            logoUrl: getStockLogo(holding.symbol, listing?.logoUrl),
+          }
+        }),
+    [dashboard.exchangeRate, stockListings, stockPortfolio?.holdings],
+  )
 
   useEffect(() => {
     setGreeting(getGreeting())
@@ -73,6 +135,8 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
               activeCurrency={dashboard.activeCurrency}
               displayCurrency={dashboard.displayCurrency}
               groupedAssets={dashboard.groupedAssets}
+              investmentAssets={investmentAssets}
+              isInvestmentsLoading={isStockPortfolioLoading}
               isAssetValueLoading={dashboard.isAssetValueLoading}
               isBalanceVisible={dashboard.isBalanceVisible}
             />

@@ -12,6 +12,19 @@ export interface GroupedAssetSummary {
   primaryChain: string | null;
 }
 
+export interface InvestmentAssetSummary {
+  id: string;
+  symbol: string;
+  name: string;
+  shares: number;
+  usdValue: number;
+  localValue: number;
+  provider: string;
+  kind: "stock" | "rwa";
+  href: string;
+  logoUrl?: string;
+}
+
 export interface DashboardTransactionState {
   transactions: Transaction[];
   recentTransactions: Transaction[];

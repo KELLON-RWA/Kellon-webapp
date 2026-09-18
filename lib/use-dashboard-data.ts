@@ -204,15 +204,18 @@ export function useDashboardData(profile: User) {
     [groupedAssets],
   )
 
-  const totalNetworks = useMemo(() => {
-    const allChains = new Set<string>()
-
-    rawAssets.forEach((asset) => {
-      if (asset.chain) allChains.add(asset.chain)
-    })
-
-    return allChains.size
-  }, [rawAssets])
+  // The live profile is refreshed by /users/me/sync. Chain accounts are the
+  // backend's authoritative list of networks provisioned for this wallet; asset
+  // rows cannot be used here because one network may have many assets (and aliases).
+  const totalNetworks = useMemo(
+    () =>
+      new Set(
+        (profile.chainAccounts || [])
+          .map((account) => account.chain.trim().toLowerCase())
+          .filter(Boolean),
+      ).size,
+    [profile.chainAccounts],
+  )
 
   const recentTransactions = useMemo(
     () =>
@@ -242,6 +245,7 @@ export function useDashboardData(profile: User) {
     canToggleCurrency,
     countryCode,
     displayCurrency,
+    exchangeRate,
     flag,
     groupedAssets,
     hiddenActiveBalanceLabel: `${getCurrencySymbol(activeCurrency)}••••••`,

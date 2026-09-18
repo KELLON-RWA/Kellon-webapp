@@ -2,7 +2,10 @@ import { Coins } from "lucide-react";
 import AssetCard from "@/components/wallet/dashboard/AssetCard";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import { MAINNET_CHAINS } from "@/lib/chains";
-import type { GroupedAssetSummary } from "@/lib/dashboard-types";
+import type {
+  GroupedAssetSummary,
+  InvestmentAssetSummary,
+} from "@/lib/dashboard-types";
 import { formatAssetAmount, formatCurrencyAmount } from "@/lib/dashboard-utils";
 
 const NATIVE_ASSET_SYMBOLS = new Set(
@@ -15,6 +18,8 @@ interface AssetsPanelProps {
   activeCurrency: string;
   displayCurrency: "LOCAL" | "USD";
   groupedAssets: GroupedAssetSummary[];
+  investmentAssets?: InvestmentAssetSummary[];
+  isInvestmentsLoading?: boolean;
   isAssetValueLoading: boolean;
   isBalanceVisible: boolean;
 }
@@ -23,6 +28,8 @@ export default function AssetsPanel({
   activeCurrency,
   displayCurrency,
   groupedAssets,
+  investmentAssets = [],
+  isInvestmentsLoading = false,
   isAssetValueLoading,
   isBalanceVisible,
 }: AssetsPanelProps) {
@@ -40,7 +47,7 @@ export default function AssetsPanel({
         </div>
       </div>
 
-      {visibleAssets.length > 0 ? (
+      {visibleAssets.length + investmentAssets.length > 0 ? (
         <div className="grid min-h-0 content-start gap-3 lg:max-h-full lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
           {visibleAssets.map((asset) => {
             const cardValue =
@@ -59,6 +66,30 @@ export default function AssetsPanel({
               />
             );
           })}
+          {investmentAssets.map((asset) => {
+            const cardValue =
+              displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
+
+            return (
+              <AssetCard
+                key={asset.id}
+                name={asset.name}
+                symbol={asset.symbol}
+                amount={`${formatAssetAmount(asset.shares)} shares`}
+                value={formatCurrencyAmount(cardValue, activeCurrency)}
+                hideBalances={!isBalanceVisible}
+                href={asset.href}
+                iconUrl={asset.logoUrl}
+                subtitle={`${asset.kind === "rwa" ? "RWA" : "Tokenized stock"} · ${asset.provider}`}
+                className="px-3 py-3 xs:px-4 md:px-4 md:py-3 lg:px-5 lg:py-4"
+              />
+            );
+          })}
+        </div>
+      ) : isInvestmentsLoading ? (
+        <div className="flex min-h-[160px] flex-1 flex-col justify-center gap-3 rounded-xl border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50">
+          <div className="h-4 w-28 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+          <div className="h-12 animate-pulse rounded-lg bg-gray-90 dark:bg-white/5" />
         </div>
       ) : (
         <FlowEmptyState

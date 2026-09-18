@@ -10,7 +10,7 @@ import {
   stocksService,
 } from "@/services/api/stocks";
 import type { User } from "@/types/db";
-import StockActionDialog from "./StockActionDialog";
+import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import {
   formatUsd,
   getStockSettlementChain,
@@ -196,7 +196,7 @@ export default function StockDetailsPage({
   const searchParams = useSearchParams();
   const requestedProvider = searchParams.get("provider")?.toLowerCase();
   const [activeRange, setActiveRange] = useState<(typeof TIME_RANGES)[number]>("1M");
-  const [isBuyOpen, setIsBuyOpen] = useState(false);
+  const [stockAction, setStockAction] = useState<StockActionType | null>(null);
   const normalizedSymbol = getUnderlyingTicker(symbol);
   const { data: stocks = [], isLoading, refetch } = useQuery({
     queryKey: ["available-stocks"],
@@ -213,6 +213,22 @@ export default function StockDetailsPage({
       stocks.find((item) => getUnderlyingTicker(item.symbol) === normalizedSymbol),
     [normalizedSymbol, requestedProvider, stocks],
   );
+  const { data: stockPortfolio, refetch: refetchPortfolio } = useQuery({
+    queryKey: ["stock-portfolio"],
+    queryFn: async () => (await stocksService.getPortfolio()).data,
+    staleTime: 30_000,
+  });
+  const holding = useMemo(
+    () =>
+      (stockPortfolio?.holdings || []).find(
+        (item) =>
+          getUnderlyingTicker(item.symbol) === normalizedSymbol &&
+          (!requestedProvider ||
+            item.provider.toLowerCase() === requestedProvider),
+      ) || null,
+    [normalizedSymbol, requestedProvider, stockPortfolio?.holdings],
+  );
+  const canSell = Number(holding?.shares || 0) > 0;
   const { data: chartData } = useQuery({
     queryKey: ["stock-charts", stock?.symbol, activeRange],
     queryFn: () => getStockCharts(stock ? [stock.symbol] : [], activeRange),
@@ -275,10 +291,17 @@ export default function StockDetailsPage({
               <p className="truncate text-sm text-gray-30 dark:text-gray-40">{name} · Tokenized stock</p>
             </div>
           </div>
-          <Button type="button" variant="flow" className="h-11 px-7" disabled={!stock} onClick={() => setIsBuyOpen(true)}>
-            <span className="relative z-10">Buy {title}</span>
-            <span aria-hidden="true" className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-          </Button>
+          <div className="flex items-center gap-3">
+            {canSell ? (
+              <Button type="button" variant="outline" className="h-11 px-6" onClick={() => setStockAction("sell")}>
+                Sell {title}
+              </Button>
+            ) : null}
+            <Button type="button" variant="flow" className="h-11 px-7" disabled={!stock} onClick={() => setStockAction("buy")}>
+              <span className="relative z-10">Buy {title}</span>
+              <span aria-hidden="true" className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+            </Button>
+          </div>
         </div>
 
         <section className="overflow-hidden rounded-2xl border border-gray-80 bg-white/70 p-7 dark:border-white/10 dark:bg-secondary-50/60">
@@ -346,7 +369,7 @@ export default function StockDetailsPage({
             variant="flow"
             className="h-12 w-full"
             disabled={!stock}
-            onClick={() => setIsBuyOpen(true)}
+            onClick={() => setStockAction("buy")}
           >
             <span className="relative z-10">Buy {title}</span>
           </Button>
@@ -381,11 +404,26 @@ export default function StockDetailsPage({
 
       </div>
 
-      <div className="fixed inset-x-0 bottom-[76px] z-30 p-4 md:hidden">
-        <Button type="button" variant="flow" className="h-14 w-full" disabled={!stock} onClick={() => setIsBuyOpen(true)}><span className="relative z-10">Buy {title}</span></Button>
+      <div className="fixed inset-x-0 bottom-[76px] z-30 flex gap-3 p-4 md:hidden">
+        {canSell ? (
+          <Button type="button" variant="outline" className="h-14 flex-1" onClick={() => setStockAction("sell")}>Sell {title}</Button>
+        ) : null}
+        <Button type="button" variant="flow" className="h-14 flex-1" disabled={!stock} onClick={() => setStockAction("buy")}><span className="relative z-10">Buy {title}</span></Button>
       </div>
 
-      <StockActionDialog action="buy" stock={stock || null} profile={profile} open={isBuyOpen} onOpenChange={setIsBuyOpen} onComplete={async () => { await refetch(); }} />
+      <StockActionDialog
+        action={stockAction || "buy"}
+        stock={stock || null}
+        holding={holding}
+        profile={profile}
+        open={Boolean(stockAction)}
+        onOpenChange={(open) => {
+          if (!open) setStockAction(null);
+        }}
+        onComplete={async () => {
+          await Promise.all([refetch(), refetchPortfolio()]);
+        }}
+      />
     </main>
   );
 }

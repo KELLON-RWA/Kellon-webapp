@@ -1,8 +1,9 @@
 // components/BuyCryptoFlow/steps/ProviderSelectionStep.tsx
-import { Globe, ArrowRight, Loader2, Check, AlertCircle } from "lucide-react";
+import { Globe, ArrowRight, Loader2, Check, AlertCircle, Home, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -49,6 +50,9 @@ interface ProviderSelectionStepProps {
   providerRates: Record<string, ProviderRateDetails | null>;
   isRatesLoading: boolean;
   requiresRefundAccount?: boolean;
+  country?: string | null;
+  onGoHome: () => void;
+  onChangeSelection: () => void;
 }
 
 export function ProviderSelectionStep({
@@ -63,6 +67,9 @@ export function ProviderSelectionStep({
   isRatesLoading,
   fiatCurrency,
   requiresRefundAccount = false,
+  country,
+  onGoHome,
+  onChangeSelection,
 }: ProviderSelectionStepProps) {
   const visibleProviders = isRatesLoading
     ? providers
@@ -83,6 +90,9 @@ export function ProviderSelectionStep({
     (isRatesLoading || selectedProviderRate === undefined);
   const canContinue =
     Boolean(hasValidSelection) && hasSelectedProviderRate && !isRatesLoading;
+  const hasNoProviders = !isRatesLoading && providers.length === 0;
+  const hasNoLiveRates =
+    !isRatesLoading && providers.length > 0 && visibleProviderCount === 0;
 
   // Track image loading errors per provider
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -249,25 +259,56 @@ export function ProviderSelectionStep({
           </div>
 
           {/* No providers message */}
-          {!isRatesLoading && visibleProviderCount === 0 && (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-secondary-60/40 mb-4">
-                <AlertCircle className="w-8 h-8 text-gray-400" />
+          {(hasNoProviders || hasNoLiveRates) && (
+            <div className="rounded-2xl border border-dashed border-black/10 bg-gray-50/80 px-5 py-8 text-center dark:border-white/10 dark:bg-secondary-60/30">
+              <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-70/10 text-primary-60">
+                {hasNoProviders ? (
+                  <MapPin className="h-7 w-7" />
+                ) : (
+                  <AlertCircle className="h-7 w-7" />
+                )}
               </div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {providers.length === 0
-                  ? "No providers available"
-                  : "No providers with live rates"}
+              <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                {hasNoProviders
+                  ? `Purchases are not available in ${country || "this country"} yet`
+                  : "No providers have a live rate right now"}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Please try a different amount, asset, or network.
+              <p className="mx-auto mt-1.5 max-w-sm text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {hasNoProviders
+                  ? "This service is not available for your current residence."
+                  : "Try a different amount, asset, or network, then check again."}
               </p>
+              <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                {hasNoProviders ? (
+                  <Button
+                    type="button"
+                    onClick={onGoHome}
+                    variant="flow"
+                    size="action"
+                    className="w-full max-w-xs text-xs"
+                  >
+                    <Home className="relative z-10 h-4 w-4" />
+                    <span className="relative z-10">Go to home</span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+                  </Button>
+                ) : null}
+                {!hasNoProviders ? (
+                  <button
+                    type="button"
+                    onClick={onChangeSelection}
+                    className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition hover:border-primary-60/40 hover:text-primary-60 dark:border-white/10 dark:bg-white/5 dark:text-gray-200"
+                  >
+                    Change asset or network
+                  </button>
+                ) : null}
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {/* Sticky Footer with Review Button */}
+      {!hasNoProviders && (
       <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t  pt-6 pb-4 px-4 md:px-0 mt-6 border-t border-black/5 dark:border-white/5">
         <div className="max-w-md mx-auto md:max-w-full">
           {/* Selection summary (only when provider selected) */}
@@ -321,6 +362,7 @@ export function ProviderSelectionStep({
           </p>
         </div>
       </div>
+      )}
     </div>
   );
 }

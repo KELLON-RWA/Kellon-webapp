@@ -25,6 +25,9 @@ const BuyCryptoFlowManager = () => {
         isOpen={showExitModal}
         onStay={() => setShowExitModal(false)}
         onLeave={() => router.push("/")}
+        title="Cancel this purchase?"
+        description="Your purchase details have not been submitted and will be discarded."
+        leaveLabel="Cancel purchase"
       />
     </>
   )

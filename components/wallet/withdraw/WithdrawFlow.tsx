@@ -719,6 +719,9 @@ export default function WithdrawFlow({
               }}
               providerRates={providerRates}
               isRatesLoading={isLoadingRates}
+              country={country}
+              onGoHome={() => router.push("/")}
+              onChangeSelection={() => setStep("asset")}
             />
           ) : null}
 
@@ -791,6 +794,9 @@ export default function WithdrawFlow({
         isOpen={showExitModal}
         onStay={() => setShowExitModal(false)}
         onLeave={() => onAttemptClose(true)}
+        title="Cancel this withdrawal?"
+        description="Your withdrawal details have not been submitted and will be discarded."
+        leaveLabel="Cancel withdrawal"
       />
 
       <TransferVerificationModal
