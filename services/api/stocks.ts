@@ -94,6 +94,7 @@ export interface BuildStockBuyTransactionParams extends BuyStockParams {
 export interface BuildStockBuyTransactionResponse extends StockTransactionCall {
   chain: string;
   approveTx?: StockTransactionCall;
+  calls?: StockTransactionCall[];
   quote: {
     symbol: string;
     price: number;

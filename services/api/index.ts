@@ -117,6 +117,8 @@ const SIGNED_ROUTE_SEGMENTS = [
   "offramp",
   "invoices",
   "gifts",
+  "recovery",
+  "security",
   "banks",
   "kyc",
   "cards",
@@ -131,17 +133,37 @@ const SIGNED_ROUTE_SEGMENTS = [
   "users",
 ];
 
+const LEGACY_PERSISTENT_KEYS = [
+  API_SECRET_STORAGE_KEY,
+  DEVICE_TOKEN_STORAGE_KEY,
+  GENERATED_DEVICE_ID_STORAGE_KEY,
+  AUTH_TOKEN_STORAGE_KEY,
+];
+
+function purgeLegacyPersistentCredentials(): void {
+  if (typeof window === "undefined") return;
+
+  for (const key of LEGACY_PERSISTENT_KEYS) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Storage may be unavailable in privacy-restricted browser contexts.
+    }
+  }
+}
+
+purgeLegacyPersistentCredentials();
+
 function getStoredValue(key: string): string | undefined {
   if (typeof window === "undefined") return undefined;
 
-  return sessionStorage.getItem(key) || localStorage.getItem(key) || undefined;
+  return sessionStorage.getItem(key) || undefined;
 }
 
 function setStoredValue(key: string, value: string): void {
   if (typeof window === "undefined") return;
 
   sessionStorage.setItem(key, value);
-  localStorage.setItem(key, value);
 }
 
 export function persistApiCredentials(credentials: ApiCredentials): void {

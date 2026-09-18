@@ -70,13 +70,25 @@ interface StockActionDialogProps {
 interface StockSmartAccountClient {
   account: { address: string };
   chain: unknown;
-  sendTransaction(args: {
-    account: unknown;
-    chain: unknown;
-    to: `0x${string}`;
-    data: `0x${string}`;
-    value: bigint;
-  }): Promise<string>;
+  sendTransaction(
+    args:
+      | {
+          account: unknown;
+          chain: unknown;
+          calls: Array<{
+            to: `0x${string}`;
+            data: `0x${string}`;
+            value: bigint;
+          }>;
+        }
+      | {
+          account: unknown;
+          chain: unknown;
+          to: `0x${string}`;
+          data: `0x${string}`;
+          value: bigint;
+        },
+  ): Promise<string>;
 }
 
 export default function StockActionDialog({
@@ -278,34 +290,29 @@ export default function StockActionDialog({
           userAddress: client.account.address,
         });
 
-        if (!buildRes.data?.to) {
+        const batchedCalls = (buildRes.data?.calls || []).map((call) => ({
+          to: call.to as `0x${string}`,
+          data: (call.data || "0x") as `0x${string}`,
+          value: BigInt(call.value || "0"),
+        }));
+
+        if (!batchedCalls.length && !buildRes.data?.to) {
           throw new Error("The stock purchase transaction could not be built.");
         }
 
-        if (buildRes.data.approveTx) {
-          try {
-            await client.sendTransaction({
+        const txHash = batchedCalls.length
+          ? await client.sendTransaction({
               account: client.account,
               chain: client.chain,
-              to: buildRes.data.approveTx.to as `0x${string}`,
-              data: (buildRes.data.approveTx.data || "0x") as `0x${string}`,
-              value: BigInt(buildRes.data.approveTx.value || "0"),
+              calls: batchedCalls,
+            })
+          : await client.sendTransaction({
+              account: client.account,
+              chain: client.chain,
+              to: buildRes.data.to as `0x${string}`,
+              data: (buildRes.data.data || "0x") as `0x${string}`,
+              value: BigInt(buildRes.data.value || "0"),
             });
-          } catch (error) {
-            console.error("[StockActionDialog] USDC approve failed:", error);
-            throw new Error(
-              "Could not approve USDC for the swap. Please try again.",
-            );
-          }
-        }
-
-        const txHash = await client.sendTransaction({
-          account: client.account,
-          chain: client.chain,
-          to: buildRes.data.to as `0x${string}`,
-          data: (buildRes.data.data || "0x") as `0x${string}`,
-          value: BigInt(buildRes.data.value || "0"),
-        });
 
         if (!txHash.startsWith("0x")) {
           throw new Error(
