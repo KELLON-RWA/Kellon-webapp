@@ -293,13 +293,17 @@ async function post(
   endpoint: string,
   body: OnrampInitRequest,
 ): Promise<ApiResponse<OnrampResponse>> {
-  const res = await apiFetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const res = await apiFetch(
+    endpoint,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    { signed: true },
+  );
 
   return handleResponse(res);
 }

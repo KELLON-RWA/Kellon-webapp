@@ -106,6 +106,7 @@ export default function StockActionDialog({
   const [verificationType, setVerificationType] = useState<
     "email_otp" | "sms_otp" | "totp" | null
   >(null);
+  const [verificationAction, setVerificationAction] = useState("stocks");
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const otpRequestInFlightRef = useRef(false);
@@ -180,7 +181,10 @@ export default function StockActionDialog({
     onOpenChange(nextOpen);
   };
 
-  const requestStockOtp = async (channel?: "email" | "sms") => {
+  const requestStockOtp = async (
+    channel?: "email" | "sms",
+    context = verificationAction,
+  ) => {
     const now = Date.now();
     if (
       otpRequestInFlightRef.current ||
@@ -197,7 +201,7 @@ export default function StockActionDialog({
       const deliveryChannel =
         channel || (verificationType === "sms_otp" ? "sms" : "email");
       const response = await transferService.requestOTP(
-        "stocks",
+        context,
         deliveryChannel,
       );
       setOtpSent(true);
@@ -394,6 +398,8 @@ export default function StockActionDialog({
         }
 
         const nextType = mfaErr.verificationType;
+        const nextAction = mfaErr.action || "stocks";
+        setVerificationAction(nextAction);
         setVerificationType(
           nextType === "totp"
             ? "totp"
@@ -403,7 +409,10 @@ export default function StockActionDialog({
         );
 
         if (nextType !== "totp" && !verification) {
-          await requestStockOtp(nextType === "sms_otp" ? "sms" : "email");
+          await requestStockOtp(
+            nextType === "sms_otp" ? "sms" : "email",
+            nextAction,
+          );
         }
         return;
       }
@@ -426,8 +435,8 @@ export default function StockActionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={closeDialog}>
-        <DialogContent className="gap-0 overflow-hidden border-gray-80 bg-gray-99 p-0 dark:border-white/10 dark:bg-secondary-40 sm:max-w-md">
-          <div className="border-b border-gray-80 bg-white px-5 py-5 dark:border-white/10 dark:bg-secondary-50">
+        <DialogContent className="fixed inset-x-0 bottom-0 top-auto max-h-[90dvh] w-full max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-t-[32px] border-none bg-gray-70 p-0 shadow-2xl outline-none data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom dark:bg-black2 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[calc(100dvh-4rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[32px]">
+          <div className="border-b border-gray-80 bg-gray-70 px-5 py-5 dark:border-white/10 dark:bg-black2">
             <DialogHeader>
               <DialogTitle className="text-left text-lg text-cryptoNight dark:text-white">
                 {title}
@@ -446,7 +455,7 @@ export default function StockActionDialog({
                 onSubmit={form.handleSubmit((values) =>
                   performStockAction(values),
                 )}
-                className="space-y-5 p-5"
+                className="space-y-5 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:p-5"
               >
                 <div className="flex items-center justify-between rounded-lg border border-gray-80 bg-white p-4 dark:border-white/10 dark:bg-secondary-50">
                   <div className="flex items-center gap-3">
@@ -620,6 +629,7 @@ export default function StockActionDialog({
         isResending={isRequestingOtp}
         onClose={() => {
           setVerificationType(null);
+          setVerificationAction("stocks");
           setOtpSent(false);
           endOperation();
         }}

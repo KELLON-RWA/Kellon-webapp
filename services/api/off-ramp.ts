@@ -165,11 +165,15 @@ export const offrampService = {
   fundCentiiv: async (body: {
     transactionId: string;
   }): Promise<ApiResponse<{ success: boolean }>> => {
-    const res = await apiFetch("/api/offramp/centiiv/fund", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const res = await apiFetch(
+      "/api/offramp/centiiv/fund",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      { signed: true },
+    );
     return handleResponse(res);
   },
 };
@@ -186,14 +190,18 @@ async function post(
   const requestBody = sanitizeOfframpPayload(body);
 
   for (const endpoint of candidates) {
-    const res = await apiFetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-platform": typeof window !== "undefined" ? "web" : "mobile",
+    const res = await apiFetch(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-platform": typeof window !== "undefined" ? "web" : "mobile",
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
-    });
+      { signed: true },
+    );
 
     if (res.status !== 404 || endpoint === candidates[candidates.length - 1]) {
       return handleOfframpResponse(res);

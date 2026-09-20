@@ -16,6 +16,15 @@ The webapp brings crypto rails and familiar banking workflows into one wallet ex
 - Light and dark mode support
 - Earn feature planned for integration
 
+## Architecture
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — the Kellon platform as a whole: the services it provides,
+  the networks and partners it integrates, and how a flow travels across them. It covers the mobile
+  app, backend, admin console and messaging bots alongside this webapp, not this repository alone.
+- [STELLAR_ARCHITECTURE.md](./STELLAR_ARCHITECTURE.md) — how Kellon uses Stellar and Soroban:
+  accounts and sponsored trustlines, platform-paid fees, signing, and the payment, bridge, ramp and
+  yield flows that settle there.
+
 ## Tech Stack
 
 - Next.js

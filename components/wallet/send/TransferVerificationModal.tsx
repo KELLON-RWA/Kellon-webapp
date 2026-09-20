@@ -136,7 +136,7 @@ export default function TransferVerificationModal({
           {isOtpMethod && onResend && otpSent ? (
             <button
               type="button"
-              onClick={onResend}
+              onClick={() => onResend()}
               disabled={isSubmitting || isResending}
               className="mt-3 cursor-pointer text-xs font-semibold text-primary-50 transition hover:text-primary-30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-80 dark:hover:text-primary-90"
             >
@@ -168,7 +168,9 @@ export default function TransferVerificationModal({
             <button
               type="button"
               onClick={
-                isChoosingOtpChannel ? onResend : () => onSubmit(trimmedCode)
+                isChoosingOtpChannel
+                  ? () => onResend?.()
+                  : () => onSubmit(trimmedCode)
               }
               disabled={
                 isChoosingOtpChannel ? isSubmitting || isResending : !canSubmit
