@@ -1,4 +1,5 @@
 import { User } from "@/types/db";
+import { requireSecureSessionLogin } from "@/lib/secure-session";
 
 type ApiError = {
   message?: string;
@@ -216,6 +217,7 @@ function getApiCredentials(): Required<ApiCredentials> {
   const deviceToken = getStoredValue(DEVICE_TOKEN_STORAGE_KEY);
 
   if (!token || !apiSecret || !deviceToken) {
+    requireSecureSessionLogin();
     throw new Error("Secure session missing. Please log in again.");
   }
 

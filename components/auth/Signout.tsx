@@ -11,6 +11,29 @@ import { cn } from "@/lib/utils";
 import { logout as apiLogout } from "@/services/api/auth";
 import { disableWebPush } from "@/lib/realtime/web-push";
 
+export async function signOutAndReturnToLogin(
+  privyLogout: () => Promise<void>,
+): Promise<void> {
+  const deviceToken = Cookies.get("deviceToken");
+
+  try {
+    await disableWebPush().catch(() => {});
+    await apiLogout(deviceToken || "");
+  } catch (error) {
+    console.error("Backend logout failed:", error);
+  } finally {
+    Cookies.remove("deviceToken", { path: "/" });
+
+    try {
+      await privyLogout();
+    } catch (error) {
+      console.error("Privy logout failed:", error);
+    }
+
+    window.location.href = "/continue";
+  }
+}
+
 const Signout: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,29 +42,8 @@ const Signout: FC = () => {
 
   const handleSignout = async () => {
     setIsLoading(true);
-    const deviceToken = Cookies.get("deviceToken");
-
-    try {
-      await disableWebPush().catch(() => {});
-      // Backend logout
-      await apiLogout(deviceToken || "");
-    } catch (error) {
-      console.error("Backend logout failed:", error);
-    } finally {
-      // Remove cookie
-      Cookies.remove("deviceToken", { path: "/" });
-
-      try {
-        // Privy logout
-        await privyLogout();
-      } catch (error) {
-        console.error("Privy logout failed:", error);
-      }
-
-      // Redirect
-      window.location.href = "/continue";
-      setIsLoading(false);
-    }
+    await signOutAndReturnToLogin(privyLogout);
+    setIsLoading(false);
   };
 
   return (

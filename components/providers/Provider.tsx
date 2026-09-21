@@ -8,6 +8,7 @@ import ReactQueryProvider from "./ReactQueryProvider";
 import MyPrivyProvider from "./PrivyProvider";
 import RealtimeProvider from "./RealtimeProvider";
 import { Toaster } from "sonner";
+import SecureSessionRequiredDialog from "@/components/auth/SecureSessionRequiredDialog";
 
 interface ProviderProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ const Provider: FC<ProviderProps> = async ({ children }) => {
         storageKey="kellon-theme"
       >
         <MyPrivyProvider>
+          <SecureSessionRequiredDialog />
           <ReactQueryProvider>
             <RealtimeProvider>
               <CustomWagmiProvider>
