@@ -4,10 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import {
-  ArrowDownRight,
   ArrowDownToLine,
   ArrowRight,
-  ArrowUpRight,
   Building2,
   ChartLine,
   ChevronLeft,
@@ -97,17 +95,6 @@ function isRwaHolding(
     provider: holding.provider,
     rwaCategory: holding.rwaCategory,
   });
-}
-
-function getHoldingListing(
-  holding: StockPortfolioHolding,
-  listings: StockListing[],
-): StockListing | undefined {
-  return listings.find(
-    (stock) =>
-      stock.symbol.toLowerCase() === holding.symbol.toLowerCase() &&
-      stock.provider.toLowerCase() === holding.provider.toLowerCase(),
-  );
 }
 
 export function getListingChange(
@@ -1601,104 +1588,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
             )}
               </>
             )}
-
-            {categoryPortfolioHoldings.length > 0 ? (
-              <section className="mb-7">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-                    My positions
-                  </h2>
-                  <span className="rounded-full bg-gray-90 px-2.5 py-1 text-[10px] font-bold text-gray-20 dark:bg-white/5 dark:text-gray-40">
-                    {categoryPortfolioHoldings.length}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {categoryPortfolioHoldings.map((holding) => {
-                    const listing = getHoldingListing(holding, stocks);
-                    const pnl = toNumber(holding.unrealizedPnL);
-                    const pnlPercentage = toNumber(
-                      holding.unrealizedPnLPercentage,
-                    );
-
-                    return (
-                      <article
-                        key={holding.id}
-                        className="rounded-xl border border-gray-80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-3">
-                            <StockLogo
-                              symbol={holding.symbol}
-                              src={getStockLogoUrl(
-                                holding.symbol,
-                                listing?.logoUrl,
-                              )}
-                            />
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
-                                  {holding.symbol}
-                                </p>
-                                <span className="rounded-full bg-primary-90/10 px-1.5 py-0.5 text-[8px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
-                                  {getProtocolName(holding.provider)}
-                                </span>
-                              </div>
-                              <p className="truncate text-xs text-gray-30 dark:text-gray-40">
-                                {listing?.name || `${holding.symbol} position`}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-sm font-bold text-cryptoNight dark:text-white">
-                              {formatUsd(toNumber(holding.currentValue))}
-                            </p>
-                            <p
-                              className={cn(
-                                "mt-1 flex items-center justify-end gap-1 text-[10px] font-bold",
-                                pnl >= 0
-                                  ? "text-emerald-600 dark:text-emerald-300"
-                                  : "text-rose-600 dark:text-rose-300",
-                              )}
-                            >
-                              {pnl > 0 ? (
-                                <ArrowUpRight
-                                  className="h-3 w-3 shrink-0"
-                                  aria-hidden="true"
-                                />
-                              ) : pnl < 0 ? (
-                                <ArrowDownRight
-                                  className="h-3 w-3 shrink-0"
-                                  aria-hidden="true"
-                                />
-                              ) : null}
-                              {pnl >= 0 ? "+" : ""}
-                              {formatUsd(pnl)} ({pnlPercentage.toFixed(2)}%)
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-80 pt-4 dark:border-white/10">
-                          <p className="min-w-0 truncate text-[10px] text-gray-30 dark:text-gray-40">
-                            {toNumber(holding.shares).toFixed(4)} shares · Avg.{" "}
-                            {formatUsd(toNumber(holding.avgBuyPrice))}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled
-                            className="h-9 shrink-0 px-4"
-                            title="Selling is temporarily unavailable while on-chain settlement is being enabled."
-                          >
-                            Sell
-                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : null}
 
             {/* Market ETFs */}
             {activeTab === "stocks" && marketEtfs.length > 0 && (
