@@ -118,7 +118,7 @@ export default function AssetsPanel({
         </div>
         <div className="hidden min-[1024px]:flex min-[1024px]:items-center min-[1024px]:gap-3">
           {isDesktopSearchOpen ? (
-            <div className="flex w-56 items-center gap-3 border-b border-black/10 pb-2 dark:border-white/10">
+            <div className="ml-auto flex w-full max-w-sm items-center gap-3 pb-2">
               <Search className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40" aria-hidden="true" />
               <input
                 autoFocus
@@ -130,20 +130,29 @@ export default function AssetsPanel({
                     setIsDesktopSearchOpen(false);
                   }
                 }}
-                placeholder={`Search ${activeTable}`}
+                placeholder="Search"
                 aria-label={`Search ${activeTable}`}
                 className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
               />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear asset search"
+                  className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setIsDesktopSearchOpen(false);
                 }}
-                aria-label="Close asset search"
-                className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
               >
-                <X className="h-4 w-4" />
+                Cancel
               </button>
             </div>
           ) : (
@@ -335,7 +344,7 @@ function DesktopYieldTable({
           aria-hidden="true"
           className="grid flex-1 grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 text-sm text-gray-300 last:border-b-0 dark:border-white/10 dark:text-gray-50 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3"
         >
-          <span>__</span><span className="text-right">__</span><span className="text-right">__</span><span className="text-right">__</span><span className="justify-self-end">__</span>
+          <span /><span className="text-right" /><span className="text-right" /><span className="text-right" /><span className="justify-self-end" />
         </div>
       ))}
     </div>
@@ -446,12 +455,12 @@ function DesktopAssetTable({
           aria-hidden="true"
           className="grid grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 text-sm text-gray-300 last:border-b-0 dark:border-white/10 dark:text-gray-50 min-[1280px]:flex-1 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
         >
-          <span>__</span>
-          <span className="text-right">__</span>
-          <span className="text-right">__</span>
-          <span className="text-right">__</span>
-          <span className="text-right">__</span>
-          <span className="justify-self-end">__</span>
+          <span />
+          <span className="text-right" />
+          <span className="text-right" />
+          <span className="text-right" />
+          <span className="text-right" />
+          <span className="justify-self-end" />
         </div>
       ))}
     </div>

@@ -41,7 +41,7 @@ export function ExitConfirmation({
             onClick={onStay}
             className="h-11 min-w-0 cursor-pointer rounded-xl border border-black/5 bg-white px-2 text-xs font-bold text-black transition-all hover:bg-gray-50 active:scale-[0.98] dark:border-white/10 dark:bg-secondary-50 dark:text-white dark:hover:bg-secondary-60/50 sm:h-12 sm:rounded-2xl sm:px-4 sm:text-sm"
           >
-            Keep editing
+            Continue purchase
           </button>
           <button
             type="button"
