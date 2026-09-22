@@ -20,6 +20,8 @@ export interface InvestmentAssetSummary {
   usdValue: number;
   localValue: number;
   provider: string;
+  price?: number;
+  change24hPercentage?: number;
   kind: "stock" | "rwa";
   href: string;
   logoUrl?: string;

@@ -32,7 +32,7 @@ export default function ActivityPanel({
   transactionsError,
 }: ActivityPanelProps) {
   return (
-    <div className="order-4 flex max-h-[420px] w-full flex-col space-y-4 overflow-hidden min-[900px]:order-none min-[900px]:col-span-full min-[900px]:space-y-3 lg:h-[360px] lg:max-h-none lg:space-y-4 lg:rounded-xl lg:border lg:border-white/70 lg:bg-white/60 lg:p-5 lg:shadow-sm lg:shadow-primary-90/20 lg:backdrop-blur-xl lg:dark:border-white/10 lg:dark:bg-transparent lg:dark:shadow-none">
+    <div className="order-4 flex max-h-[420px] w-full flex-col space-y-4 overflow-hidden min-[1024px]:order-none min-[1024px]:col-span-full min-[1024px]:max-h-[240px] min-[1024px]:space-y-2 min-[1024px]:!border-0 min-[1024px]:!bg-white/80 min-[1024px]:!shadow-none min-[1024px]:dark:!bg-secondary-50 lg:h-[240px] lg:max-h-[240px] lg:space-y-2 lg:rounded-xl lg:border lg:border-white/70 lg:bg-white/60 lg:p-4 lg:shadow-sm lg:shadow-primary-90/20 lg:backdrop-blur-xl lg:dark:border-white/10 lg:dark:bg-transparent lg:dark:shadow-none">
       <div className="lg:hidden">
         <Link
           href="/transactions"
@@ -54,7 +54,7 @@ export default function ActivityPanel({
         </h3>
         <Link
           href="/transactions"
-          className="cursor-pointer text-sm text-primary-50 hover:opacity-80"
+          className="cursor-pointer text-sm text-primary-50 hover:opacity-80 dark:min-[1024px]:text-white dark:min-[1024px]:hover:text-white/70"
         >
           See All
         </Link>
@@ -74,29 +74,29 @@ export default function ActivityPanel({
               <Link
                 key={transaction.id}
                 href={`/transactions/${transaction.id}`}
-                className="flex cursor-pointer items-center justify-between gap-2 border-b border-black/10 px-2.5 py-3 transition-colors last:border-b-0 hover:bg-primary-99/80 dark:border-white/10 dark:hover:bg-secondary-60/40 xs:gap-3 xs:px-3 min-[900px]:gap-2 min-[900px]:px-2.5 min-[900px]:py-2.5 lg:gap-3 lg:px-3 lg:py-3"
+                className="flex cursor-pointer items-center justify-between gap-2 border-b border-black/10 px-2.5 py-3 transition-colors last:border-b-0 hover:bg-primary-99/80 dark:border-white/10 dark:hover:bg-secondary-60/40 xs:gap-3 xs:px-3 min-[1024px]:gap-2 min-[1024px]:px-2.5 min-[1024px]:py-1.5 lg:gap-3 lg:px-3 lg:py-1.5"
               >
-                <div className="flex min-w-0 flex-1 items-center gap-2 xs:gap-3 min-[900px]:gap-2 lg:gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2 xs:gap-3 min-[1024px]:gap-2 lg:gap-3">
                   <div
                     className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full min-[900px]:h-7 min-[900px]:w-7 lg:h-8 lg:w-8",
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full min-[1024px]:h-7 min-[1024px]:w-7 lg:h-8 lg:w-8",
                       isPositiveTransaction(transaction.type)
                         ? "bg-primary-95 dark:bg-primary-70/15"
                         : "bg-white dark:bg-secondary-60",
                     )}
                   >
                     {isPositiveTransaction(transaction.type) ? (
-                      <ArrowDownLeft className="h-3.5 w-3.5 text-primary-50 dark:text-primary-80 min-[900px]:h-3 min-[900px]:w-3 lg:h-3.5 lg:w-3.5" />
+                      <ArrowDownLeft className="h-3.5 w-3.5 text-primary-50 dark:text-primary-80 min-[1024px]:h-3 min-[1024px]:w-3 lg:h-3.5 lg:w-3.5" />
                     ) : (
-                      <ArrowUpRight className="h-3.5 w-3.5 text-gray-20 dark:text-gray-40 min-[900px]:h-3 min-[900px]:w-3 lg:h-3.5 lg:w-3.5" />
+                      <ArrowUpRight className="h-3.5 w-3.5 text-gray-20 dark:text-gray-40 min-[1024px]:h-3 min-[1024px]:w-3 lg:h-3.5 lg:w-3.5" />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-black dark:text-white min-[900px]:text-[11px] lg:text-sm">
+                    <p className="truncate text-xs font-medium text-black dark:text-white min-[1024px]:text-[11px] lg:text-sm">
                       {getTransactionTitle(transaction)}
                     </p>
-                    <div className="mt-1 flex items-center gap-2 min-[900px]:gap-1.5">
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400 min-[900px]:text-[10px] lg:text-[11px]">
+                    <div className="mt-1 flex items-center gap-2 min-[1024px]:gap-1.5">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 min-[1024px]:text-[10px] lg:text-[11px]">
                         <HydrationSafeRelativeTime
                           value={transaction.createdAt}
                         />
@@ -104,7 +104,7 @@ export default function ActivityPanel({
                       <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
                       <span
                         className={cn(
-                          "text-[10px] font-medium min-[900px]:text-[9px] lg:text-[10px]",
+                          "text-[10px] font-medium min-[1024px]:text-[9px] lg:text-[10px]",
                           getTransactionStatusClasses(transaction.status),
                         )}
                       >
@@ -114,8 +114,8 @@ export default function ActivityPanel({
                   </div>
                 </div>
 
-                <div className="ml-2 min-w-[50px] shrink-0 text-right xs:min-w-[56px] min-[900px]:ml-2 min-[900px]:min-w-[48px] lg:ml-3 lg:min-w-[56px]">
-                  <p className="break-words text-[11px] font-medium leading-tight text-black dark:text-white xs:text-xs min-[900px]:text-[11px] lg:text-sm">
+                <div className="ml-2 min-w-[50px] shrink-0 text-right xs:min-w-[56px] min-[1024px]:ml-2 min-[1024px]:min-w-[48px] lg:ml-3 lg:min-w-[56px]">
+                  <p className="break-words text-[11px] font-medium leading-tight text-black dark:text-white xs:text-xs min-[1024px]:text-[11px] lg:text-sm">
                     {isBalanceVisible
                       ? getTransactionAmountLabel(transaction)
                       : "••••"}
