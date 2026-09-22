@@ -3,11 +3,15 @@ import type {
   InvestmentAssetSummary,
 } from "@/lib/dashboard-types";
 import { formatCurrencyAmount } from "@/lib/dashboard-utils";
+import { getPositionValue } from "@/components/earn/earn-utils";
+import type { YieldPosition } from "@/types/db";
 
 interface PortfolioAllocationPanelProps {
   activeCurrency: string;
   groupedAssets: GroupedAssetSummary[];
   investmentAssets: InvestmentAssetSummary[];
+  yieldPositions: YieldPosition[];
+  exchangeRate: number;
   isBalanceVisible: boolean;
 }
 
@@ -15,6 +19,8 @@ export default function PortfolioAllocationPanel({
   activeCurrency,
   groupedAssets,
   investmentAssets,
+  yieldPositions,
+  exchangeRate,
   isBalanceVisible,
 }: PortfolioAllocationPanelProps) {
   const stablecoinValue = groupedAssets.reduce(
@@ -25,19 +31,27 @@ export default function PortfolioAllocationPanel({
     (total, asset) => total + asset.usdValue,
     0,
   );
-  const total = stablecoinValue + stockValue;
+  const yieldValue = yieldPositions.reduce(
+    (total, position) => total + getPositionValue(position),
+    0,
+  );
+  const total = stablecoinValue + stockValue + yieldValue;
   const stablecoinPercentage = total > 0 ? (stablecoinValue / total) * 100 : 0;
   const stockPercentage = total > 0 ? (stockValue / total) * 100 : 0;
+  const yieldPercentage = total > 0 ? (yieldValue / total) * 100 : 0;
   const totalInCurrency =
     activeCurrency === "USD"
       ? total
       : groupedAssets.reduce((sum, asset) => sum + asset.localValue, 0) +
-        investmentAssets.reduce((sum, asset) => sum + asset.localValue, 0);
+        investmentAssets.reduce((sum, asset) => sum + asset.localValue, 0) +
+        yieldValue * exchangeRate;
+
+  const stockEnd = stablecoinPercentage + stockPercentage;
 
   const ringStyle =
     total > 0
       ? {
-          background: `conic-gradient(#c558ac 0 ${stablecoinPercentage}%, #7d4de8 ${stablecoinPercentage}% 100%)`,
+          background: `conic-gradient(#c558ac 0 ${stablecoinPercentage}%, #7d4de8 ${stablecoinPercentage}% ${stockEnd}%, #15a36f ${stockEnd}% 100%)`,
         }
       : undefined;
 
@@ -67,6 +81,11 @@ export default function PortfolioAllocationPanel({
             color="bg-violet-500"
             label="Tokenized stocks"
             percentage={stockPercentage}
+          />
+          <AllocationRow
+            color="bg-emerald-500"
+            label="Yield positions"
+            percentage={yieldPercentage}
           />
         </div>
       </div>

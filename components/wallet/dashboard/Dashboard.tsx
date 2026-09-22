@@ -162,8 +162,8 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
           />
         </div>
 
-        <aside className="order-2 flex min-w-0 flex-col gap-4 min-[1024px]:order-4 min-[1024px]:grid min-[1024px]:grid-cols-2 min-[1024px]:items-start min-[1024px]:gap-3 min-[1280px]:order-none min-[1280px]:col-span-4 min-[1280px]:flex min-[1280px]:flex-col min-[1280px]:items-stretch min-[1440px]:col-span-1">
-          <div className="min-[1024px]:hidden min-[1280px]:block min-[1280px]:w-full">
+        <aside className="contents min-[1024px]:order-4 min-[1024px]:grid min-[1024px]:min-w-0 min-[1024px]:grid-cols-2 min-[1024px]:items-start min-[1024px]:gap-3 min-[1280px]:order-none min-[1280px]:col-span-4 min-[1280px]:flex min-[1280px]:flex-col min-[1280px]:items-stretch min-[1440px]:col-span-1">
+          <div className="order-2 min-[1024px]:hidden min-[1280px]:order-none min-[1280px]:block min-[1280px]:w-full">
             <QuickActionsPanel
               onAddFunds={() => setIsAddFundsOpen(true)}
               onSend={() => router.push("/send")}
@@ -174,6 +174,8 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
           <PortfolioAllocationPanel
             groupedAssets={dashboard.groupedAssets}
             investmentAssets={investmentAssets}
+            yieldPositions={activeYieldPositions}
+            exchangeRate={dashboard.exchangeRate}
             activeCurrency={dashboard.activeCurrency}
             isBalanceVisible={dashboard.isBalanceVisible}
           />

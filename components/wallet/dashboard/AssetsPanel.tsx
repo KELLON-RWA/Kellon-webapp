@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Coins, MoreHorizontal, Search, X } from "lucide-react";
 import AssetCard from "@/components/wallet/dashboard/AssetCard";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
@@ -73,6 +73,20 @@ export default function AssetsPanel({
     return opportunity && matchesSearch(opportunity.protocol, opportunity.symbol);
   });
   const hasAssets = visibleAssets.length + investmentAssets.length > 0;
+  const hasYieldPositions = yieldPositions.length > 0;
+  const mobileVisibleAssets = visibleAssets.slice(0, 10);
+  const mobileInvestmentAssets = investmentAssets.slice(
+    0,
+    Math.max(0, 10 - mobileVisibleAssets.length),
+  );
+  const mobileYieldPositions = filteredYieldPositions.slice(0, 10);
+
+  useEffect(() => {
+    if (!hasYieldPositions && activeTable === "yield") {
+      setActiveTable("assets");
+      setSearchQuery("");
+    }
+  }, [activeTable, hasYieldPositions]);
 
   return (
     <div className="order-3 flex w-full flex-col gap-4 min-[1024px]:col-span-full min-[1024px]:flex-1 min-[1024px]:rounded-xl min-[1024px]:border-0 min-[1024px]:!bg-white/80 min-[1024px]:gap-3 min-[1024px]:p-4 min-[1024px]:shadow-none min-[1024px]:dark:!bg-secondary-50">
@@ -80,7 +94,9 @@ export default function AssetsPanel({
         <div className="flex items-center gap-1 rounded-lg bg-black/[0.04] p-1 dark:bg-white/[0.06]">
           {([
             ["assets", "Assets"],
-            ["yield", `Yield${yieldPositions.length ? ` (${yieldPositions.length})` : ""}`],
+            ...(hasYieldPositions
+              ? [["yield", `Yield (${yieldPositions.length})`] as const]
+              : []),
           ] as const).map(([table, label]) => (
             <button
               key={table}
@@ -147,7 +163,7 @@ export default function AssetsPanel({
       {activeTable === "assets" && hasAssets ? (
         <>
           <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
-          {visibleAssets.map((asset) => {
+          {mobileVisibleAssets.map((asset) => {
             const cardValue =
               displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
 
@@ -160,11 +176,11 @@ export default function AssetsPanel({
                 value={formatCurrencyAmount(cardValue, activeCurrency)}
                 hideBalances={!isBalanceVisible}
                 isValueLoading={isAssetValueLoading}
-                className="px-3 py-3 xs:px-4 md:px-4 md:py-3 lg:px-5 lg:py-4"
+                compact
               />
             );
           })}
-          {investmentAssets.map((asset) => {
+          {mobileInvestmentAssets.map((asset) => {
             const cardValue =
               displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
 
@@ -179,7 +195,7 @@ export default function AssetsPanel({
                 href={asset.href}
                 iconUrl={asset.logoUrl}
                 subtitle={`${asset.kind === "rwa" ? "RWA" : "Tokenized stock"} · ${asset.provider}`}
-                className="px-3 py-3 xs:px-4 md:px-4 md:py-3 lg:px-5 lg:py-4"
+                compact
               />
             );
           })}
@@ -192,31 +208,31 @@ export default function AssetsPanel({
             visibleAssets={filteredVisibleAssets}
           />
         </>
-      ) : activeTable === "yield" ? (
+      ) : activeTable === "yield" && hasYieldPositions ? (
         <>
           <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
-            {filteredYieldPositions.map((position) => {
+            {mobileYieldPositions.map((position) => {
               const opportunity = getPositionOpportunity(position, yieldOpportunities);
               if (!opportunity) return null;
               return (
                 <Link
                   key={position.id}
                   href={`/earn/positions/${encodeURIComponent(position.id)}`}
-                  className="rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-black/10 bg-white/70 px-3 py-2.5 dark:border-white/10 dark:bg-secondary-50"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <AssetIdentity
-                      name={getProtocolName(opportunity.protocol)}
-                      symbol={opportunity.symbol}
-                      subtitle={`${getProtocolName(opportunity.protocol)} · ${opportunity.chain}`}
-                    />
+                  <AssetIdentity
+                    name={getProtocolName(opportunity.protocol)}
+                    symbol={opportunity.symbol}
+                    subtitle={`${getProtocolName(opportunity.protocol)} · ${opportunity.chain}`}
+                  />
+                  <div className="shrink-0 text-right">
                     <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                       {formatApy(opportunity.apy)}
                     </span>
+                    <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-40">
+                      {formatTokenAmount(getPositionValue(position))} {opportunity.symbol}
+                    </p>
                   </div>
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-40">
-                    Supplied {formatTokenAmount(getPositionValue(position))} {opportunity.symbol}
-                  </p>
                 </Link>
               );
             })}
