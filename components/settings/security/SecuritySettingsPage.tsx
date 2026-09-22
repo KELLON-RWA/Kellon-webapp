@@ -45,6 +45,7 @@ export default function SecuritySettingsPage({ profile }: { profile: User }) {
         isBusy={security.isBusy}
         onClose={security.closeDisable}
         onConfirm={security.confirmDisable}
+        onRequestCode={security.requestDisableCode}
       />
       <SecurityIntegrationModals
         activeModal={security.integrationModal}

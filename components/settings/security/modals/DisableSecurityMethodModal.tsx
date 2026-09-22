@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, TriangleAlert } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,13 +12,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import type { DisableSecurityAction } from "../security-types";
 
 interface DisableSecurityMethodModalProps {
   action: DisableSecurityAction;
   isBusy: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (code: string) => Promise<void>;
+  onRequestCode: () => Promise<void>;
 }
 
 export default function DisableSecurityMethodModal({
@@ -25,7 +28,22 @@ export default function DisableSecurityMethodModal({
   isBusy,
   onClose,
   onConfirm,
+  onRequestCode,
 }: DisableSecurityMethodModalProps) {
+  const [code, setCode] = useState("");
+  const requiresSentCode = action?.kind === "otp";
+
+  useEffect(() => {
+    setCode("");
+  }, [action]);
+
+  const description =
+    action?.kind === "totp"
+      ? "Enter the current code from your authenticator app to continue."
+      : action?.kind === "biometrics"
+        ? "Enter a current verification code to continue."
+        : "Enter a verification code sent to this method to continue.";
+
   return (
     <AlertDialog
       open={action !== null}
@@ -40,10 +58,34 @@ export default function DisableSecurityMethodModal({
             Disable {action?.label}?
           </AlertDialogTitle>
           <AlertDialogDescription className="mx-auto max-w-xs text-center text-sm leading-6 text-gray-20 dark:text-gray-40">
-            You will no longer be able to use this method to approve sensitive
-            actions. You can enable it again from Security &amp; Backup.
+            {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <div className="space-y-2">
+          <label htmlFor="disable-security-code" className="sr-only">
+            Verification code
+          </label>
+          <Input
+            id="disable-security-code"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="Enter verification code"
+            disabled={isBusy}
+            className="h-12 rounded-xl text-center text-sm"
+          />
+          {requiresSentCode ? (
+            <button
+              type="button"
+              onClick={() => void onRequestCode()}
+              disabled={isBusy}
+              className="text-xs font-medium text-primary-50 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-70"
+            >
+              Send verification code
+            </button>
+          ) : null}
+        </div>
         <AlertDialogFooter className="mt-2 grid grid-cols-2 gap-3 sm:grid">
           <AlertDialogCancel
             disabled={isBusy}
@@ -54,9 +96,9 @@ export default function DisableSecurityMethodModal({
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault();
-              void onConfirm();
+              void onConfirm(code);
             }}
-            disabled={isBusy}
+            disabled={isBusy || code.trim().length < 4}
             className="h-12 cursor-pointer rounded-xl border-none bg-red-600 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed"
           >
             {isBusy ? (
@@ -65,7 +107,7 @@ export default function DisableSecurityMethodModal({
                 aria-label="Disabling"
               />
             ) : (
-              "Disable"
+              "Verify & disable"
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

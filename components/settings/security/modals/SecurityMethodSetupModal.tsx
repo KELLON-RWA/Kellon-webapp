@@ -110,7 +110,7 @@ export default function SecurityMethodSetupModal({
           inputMode="numeric"
           autoComplete="one-time-code"
           placeholder="Enter verification code"
-          className="h-12 rounded-xl text-center tracking-[0.25em]"
+          className="h-12 rounded-xl text-center text-sm"
           disabled={isSubmitting}
         />
         <button

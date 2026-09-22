@@ -145,10 +145,31 @@ export function useSecuritySettings() {
     });
   };
 
-  const disableOtp = async (channel: OtpChannel) => {
+  const requestDisableCode = async () => {
+    if (!disableAction || disableAction.kind !== "otp" || activeAction) return;
+
+    setActiveAction("disable-code");
+    try {
+      const response = await securityService.requestOtp(
+        disableAction.channel,
+        "disable_otp",
+      );
+      toast.success(
+        `Verification code sent${response.data.maskedDestination ? ` to ${response.data.maskedDestination}` : ""}.`,
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to send verification code",
+      );
+    } finally {
+      setActiveAction(null);
+    }
+  };
+
+  const disableOtp = async (channel: OtpChannel, code: string) => {
     setActiveAction(channel);
     try {
-      await securityService.disableOtp(channel);
+      await securityService.disableOtp(channel, code);
       setSettings((current) => ({
         ...current,
         [channel === "email" ? "emailOtpEnabled" : "smsOtpEnabled"]: false,
@@ -169,10 +190,10 @@ export function useSecuritySettings() {
     }
   };
 
-  const disableTotp = async () => {
+  const disableTotp = async (code: string) => {
     setActiveAction("totp");
     try {
-      await securityService.disableTotp();
+      await securityService.disableTotp(code);
       setSettings((current) => ({ ...current, totpEnabled: false }));
       toast.success("Google Authenticator disabled.");
       return true;
@@ -188,14 +209,15 @@ export function useSecuritySettings() {
     }
   };
 
-  const confirmDisable = async () => {
-    if (!disableAction || activeAction) return;
+  const confirmDisable = async (code: string) => {
+    const verificationCode = code.trim();
+    if (!disableAction || verificationCode.length < 4 || activeAction) return;
 
     let disabled = false;
     if (disableAction.kind === "otp") {
-      disabled = await disableOtp(disableAction.channel);
+      disabled = await disableOtp(disableAction.channel, verificationCode);
     } else if (disableAction.kind === "totp") {
-      disabled = await disableTotp();
+      disabled = await disableTotp(verificationCode);
     } else {
       disabled = await toggleBiometrics(false);
     }
@@ -245,6 +267,7 @@ export function useSecuritySettings() {
     closeSetup: () => !activeAction && setSetup(null),
     closeDisable: () => !activeAction && setDisableAction(null),
     confirmDisable,
+    requestDisableCode,
     submitSetup,
   };
 }

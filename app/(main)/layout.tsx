@@ -22,7 +22,7 @@ const layout: FC<layoutProps> = async ({ children }) => {
     <main id="main-content" tabIndex={-1}>
       <Topbar profile={profile} />
       {profile && <DashboardDesktopNavigation profile={profile} />}
-      <div className="min-[1024px]:pl-56">{children}</div>
+      <div className="min-[1024px]:pl-56 min-[1024px]:pl-[var(--desktop-sidebar-width)]">{children}</div>
       <BottomNavigationBar className="md:hidden z-20" profile={profile} />
     </main>
   )

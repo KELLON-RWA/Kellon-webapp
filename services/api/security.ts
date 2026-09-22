@@ -66,20 +66,21 @@ export const securityService = {
     >("/settings")
     return normalizeSecuritySettings(response.data)
   },
-  requestOtp: (channel: OtpChannel) =>
+  requestOtp: (channel: OtpChannel, context = "enable_otp") =>
     securityRequest<OtpRequestResult>("/otp/request", {
-      context: "enable_otp",
+      context,
       channel,
     }),
   enableOtp: (channel: OtpChannel, code: string) =>
     securityRequest<{ success: boolean }>("/otp/enable", { channel, code }),
-  disableOtp: (channel: OtpChannel) =>
-    securityRequest<{ success: boolean }>("/otp/disable", { channel }),
+  disableOtp: (channel: OtpChannel, code: string) =>
+    securityRequest<{ success: boolean }>("/otp/disable", { channel, code }),
   setupTotp: (reset = false) =>
     securityRequest<TotpSetupResult>("/totp/setup", { reset }),
   enableTotp: (code: string) =>
     securityRequest<{ success: boolean }>("/totp/enable", { code }),
-  disableTotp: () => securityRequest<{ success: boolean }>("/totp/disable", {}),
+  disableTotp: (code: string) =>
+    securityRequest<{ success: boolean }>("/totp/disable", { code }),
   toggleBiometrics: (enabled: boolean) =>
     securityRequest<{ success: boolean }>("/biometrics/toggle", { enabled }),
 }
