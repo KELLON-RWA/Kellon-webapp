@@ -17,6 +17,8 @@ import TopMoversPanel from "./TopMoversPanel"
 import { useDashboardData } from "@/lib/use-dashboard-data"
 import { useUser } from "@/hooks/use-user"
 import { isRwaStockListing, stocksService } from "@/services/api/stocks"
+import { yieldService } from "@/services/api/yield"
+import { PositionStatus } from "@/types/db"
 
 function getStockTicker(symbol: string) {
   const raw = symbol.trim()
@@ -57,6 +59,20 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
     queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
     staleTime: 60_000,
   })
+  const { data: yieldPositions = [], isLoading: isYieldPositionsLoading } = useQuery({
+    queryKey: ["yield-positions"],
+    queryFn: async () => (await yieldService.getPositions()).data,
+    staleTime: 30_000,
+  })
+  const { data: yieldOpportunities = [] } = useQuery({
+    queryKey: ["yield-opportunities"],
+    queryFn: async () => (await yieldService.getOpportunities()).data,
+    staleTime: 60_000,
+  })
+  const activeYieldPositions = useMemo(
+    () => yieldPositions.filter((position) => position.status !== PositionStatus.CLOSED),
+    [yieldPositions],
+  )
   const investmentAssets = useMemo(
     () =>
       (stockPortfolio?.holdings || [])
@@ -140,6 +156,9 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             isInvestmentsLoading={isStockPortfolioLoading}
             isAssetValueLoading={dashboard.isAssetValueLoading}
             isBalanceVisible={dashboard.isBalanceVisible}
+            yieldOpportunities={yieldOpportunities}
+            yieldPositions={activeYieldPositions}
+            isYieldPositionsLoading={isYieldPositionsLoading}
           />
         </div>
 

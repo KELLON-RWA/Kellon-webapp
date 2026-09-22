@@ -6,7 +6,7 @@ import {
   useWallets as useSolanaWallets,
   useSignTransaction as useSolanaSignTransaction,
 } from "@privy-io/react-auth/solana";
-import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Loader2, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -82,6 +82,7 @@ interface EarnActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: () => Promise<void> | void;
+  hideOpportunitySummary?: boolean;
 }
 
 const CHAIN_BY_ID: Record<number, string> = {
@@ -149,6 +150,7 @@ export default function EarnActionDialog({
   open,
   onOpenChange,
   onComplete,
+  hideOpportunitySummary = false,
 }: EarnActionDialogProps) {
   const { wallets, ready: walletsReady } = useWallets();
   const { wallets: solanaWallets, ready: solanaWalletsReady } =
@@ -499,13 +501,23 @@ export default function EarnActionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={closeDialog}>
-        <DialogContent className="gap-0 overflow-hidden border-gray-80 bg-gray-99 p-0 dark:border-white/10 dark:bg-secondary-40 sm:max-w-md">
-          <div className="border-b border-gray-80 bg-white px-5 py-5 dark:border-white/10 dark:bg-secondary-50">
-            <DialogHeader>
-              <DialogTitle className="text-left text-lg text-cryptoNight dark:text-white">
+        <DialogContent className="gap-0 overflow-hidden rounded-[32px] border-none bg-gray-70 p-0 outline-none dark:bg-black2 [&>button]:hidden sm:max-w-[425px]">
+          <div className="px-5 pt-5">
+            <div className="mb-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => closeDialog(false)}
+                aria-label={`Close ${title.toLowerCase()} dialog`}
+                className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-black/5 bg-white text-slate-600 transition-opacity hover:opacity-80 dark:border-none dark:bg-secondary-60/50 dark:text-white"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <DialogHeader className="items-center text-center sm:text-center">
+              <DialogTitle className="text-xl font-bold text-cryptoNight dark:text-white">
                 {title}
               </DialogTitle>
-              <DialogDescription className="text-left text-xs text-gray-30 dark:text-gray-40">
+              <DialogDescription className="text-sm text-gray-30 dark:text-secondary-90">
                 {action === "supply"
                   ? "Put your stablecoins to work through a supported protocol."
                   : "Move supplied funds back to your Kellon wallet."}
@@ -517,33 +529,35 @@ export default function EarnActionDialog({
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit((values) => performAction(values))}
-                className="space-y-5 p-5"
+                className="space-y-5 px-5 pb-5 pt-6"
               >
-                <div className="flex items-center justify-between rounded-lg border border-gray-80 bg-white p-4 dark:border-white/10 dark:bg-secondary-50">
-                  <div className="flex items-center gap-3">
-                    <AssetNetworkIcon
-                      symbol={opportunity.symbol}
-                      network={opportunity.chain}
-                      size="sm"
-                    />
-                    <div>
-                      <p className="text-sm font-bold text-cryptoNight dark:text-white">
-                        {getProtocolName(opportunity.protocol)}
+                {!hideOpportunitySummary ? (
+                  <div className="flex items-center justify-between rounded-[24px] border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-secondary-60">
+                    <div className="flex items-center gap-3">
+                      <AssetNetworkIcon
+                        symbol={opportunity.symbol}
+                        network={opportunity.chain}
+                        size="sm"
+                      />
+                      <div>
+                        <p className="text-sm font-bold text-cryptoNight dark:text-white">
+                          {getProtocolName(opportunity.protocol)}
+                        </p>
+                        <p className="mt-0.5 text-xs capitalize text-gray-30 dark:text-gray-40">
+                          {opportunity.symbol} on {opportunity.chain}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-bold text-primary-50 dark:text-primary-80">
+                        {formatApy(opportunity.apy)}
                       </p>
-                      <p className="mt-0.5 text-xs capitalize text-gray-30 dark:text-gray-40">
-                        {opportunity.symbol} on {opportunity.chain}
+                      <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
+                        APY
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-base font-bold text-primary-50 dark:text-primary-80">
-                      {formatApy(opportunity.apy)}
-                    </p>
-                    <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                      APY
-                    </p>
-                  </div>
-                </div>
+                ) : null}
 
                 <FormField
                   control={form.control}
@@ -553,7 +567,7 @@ export default function EarnActionDialog({
                       <div className="flex items-center justify-between">
                         <label
                           htmlFor="earn-amount"
-                          className="text-xs font-semibold text-gray-20 dark:text-gray-40"
+                          className="text-xs font-semibold text-gray-20 dark:text-secondary-90"
                         >
                           Amount
                         </label>
@@ -564,7 +578,7 @@ export default function EarnActionDialog({
                               shouldValidate: true,
                             })
                           }
-                          className="cursor-pointer text-xs font-bold text-primary-50 hover:text-primary-30 dark:text-primary-80"
+                          className="cursor-pointer text-xs font-bold text-primary-50 transition-colors hover:text-primary-30 dark:text-primary-80"
                         >
                           Max
                         </button>
@@ -579,14 +593,14 @@ export default function EarnActionDialog({
                             min="0"
                             step="any"
                             placeholder="0.00"
-                            className="h-14 rounded-lg border-gray-80 bg-white pr-20 text-xl font-bold text-cryptoNight dark:border-white/10 dark:bg-secondary-50 dark:text-white"
+                            className="h-14 rounded-[18px] border border-black/5 bg-white pr-20 text-xl font-bold text-cryptoNight shadow-none dark:border-white/10 dark:bg-secondary-60 dark:text-white"
                           />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-20 dark:text-gray-40">
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-20 dark:text-secondary-90">
                             {symbol}
                           </span>
                         </div>
                       </FormControl>
-                      <div className="flex items-center justify-between text-[11px] text-gray-30 dark:text-gray-40">
+                      <div className="flex items-center justify-between text-[11px] text-gray-30 dark:text-secondary-90">
                         <span>Available</span>
                         <span>
                           {formatTokenAmount(availableAmount)} {symbol}
@@ -601,6 +615,7 @@ export default function EarnActionDialog({
                   type="submit"
                   variant="flow"
                   size="flow"
+                  className="h-14 rounded-[18px]"
                   disabled={isSubmitting || availableAmount <= 0}
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">

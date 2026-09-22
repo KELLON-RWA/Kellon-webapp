@@ -11,6 +11,14 @@ import type {
   InvestmentAssetSummary,
 } from "@/lib/dashboard-types";
 import { formatAssetAmount, formatCurrencyAmount } from "@/lib/dashboard-utils";
+import {
+  formatApy,
+  formatTokenAmount,
+  getPositionOpportunity,
+  getPositionValue,
+  getProtocolName,
+} from "@/components/earn/earn-utils";
+import type { YieldOpportunity, YieldPosition } from "@/types/db";
 
 const NATIVE_ASSET_SYMBOLS = new Set(
   Object.values(MAINNET_CHAINS).map((chain) =>
@@ -26,6 +34,9 @@ interface AssetsPanelProps {
   isInvestmentsLoading?: boolean;
   isAssetValueLoading: boolean;
   isBalanceVisible: boolean;
+  yieldOpportunities?: YieldOpportunity[];
+  yieldPositions?: YieldPosition[];
+  isYieldPositionsLoading?: boolean;
 }
 
 export default function AssetsPanel({
@@ -36,7 +47,11 @@ export default function AssetsPanel({
   isInvestmentsLoading = false,
   isAssetValueLoading,
   isBalanceVisible,
+  yieldOpportunities = [],
+  yieldPositions = [],
+  isYieldPositionsLoading = false,
 }: AssetsPanelProps) {
+  const [activeTable, setActiveTable] = useState<"assets" | "yield">("assets");
   const [isDesktopSearchOpen, setIsDesktopSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const visibleAssets = groupedAssets.filter(
@@ -53,14 +68,37 @@ export default function AssetsPanel({
   const filteredInvestmentAssets = investmentAssets.filter((asset) =>
     matchesSearch(asset.name, asset.symbol),
   );
+  const filteredYieldPositions = yieldPositions.filter((position) => {
+    const opportunity = getPositionOpportunity(position, yieldOpportunities);
+    return opportunity && matchesSearch(opportunity.protocol, opportunity.symbol);
+  });
+  const hasAssets = visibleAssets.length + investmentAssets.length > 0;
 
   return (
     <div className="order-3 flex w-full flex-col gap-4 min-[1024px]:col-span-full min-[1024px]:flex-1 min-[1024px]:rounded-xl min-[1024px]:border-0 min-[1024px]:!bg-white/80 min-[1024px]:gap-3 min-[1024px]:p-4 min-[1024px]:shadow-none min-[1024px]:dark:!bg-secondary-50">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-[15px] font-semibold leading-tight tracking-normal text-black dark:text-white md:text-base min-[1024px]:text-base">
-            Assets portfolio
-          </h3>
+        <div className="flex items-center gap-1 rounded-lg bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+          {([
+            ["assets", "Assets"],
+            ["yield", `Yield${yieldPositions.length ? ` (${yieldPositions.length})` : ""}`],
+          ] as const).map(([table, label]) => (
+            <button
+              key={table}
+              type="button"
+              onClick={() => {
+                setActiveTable(table);
+                setSearchQuery("");
+              }}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
+                activeTable === table
+                  ? "bg-white text-cryptoNight shadow-sm dark:bg-secondary-60 dark:text-white"
+                  : "text-gray-500 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+              }`}
+              aria-pressed={activeTable === table}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <div className="hidden min-[1024px]:flex min-[1024px]:items-center min-[1024px]:gap-3">
           {isDesktopSearchOpen ? (
@@ -76,8 +114,8 @@ export default function AssetsPanel({
                     setIsDesktopSearchOpen(false);
                   }
                 }}
-                placeholder="Search"
-                aria-label="Search assets"
+                placeholder={`Search ${activeTable}`}
+                aria-label={`Search ${activeTable}`}
                 className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
               />
               <button
@@ -96,7 +134,7 @@ export default function AssetsPanel({
             <button
               type="button"
               onClick={() => setIsDesktopSearchOpen(true)}
-              aria-label="Search assets"
+              aria-label={`Search ${activeTable}`}
               aria-expanded={isDesktopSearchOpen}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
             >
@@ -106,7 +144,7 @@ export default function AssetsPanel({
         </div>
       </div>
 
-      {visibleAssets.length + investmentAssets.length > 0 ? (
+      {activeTable === "assets" && hasAssets ? (
         <>
           <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
           {visibleAssets.map((asset) => {
@@ -154,6 +192,41 @@ export default function AssetsPanel({
             visibleAssets={filteredVisibleAssets}
           />
         </>
+      ) : activeTable === "yield" ? (
+        <>
+          <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
+            {filteredYieldPositions.map((position) => {
+              const opportunity = getPositionOpportunity(position, yieldOpportunities);
+              if (!opportunity) return null;
+              return (
+                <Link
+                  key={position.id}
+                  href={`/earn/positions/${encodeURIComponent(position.id)}`}
+                  className="rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <AssetIdentity
+                      name={getProtocolName(opportunity.protocol)}
+                      symbol={opportunity.symbol}
+                      subtitle={`${getProtocolName(opportunity.protocol)} · ${opportunity.chain}`}
+                    />
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                      {formatApy(opportunity.apy)}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-40">
+                    Supplied {formatTokenAmount(getPositionValue(position))} {opportunity.symbol}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+          <DesktopYieldTable
+            positions={filteredYieldPositions}
+            opportunities={yieldOpportunities}
+            isLoading={isYieldPositionsLoading}
+          />
+        </>
       ) : isInvestmentsLoading ? (
         <div className="flex min-h-[160px] flex-1 flex-col justify-center gap-3 rounded-xl border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50">
           <div className="h-4 w-28 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
@@ -173,6 +246,82 @@ export default function AssetsPanel({
           textClassName="max-w-[220px]"
         />
       )}
+    </div>
+  );
+}
+
+function DesktopYieldTable({
+  isLoading,
+  opportunities,
+  positions,
+}: {
+  isLoading: boolean;
+  opportunities: YieldOpportunity[];
+  positions: YieldPosition[];
+}) {
+  const displayedPositions = positions.slice(0, 10);
+  const placeholderRows = Math.max(0, 10 - displayedPositions.length);
+
+  return (
+    <div className="hidden overflow-hidden rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
+      <div className="grid grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3">
+        <span>Position</span>
+        <span className="text-right">Supplied</span>
+        <span className="text-right">APY</span>
+        <span className="text-right">Est. annual yield</span>
+        <span className="text-right">Status</span>
+      </div>
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-gray-40">Loading yield positions…</div>
+      ) : displayedPositions.length ? (
+        displayedPositions.map((position) => {
+          const opportunity = getPositionOpportunity(position, opportunities);
+          if (!opportunity) return null;
+          const amount = getPositionValue(position);
+          const annualYield = (amount * Number(position.entryApy || 0)) / 100;
+          return (
+            <Link
+              key={position.id}
+              href={`/earn/positions/${encodeURIComponent(position.id)}`}
+              className="grid grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3"
+            >
+              <AssetIdentity
+                name={getProtocolName(opportunity.protocol)}
+                symbol={opportunity.symbol}
+                subtitle={`${getProtocolName(opportunity.protocol)} · ${opportunity.chain}`}
+              />
+              <span className="text-right text-sm text-cryptoNight dark:text-white">
+                {formatTokenAmount(amount)} {opportunity.symbol}
+              </span>
+              <span className="text-right text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                {formatApy(position.entryApy)}
+              </span>
+              <span className="text-right text-sm text-cryptoNight dark:text-white">
+                {annualYield.toFixed(2)} {opportunity.symbol}
+              </span>
+              <span className="justify-self-end rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                {position.status}
+              </span>
+            </Link>
+          );
+        })
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <p className="text-sm font-semibold text-cryptoNight dark:text-white">No active yield positions</p>
+          <Link href="/earn?category=yield" className="text-sm font-medium text-primary-50 hover:underline dark:text-primary-70">
+            Explore earning opportunities
+          </Link>
+        </div>
+      )}
+      {displayedPositions.length > 0 && Array.from({ length: placeholderRows }).map((_, index) => (
+        <div
+          key={`yield-placeholder-${index}`}
+          aria-hidden="true"
+          className="grid flex-1 grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 text-sm text-gray-300 last:border-b-0 dark:border-white/10 dark:text-gray-50 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3"
+        >
+          <span>__</span><span className="text-right">__</span><span className="text-right">__</span><span className="text-right">__</span><span className="justify-self-end">__</span>
+        </div>
+      ))}
     </div>
   );
 }

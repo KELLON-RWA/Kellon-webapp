@@ -66,7 +66,7 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
           <button
             type="button"
             onClick={() => setCollapsed((value) => !value)}
-            className="rounded-md p-1.5 text-gray-500 transition hover:bg-primary-99 hover:text-cryptoNight dark:text-gray-40 dark:hover:bg-white/5 dark:hover:text-white"
+            className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-primary-99 hover:text-cryptoNight dark:text-gray-40 dark:hover:bg-white/5 dark:hover:text-white"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >

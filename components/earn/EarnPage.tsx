@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import {
-  ArrowDownToLine,
   ArrowRight,
   Building2,
   ChartLine,
@@ -38,10 +37,8 @@ import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import {
   formatApy,
   formatMetricUsd,
-  formatTokenAmount,
   formatUsd,
   getMaxUsableBalance,
-  getPositionOpportunity,
   getPositionValue,
   getProtocolName,
   toNumber,
@@ -1140,97 +1137,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
             </>
           )}
 
-          {activePositions.length > 0 ? (
-            <section className="mb-9">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-bold text-cryptoNight dark:text-white md:text-lg">
-                  Your positions
-                </h2>
-                <span className="rounded-full bg-gray-90 px-2.5 py-1 text-[10px] font-bold text-gray-20 dark:bg-white/5 dark:text-gray-40">
-                  {activePositions.length} active
-                </span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {activePositions.map((position) => {
-                    const opportunity = getPositionOpportunity(
-                      position,
-                      opportunities,
-                    );
-                    if (!opportunity) return null;
-
-                    return (
-                      <article
-                        key={position.id}
-                        className="rounded-lg border border-gray-80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/75 dark:shadow-none"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-3">
-                            <AssetNetworkIcon
-                              symbol={opportunity.symbol}
-                              network={opportunity.chain}
-                              size="sm"
-                            />
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
-                                {opportunity.symbol}
-                              </p>
-                              <p className="truncate text-xs capitalize text-gray-30 dark:text-gray-40">
-                                {getProtocolName(opportunity.protocol)} ·{" "}
-                                {opportunity.chain}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-                            {position.status}
-                          </span>
-                        </div>
-                        <div className="mt-5 flex items-end justify-between">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                              Supplied
-                            </p>
-                            <p className="mt-1 text-xl font-bold text-cryptoNight dark:text-white">
-                              {formatTokenAmount(getPositionValue(position))}{" "}
-                              <span className="text-xs text-gray-30 dark:text-gray-40">
-                                {opportunity.symbol}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
-                              Entry APY
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-300">
-                              {formatApy(position.entryApy)}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="flowSecondary"
-                          size="sm"
-                          className="mt-4 w-full"
-                          onClick={() =>
-                            setSelectedAction({
-                              action: "withdraw",
-                              opportunity,
-                              position,
-                            })
-                          }
-                        >
-                          <span className="relative z-10 flex items-center justify-center gap-2">
-                            <ArrowDownToLine className="transition-transform group-hover:-translate-y-0.5" />
-                            Withdraw
-                          </span>
-                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-primary-80/10 to-transparent transition-transform duration-500 group-hover:translate-x-full dark:via-white/10" />
-                        </Button>
-                      </article>
-                    );
-                  })}
-              </div>
-            </section>
-          ) : null}
         </>
       ) : null}
 
