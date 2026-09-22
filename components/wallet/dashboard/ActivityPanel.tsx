@@ -32,7 +32,7 @@ export default function ActivityPanel({
   transactionsError,
 }: ActivityPanelProps) {
   return (
-    <div className="order-4 flex max-h-[420px] w-full flex-col space-y-4 overflow-hidden min-[1024px]:order-none min-[1024px]:col-span-full min-[1024px]:max-h-[240px] min-[1024px]:space-y-2 min-[1024px]:!border-0 min-[1024px]:!bg-white/80 min-[1024px]:!shadow-none min-[1024px]:dark:!bg-secondary-50 lg:h-[240px] lg:max-h-[240px] lg:space-y-2 lg:rounded-xl lg:border lg:border-white/70 lg:bg-white/60 lg:p-4 lg:shadow-sm lg:shadow-primary-90/20 lg:backdrop-blur-xl lg:dark:border-white/10 lg:dark:bg-transparent lg:dark:shadow-none">
+    <div className="order-7 flex max-h-[420px] w-full flex-col space-y-4 overflow-hidden min-[1024px]:order-none min-[1024px]:col-span-full min-[1024px]:max-h-[240px] min-[1024px]:space-y-2 min-[1024px]:!border-0 min-[1024px]:!bg-white/80 min-[1024px]:!shadow-none min-[1024px]:dark:!bg-secondary-50 lg:h-[240px] lg:max-h-[240px] lg:space-y-2 lg:rounded-xl lg:border lg:border-white/70 lg:bg-white/60 lg:p-4 lg:shadow-sm lg:shadow-primary-90/20 lg:backdrop-blur-xl lg:dark:border-white/10 lg:dark:bg-transparent lg:dark:shadow-none">
       <div className="lg:hidden">
         <Link
           href="/transactions"

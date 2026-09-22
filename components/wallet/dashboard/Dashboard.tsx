@@ -10,6 +10,7 @@ import type { User } from "@/types/db"
 import ActivityPanel from "./ActivityPanel"
 import AssetsPanel from "./AssetsPanel"
 import DashboardHeader from "./DashboardHeader"
+import MobileFeaturedOpportunities from "./MobileFeaturedOpportunities"
 import PortfolioAllocationPanel from "./PortfolioAllocationPanel"
 import PortfolioBalanceCard from "./PortfolioBalanceCard"
 import QuickActionsPanel from "./QuickActionsPanel"
@@ -159,6 +160,10 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             yieldOpportunities={yieldOpportunities}
             yieldPositions={activeYieldPositions}
             isYieldPositionsLoading={isYieldPositionsLoading}
+          />
+          <MobileFeaturedOpportunities
+            stockListings={stockListings}
+            yieldOpportunities={yieldOpportunities}
           />
         </div>
 
