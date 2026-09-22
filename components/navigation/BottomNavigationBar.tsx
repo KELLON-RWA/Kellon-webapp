@@ -34,8 +34,13 @@ const BottomNavigationBar: FC<BottomNavigationBarProps> = ({
     "/notifications",
     "/transactions",
   ];
+  const isDetailFlow =
+    pathname === "/assets" ||
+    pathname.startsWith("/swap") ||
+    pathname.startsWith("/earn/stocks/") ||
+    pathname.startsWith("/earn/positions/");
 
-  if (HIDDEN_PATHS.includes(pathname)) {
+  if (HIDDEN_PATHS.includes(pathname) || isDetailFlow) {
     return null;
   }
 

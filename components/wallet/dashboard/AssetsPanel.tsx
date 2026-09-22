@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Coins, MoreHorizontal, Search, X } from "lucide-react";
+import { ChevronRight, Coins, MoreHorizontal, Search, X } from "lucide-react";
 import AssetCard from "@/components/wallet/dashboard/AssetCard";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import { MAINNET_CHAINS } from "@/lib/chains";
@@ -74,10 +74,10 @@ export default function AssetsPanel({
   });
   const hasAssets = visibleAssets.length + investmentAssets.length > 0;
   const hasYieldPositions = yieldPositions.length > 0;
-  const mobileVisibleAssets = visibleAssets.slice(0, 10);
+  const mobileVisibleAssets = visibleAssets.slice(0, 5);
   const mobileInvestmentAssets = investmentAssets.slice(
     0,
-    Math.max(0, 10 - mobileVisibleAssets.length),
+    Math.max(0, 5 - mobileVisibleAssets.length),
   );
   const mobileYieldPositions = filteredYieldPositions.slice(0, 10);
 
@@ -209,6 +209,13 @@ export default function AssetsPanel({
             );
           })}
           </div>
+          <Link
+            href="/assets"
+            className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/[0.04] px-4 py-2 text-sm font-semibold text-cryptoNight transition hover:bg-black/[0.08] dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12] min-[1024px]:hidden"
+          >
+            View all
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
           <DesktopAssetTable
             activeCurrency={activeCurrency}
             displayCurrency={displayCurrency}
