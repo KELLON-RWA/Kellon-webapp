@@ -19,7 +19,7 @@ const Page: FC = async ({}) => {
   if (!profile) return redirect("/continue")
 
   return (
-    <section className="min-h-screen flex lg:items-center">
+    <section className="min-h-screen">
       <DashboardClient profile={profile} />
     </section>
   )

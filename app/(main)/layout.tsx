@@ -1,5 +1,6 @@
 import BottomNavigationBar from "@/components/navigation/BottomNavigationBar"
 import Topbar from "@/components/navigation/Topbar"
+import DashboardDesktopNavigation from "@/components/wallet/dashboard/DashboardDesktopNavigation"
 import { currentProfile } from "@/lib/current-profile"
 import { User } from "@/types/db"
 import { FC, ReactNode } from "react"
@@ -20,7 +21,8 @@ const layout: FC<layoutProps> = async ({ children }) => {
   return (
     <main id="main-content" tabIndex={-1}>
       <Topbar profile={profile} />
-      {children}
+      {profile && <DashboardDesktopNavigation profile={profile} />}
+      <div className="min-[1024px]:pl-56">{children}</div>
       <BottomNavigationBar className="md:hidden z-20" profile={profile} />
     </main>
   )

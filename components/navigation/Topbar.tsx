@@ -33,7 +33,7 @@ const Topbar: FC<TopbarProps> = ({ className, profile }) => {
     <section
       className={cn(
         className,
-        "relative hidden w-full px-4 py-3 md:fixed md:z-50 md:block lg:px-5",
+        "relative hidden w-full px-4 py-3 md:fixed md:z-50 md:block min-[1024px]:!hidden lg:px-5",
       )}
     >
       <header className="mx-auto flex max-w-[1440px] items-center justify-between gap-4">
@@ -69,7 +69,7 @@ const Topbar: FC<TopbarProps> = ({ className, profile }) => {
           <li className="min-w-0">
             <SearchBar
               profile={profile}
-              className="md:max-w-[320px] min-[900px]:max-w-[360px] lg:max-w-sm"
+              className="md:max-w-[320px] min-[1024px]:max-w-[360px] lg:max-w-sm"
             />
           </li>
           <li>
