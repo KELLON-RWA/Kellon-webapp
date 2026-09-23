@@ -1,4 +1,5 @@
 import type { Asset, User, YieldOpportunity, YieldPosition } from "@/types/db";
+import type { SupportedChainKeys } from "@/lib/chains";
 
 export interface EarnBalance {
   chain: string;
@@ -90,8 +91,37 @@ export function getMaxUsableBalanceForChain(
     .reduce((total, asset) => total + toNumber(asset.amount), 0);
 }
 
-export function getStockSettlementChain(provider: string): "bsc" | "base" {
-  return provider.toLowerCase() === "pancakeswap" ? "bsc" : "base";
+export function getStockSettlementChain(
+  provider: string,
+  settlementChain?: string,
+): SupportedChainKeys {
+  const normalizedChain = settlementChain
+    ?.trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+  const chainAliases: Record<string, SupportedChainKeys> = {
+    base: "base",
+    basesepolia: "base",
+    bnb: "bnb",
+    bsc: "bnb",
+    binance: "bnb",
+    binancesmartchain: "bnb",
+    celo: "celo",
+    polygon: "polygon",
+    solana: "solana",
+    stellar: "stellar",
+  };
+
+  if (normalizedChain) {
+    const alias = Object.keys(chainAliases).find(
+      (key) =>
+        normalizedChain === key || normalizedChain.startsWith(key),
+    );
+    if (alias) return chainAliases[alias];
+  }
+
+  return provider.toLowerCase().includes("pancake") ? "bnb" : "base";
 }
 
 export function getPositionOpportunity(

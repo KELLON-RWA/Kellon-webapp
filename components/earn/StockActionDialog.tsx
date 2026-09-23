@@ -122,7 +122,10 @@ export default function StockActionDialog({
     `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(symbol)}.png`;
   const stockPrice = Number(stock?.price || holding?.currentPrice || 0);
   const stockProvider = stock?.provider || holding?.provider || "";
-  const targetStockChain = getStockSettlementChain(stockProvider);
+  const targetStockChain = getStockSettlementChain(
+    stockProvider,
+    stock?.settlementChain || stock?.chain || stock?.network,
+  );
 
   // Purchases can only spend USDC held on the provider's settlement chain.
   const availableUsdc = getMaxUsableBalanceForChain(
@@ -262,7 +265,12 @@ export default function StockActionDialog({
         : {};
 
       if (action === "buy") {
-        const transactionChain = getStockSettlementChain(currentStock.provider);
+        const transactionChain = getStockSettlementChain(
+          currentStock.provider,
+          currentStock.settlementChain ||
+            currentStock.chain ||
+            currentStock.network,
+        );
         if (transactionChain !== targetStockChain) {
           throw new Error(
             "Funding chain does not match the chain this stock settles on.",

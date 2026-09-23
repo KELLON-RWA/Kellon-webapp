@@ -33,9 +33,15 @@ describe("Earn chain balances", () => {
 });
 
 describe("getStockSettlementChain", () => {
-  it("uses BSC for PancakeSwap and Base for other stock providers", () => {
-    expect(getStockSettlementChain("pancakeswap")).toBe("bsc");
-    expect(getStockSettlementChain("PANCAKESWAP")).toBe("bsc");
+  it("uses BNB for PancakeSwap and Base for legacy providers", () => {
+    expect(getStockSettlementChain("pancakeswap")).toBe("bnb");
+    expect(getStockSettlementChain("PANCAKESWAP")).toBe("bnb");
     expect(getStockSettlementChain("ondo")).toBe("base");
+  });
+
+  it("honors the settlement network supplied by a stock provider", () => {
+    expect(getStockSettlementChain("xstocks", "solana")).toBe("solana");
+    expect(getStockSettlementChain("provider", "BSC")).toBe("bnb");
+    expect(getStockSettlementChain("provider", "Polygon Amoy")).toBe("polygon");
   });
 });

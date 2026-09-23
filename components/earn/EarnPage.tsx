@@ -120,14 +120,6 @@ export function getListingChange(
   return change ?? yahooChange;
 }
 
-function stockProviderPriority(provider: string): number {
-  const normalizedProvider = provider.toLowerCase();
-
-  if (normalizedProvider.includes("base")) return 0;
-  if (normalizedProvider.includes("pancake")) return 1;
-  return 2;
-}
-
 const STOCK_DOMAINS: Record<string, string> = {
   AAPL: "apple.com",
   ARM: "arm.com",
@@ -814,21 +806,15 @@ export default function EarnPage({ profile }: EarnPageProps) {
     [activeTab, stocks],
   );
   const unifiedStocks = useMemo(() => {
-    const preferredListings = new Map<string, StockListing>();
+    const providerListings = new Map<string, StockListing>();
     categoryStocks.forEach((stock) => {
-      const ticker = getUnderlyingTicker(stock.symbol);
-      const existing = preferredListings.get(ticker);
-
-      if (
-        !existing ||
-        stockProviderPriority(stock.provider) <
-          stockProviderPriority(existing.provider)
-      ) {
-        preferredListings.set(ticker, stock);
-      }
+      // The same ticker can be offered by several providers. Keep each offer
+      // visible, while ignoring an accidental repeat from the same provider.
+      const key = `${stock.provider.toLowerCase()}:${stock.symbol.toLowerCase()}`;
+      if (!providerListings.has(key)) providerListings.set(key, stock);
     });
 
-    return [...preferredListings.values()];
+    return [...providerListings.values()];
   }, [categoryStocks]);
   const searchedStocks = useMemo(() => {
     const query = stockSearchQuery.trim().toLowerCase();

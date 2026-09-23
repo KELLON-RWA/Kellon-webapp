@@ -12,6 +12,11 @@ export interface StockListing {
   logoUrl?: string;
   category?: string;
   provider: string;
+  /** Settlement network supplied by newer stock providers. */
+  settlementChain?: string;
+  /** Backwards-compatible aliases used by provider integrations. */
+  chain?: string;
+  network?: string;
   rwaCategory?: string;
 }
 

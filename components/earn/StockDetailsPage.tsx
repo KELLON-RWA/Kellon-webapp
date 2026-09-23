@@ -328,7 +328,7 @@ export default function StockDetailsPage({
             <DesktopMetric label="24h low" value={formatUsd(chartLow)} />
             <DesktopMetric label="Collateral" value="1:1 Regulated Trust" tone="positive" />
             <DesktopMetric label="Trading hours" value="24/7 On-Chain" tone="accent" />
-            <DesktopMetric label="Settlement" value={stock ? getStockSettlementChain(stock.provider).toUpperCase() : "BASE"} />
+            <DesktopMetric label="Settlement" value={stock ? getStockSettlementChain(stock.provider, stock.settlementChain || stock.chain || stock.network).toUpperCase() : "BASE"} />
             <DesktopMetric label="Asset standard" value="ERC-20 Tokenized" />
           </div>
         </section>
@@ -360,7 +360,7 @@ export default function StockDetailsPage({
             <span className="text-gray-30 dark:text-gray-40">Settlement</span>
             <span className="font-semibold text-cryptoNight dark:text-white">
               {stock
-                ? getStockSettlementChain(stock.provider).toUpperCase()
+                ? getStockSettlementChain(stock.provider, stock.settlementChain || stock.chain || stock.network).toUpperCase()
                 : "BASE"} · Tokenized
             </span>
           </div>
@@ -392,7 +392,7 @@ export default function StockDetailsPage({
           <Stat label="24h low" value={formatUsd(chartLow)} bordered />
           <Stat label="Collateral & backing" value="1:1 Regulated Trust" tone="positive" />
           <Stat label="Trading hours" value="24/7 On-Chain" tone="accent" bordered />
-          <Stat label="Settlement network" value={stock ? getStockSettlementChain(stock.provider).toUpperCase() : "BASE"} />
+          <Stat label="Settlement network" value={stock ? getStockSettlementChain(stock.provider, stock.settlementChain || stock.chain || stock.network).toUpperCase() : "BASE"} />
           <Stat label="Asset standard" value="ERC-20 Tokenized" bordered />
         </div>
       </section>
