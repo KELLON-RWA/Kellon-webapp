@@ -2,7 +2,8 @@
 
 import { useCallback } from "react"
 import { useWallets } from "@privy-io/react-auth"
-import { encodeFunctionData, erc20Abi, parseUnits } from "viem"
+import { encodeFunctionData, erc20Abi, formatUnits } from "viem"
+import { toBaseUnits } from "@/lib/token-amount"
 import {
   useSmartAccount,
   setStickyTransferMeta,
@@ -129,13 +130,31 @@ export function useOfframpFunding() {
         throw new Error("Could not determine the amount to transfer.")
       }
 
+      const requiredUnits = toBaseUnits(transferAmount, decimals)
+      // The provider needs this exact amount; a shortfall must read as a balance problem,
+      // not a bundler simulation revert.
+      const reader = smartAccountClient.account as unknown as {
+        client?: { readContract(args: Record<string, unknown>): Promise<unknown> }
+        address: `0x${string}`
+      }
+      const balance = await reader.client
+        ?.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [reader.address],
+        })
+        .catch(() => null)
+      if (typeof balance === "bigint" && balance < requiredUnits) {
+        throw new Error(
+          `Insufficient ${tokenSymbol} in your wallet: ${formatUnits(balance, decimals)} available, ${formatUnits(requiredUnits, decimals)} needed.`,
+        )
+      }
+
       const data = encodeFunctionData({
         abi: erc20Abi,
         functionName: "transfer",
-        args: [
-          deposit.address as `0x${string}`,
-          parseUnits(String(transferAmount), decimals),
-        ],
+        args: [deposit.address as `0x${string}`, requiredUnits],
       })
 
       setStickyTransferMeta({

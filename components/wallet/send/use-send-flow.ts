@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useSmartAccount"
 import { getActiveChains } from "@/lib/chains"
 import { normalizeBridgeChain } from "@/lib/bridge-assets"
+import { clampDust, toBaseUnits } from "@/lib/token-amount"
 import { beginOperation, endOperation } from "@/services/api"
 import {
   createPublicClient,
@@ -134,23 +135,25 @@ async function verifyOnChainBalance(
   requiredAmount: bigint,
   symbol: string,
   decimals: number,
-): Promise<void> {
+): Promise<bigint> {
   const rpcUrl = BALANCE_CHECK_RPC[chainKey]
-  if (!rpcUrl) return
+  if (!rpcUrl) return requiredAmount
   const client = createPublicClient({ transport: http(rpcUrl) })
-  const balance = await client.readContract({
+  const balance = (await client.readContract({
     address: tokenAddress as Address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: [accountAddress as Address],
-  })
-  if ((balance as bigint) < requiredAmount) {
+  })) as bigint
+  const amount = clampDust(requiredAmount, balance, decimals)
+  if (balance < amount) {
     const available = formatUnits(balance as bigint, decimals)
     const required = formatUnits(requiredAmount, decimals)
     throw new Error(
       `Insufficient ${symbol} balance. You have ${available} ${symbol} but tried to send ${required} ${symbol}.`,
     )
   }
+  return amount
 }
 
 function navReducer(state: NavState, action: NavAction): NavState {
@@ -1009,12 +1012,12 @@ export function useSendFlow(profile: User) {
 
           const isBsc = chainConfig.id === 56 || chainConfig.id === 97
           const decimals = isBsc ? 18 : 6
-          const amountBigInt = BigInt(Math.round(amountValue * 10 ** decimals))
+          let amountBigInt = toBaseUnits(amountValue, decimals)
 
           const safeAddr = (smartAccountClient.account as { address?: string })
             ?.address
           if (safeAddr) {
-            await verifyOnChainBalance(
+            amountBigInt = await verifyOnChainBalance(
               chainLower,
               tokenAddress,
               safeAddr,
