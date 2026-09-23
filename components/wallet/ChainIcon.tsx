@@ -70,11 +70,13 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
       )
 
     // Now these will catch "BNB Chain", "bnbchain", or "BNB"
+    case "arc":
     case "polygon":
     case "bnb":
     case "bnbchain":
     case "stellar":
       const symbolMap: Record<string, string> = {
+        arc: "usdc",
         polygon: "matic",
         bnb: "bnb",
         bnbchain: "bnb",

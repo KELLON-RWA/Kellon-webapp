@@ -68,9 +68,10 @@ describe("swap assets", () => {
     const nativeTokens = catalog
       .filter(isNativeSwapToken)
       .map((token) => `${token.chainKey}:${token.symbol}`);
-    expect(nativeTokens).toHaveLength(6);
+    expect(nativeTokens).toHaveLength(7);
     expect(nativeTokens).toEqual(
       expect.arrayContaining([
+        "arc:USDC",
         "base:ETH",
         "bnb:BNB",
         "celo:CELO",

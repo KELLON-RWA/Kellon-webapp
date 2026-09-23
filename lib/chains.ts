@@ -25,6 +25,7 @@ export type ChainConfig = Omit<ViemChain, "id"> & {
 export type SupportedChainKeys =
   | "stellar"
   | "celo"
+  | "arc"
   | "polygon"
   | "base"
   | "bnb"
@@ -125,6 +126,22 @@ export const MAINNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
     primaryToken: "USDT",
     paymaster: { enabled: true, pimlicoPaymaster: true },
   },
+  arc: {
+    id: 5042,
+    name: "Arc",
+    nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+    rpcUrls: {
+      default: { http: ["https://rpc.mainnet.arc.io"] },
+      public: { http: ["https://rpc.mainnet.arc.io"] },
+    },
+    blockExplorers: {
+      default: { name: "ArcScan", url: "https://explorer.arc.io" },
+    },
+    type: "evm",
+    usdcAddress: "0x3600000000000000000000000000000000000000",
+    primaryToken: "USDC",
+    paymaster: { enabled: true, pimlicoPaymaster: true },
+  },
   bnb: {
     id: 56,
     name: "BNB",
@@ -206,6 +223,19 @@ export const TESTNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
     },
     usdcAddress: "0x2F25de78d37f30080605c6d750f6AD94895786Cc",
   },
+  arc: {
+    ...MAINNET_CHAINS.arc,
+    id: 5042002,
+    name: "Arc Testnet",
+    rpcUrls: {
+      default: { http: ["https://rpc.testnet.arc.io"] },
+      public: { http: ["https://rpc.testnet.arc.io"] },
+    },
+    blockExplorers: {
+      default: { name: "ArcScan", url: "https://explorer.testnet.arc.io" },
+    },
+    usdcAddress: "0x3600000000000000000000000000000000000000",
+  },
   bnb: {
     ...MAINNET_CHAINS.bnb,
     id: 97,
@@ -224,6 +254,7 @@ const CHAIN_LABELS: Record<string, string> = {
   base: "Base Network",
   bnb: "BNB Smart Chain Network",
   celo: "Celo Network",
+  arc: "Arc Network",
   polygon: "Polygon Network",
 }
 
@@ -250,6 +281,7 @@ export const CHAIN_UI_DATA: Record<
     benefits: ["Fast scaling", "Massive Ecosystem"],
   },
   celo: { color: "#35D07F", benefits: ["Mobile-first", "Eco-friendly"] },
+  arc: { color: "#2775CA", benefits: ["USDC gas", "Circle L1"] },
   bnb: { color: "#F3BA2F", benefits: ["High performance", "Low fees"] },
   solana: {
     color: "#9945FF",

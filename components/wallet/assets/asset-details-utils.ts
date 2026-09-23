@@ -22,6 +22,7 @@ export const CHAIN_ORDER: SupportedChainKeys[] = [
   "stellar",
   "solana",
   "celo",
+  "arc",
   "polygon",
   "bnb",
 ];
@@ -110,6 +111,8 @@ export function getShortChainLabel(chain: string): string {
       return "Solana";
     case "celo":
       return "Celo";
+    case "arc":
+      return "Arc";
     case "polygon":
       return "Polygon";
     case "bnb":

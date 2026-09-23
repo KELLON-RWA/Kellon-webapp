@@ -30,6 +30,7 @@ const NETWORKS: NetworkItem[] = [
   { name: "Base", chainId: 8453, isActive: true },
   { name: "Polygon", chainId: 137, isActive: true },
   { name: "Celo", chainId: 42220, isActive: true },
+  { name: "Arc", chainId: 5042, isActive: true },
   { name: "BNB Chain", chainId: 56, isActive: true },
 ];
 

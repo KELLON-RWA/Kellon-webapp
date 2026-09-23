@@ -36,6 +36,7 @@ const CHAIN_TO_COINGECKO: PriceMapping = {
   base: { tokenId: "ethereum", symbol: "ETH" },
   polygon: { tokenId: "matic-network", symbol: "MATIC" },
   celo: { tokenId: "celo", symbol: "CELO" },
+  arc: { tokenId: "usd-coin", symbol: "USDC" },
   stellar: { tokenId: "stellar", symbol: "XLM" },
 };
 

@@ -6,6 +6,7 @@ import {
   http,
   custom,
   createWalletClient,
+  defineChain,
   type Address,
   type Chain,
   fallback,
@@ -17,9 +18,22 @@ import {
   bsc,
   baseSepolia,
   celoAlfajores,
+  arcTestnet,
   polygonAmoy,
   bscTestnet,
 } from "viem/chains"
+
+const arc = defineChain({
+  id: 5042,
+  name: "Arc",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: {
+    default: { http: ["https://rpc.mainnet.arc.io"] },
+  },
+  blockExplorers: {
+    default: { name: "ArcScan", url: "https://explorer.arc.io" },
+  },
+})
 import {
   createSmartAccountClient,
   type SmartAccountClient,
@@ -68,6 +82,7 @@ const CHAIN_MAP: Record<string, { chain: Chain; slug: string }> = IS_TESTNET
   ? {
       base: { chain: baseSepolia, slug: "base" },
       celo: { chain: celoAlfajores, slug: "celo" },
+      arc: { chain: arcTestnet, slug: "arc-testnet" },
       polygon: { chain: polygonAmoy, slug: "polygon" },
       bnb: { chain: bscTestnet, slug: "binance" },
       bsc: { chain: bscTestnet, slug: "binance" },
@@ -75,6 +90,7 @@ const CHAIN_MAP: Record<string, { chain: Chain; slug: string }> = IS_TESTNET
   : {
       base: { chain: base, slug: "base" },
       celo: { chain: celo, slug: "celo" },
+      arc: { chain: arc, slug: "arc" },
       polygon: { chain: polygon, slug: "polygon" },
       bnb: { chain: bsc, slug: "binance" },
       bsc: { chain: bsc, slug: "binance" },
@@ -87,6 +103,7 @@ const PUBLIC_RPC_URLS: Record<string, string[]> = {
     "https://rpc.ankr.com/base",
   ],
   celo: ["https://forno.celo.org", "https://rpc.ankr.com/celo"],
+  arc: ["https://rpc.mainnet.arc.io"],
   polygon: [
     "https://polygon.drpc.org",
     "https://rpc.ankr.com/polygon",

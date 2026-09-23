@@ -94,6 +94,8 @@ const CHAIN_BY_ID: Record<number, string> = {
   84532: "base",
   42220: "celo",
   44787: "celo",
+  5042: "arc",
+  5042002: "arc",
 };
 
 function transactionValue(value: YieldTransaction["value"]): bigint {

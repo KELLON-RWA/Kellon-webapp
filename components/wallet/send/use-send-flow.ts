@@ -123,6 +123,7 @@ function extractRevertFromError(err: unknown): string | null {
 const BALANCE_CHECK_RPC: Record<string, string> = {
   base: "https://mainnet.base.org",
   celo: "https://forno.celo.org",
+  arc: "https://rpc.mainnet.arc.io",
   polygon: "https://polygon-rpc.com",
   bnb: "https://bsc-dataseed.binance.org",
   bsc: "https://bsc-dataseed.binance.org",
