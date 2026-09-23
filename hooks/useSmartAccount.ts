@@ -211,9 +211,15 @@ export function useSmartAccount() {
                 stickyVerificationCode
               ) {
                 const verificationCode = stickyVerificationCode
+                // Support both verification contracts exposed by the bundler. The
+                // structured header is used by newer deployments, while the typed
+                // pair is required by the transaction RPC that authorizes stock
+                // purchases.
                 headers["x-verification-codes"] = JSON.stringify([
                   verificationCode,
                 ])
+                headers["x-verification-code"] = verificationCode.code
+                headers["x-verification-type"] = verificationCode.type
                 // WebAuthn assertions are single-use. Clear the shared value as
                 // soon as it is attached so a transport retry cannot resend it.
                 if (verificationCode.type === "webauthn") {

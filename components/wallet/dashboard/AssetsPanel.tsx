@@ -292,11 +292,10 @@ function DesktopYieldTable({
   positions: YieldPosition[];
 }) {
   const displayedPositions = positions.slice(0, 10);
-  const placeholderRows = Math.max(0, 10 - displayedPositions.length);
 
   return (
-    <div className="hidden overflow-hidden rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
-      <div className="grid grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3">
+    <div className="hidden overflow-x-auto rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
+      <div className="grid min-w-[820px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3">
         <span>Position</span>
         <span className="text-right">Supplied</span>
         <span className="text-right">APY</span>
@@ -315,7 +314,7 @@ function DesktopYieldTable({
             <Link
               key={position.id}
               href={`/earn/positions/${encodeURIComponent(position.id)}`}
-              className="grid grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3"
+              className="grid min-w-[820px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3"
             >
               <AssetIdentity
                 name={getProtocolName(opportunity.protocol)}
@@ -345,15 +344,6 @@ function DesktopYieldTable({
           </Link>
         </div>
       )}
-      {displayedPositions.length > 0 && Array.from({ length: placeholderRows }).map((_, index) => (
-        <div
-          key={`yield-placeholder-${index}`}
-          aria-hidden="true"
-          className="grid flex-1 grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 text-sm text-gray-300 last:border-b-0 dark:border-white/10 dark:text-gray-50 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3"
-        >
-          <span /><span className="text-right" /><span className="text-right" /><span className="text-right" /><span className="justify-self-end" />
-        </div>
-      ))}
     </div>
   );
 }
@@ -376,14 +366,10 @@ function DesktopAssetTable({
   const displayedInvestmentAssets = investmentAssets.slice(0, Math.max(0, remainingAssetSlots));
   const valueFor = (asset: { localValue: number; usdValue: number }) =>
     displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
-  const placeholderRows = Math.max(
-    0,
-    10 - displayedVisibleAssets.length - displayedInvestmentAssets.length,
-  );
 
   return (
-    <div className="hidden overflow-hidden rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
-      <div className="grid grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3">
+    <div className="hidden overflow-x-auto rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
+      <div className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3">
         <span>Asset</span>
         <span className="text-right">Balance</span>
         <span className="text-right">Price</span>
@@ -396,7 +382,7 @@ function DesktopAssetTable({
         <Link
           key={asset.symbol}
           href={`/assets/${asset.symbol.toLowerCase()}`}
-          className="grid grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors last:border-b-0 hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
+          className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
         >
           <AssetIdentity name={asset.name} symbol={asset.symbol} />
           <span className="text-right text-sm text-cryptoNight dark:text-white">
@@ -419,7 +405,7 @@ function DesktopAssetTable({
           <Link
             key={asset.id}
             href={asset.href}
-            className="grid grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors last:border-b-0 hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
+            className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
           >
             <AssetIdentity
               iconUrl={asset.logoUrl}
@@ -455,21 +441,6 @@ function DesktopAssetTable({
           </Link>
         );
       })}
-
-      {Array.from({ length: placeholderRows }).map((_, index) => (
-        <div
-          key={`asset-placeholder-${index}`}
-          aria-hidden="true"
-          className="grid grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 text-sm text-gray-300 last:border-b-0 dark:border-white/10 dark:text-gray-50 min-[1280px]:flex-1 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
-        >
-          <span />
-          <span className="text-right" />
-          <span className="text-right" />
-          <span className="text-right" />
-          <span className="text-right" />
-          <span className="justify-self-end" />
-        </div>
-      ))}
     </div>
   );
 }

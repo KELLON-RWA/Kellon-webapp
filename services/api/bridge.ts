@@ -1,9 +1,9 @@
 import {
   apiFetch,
   getAuthToken,
-  handleResponse,
   type ApiResponse,
 } from ".";
+import { handleTransferResponse } from "./transfers";
 import type { BridgeStatus } from "./yield";
 
 export type BridgeProvider = "lifi" | "allbridge";
@@ -110,7 +110,13 @@ async function bridgeRequest<T>(
     { ...init, headers },
     { signed: options.signed === true },
   );
-  return handleResponse<T>(response);
+  return handleTransferResponse<T>(response);
+}
+
+export interface BridgeVerificationPayload {
+  verificationCode: string;
+  verificationType: string;
+  verificationCodes: Array<{ type: string; code: string }>;
 }
 
 export const bridgeService = {
@@ -166,13 +172,14 @@ export const bridgeService = {
     plan: FundingPlan,
     targetChain: string,
     messenger?: BridgeMessenger,
+    verification?: BridgeVerificationPayload,
   ): Promise<ExecuteFundingPlanResult> => {
     const response = await bridgeRequest<ExecuteFundingPlanResult>(
       "/api/funding/execute",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, targetChain, messenger }),
+        body: JSON.stringify({ plan, targetChain, messenger, ...verification }),
       },
       { authenticated: "required", signed: true },
     );

@@ -111,6 +111,9 @@ export interface ConfirmStockBuyTransactionParams {
   txHash: string;
   fundingSymbol?: string;
   fundingChain?: string;
+  verificationCode?: string;
+  verificationType?: string;
+  verificationCodes?: Array<{ type: string; code: string }>;
 }
 
 export interface StockPortfolioHolding {
@@ -172,7 +175,7 @@ export const stocksService = {
       method: "POST",
       body: JSON.stringify(params),
     });
-    return handleResponse<BuildStockBuyTransactionResponse>(res);
+    return handleTransferResponse<BuildStockBuyTransactionResponse>(res);
   },
 
   async confirmTransaction(
@@ -182,7 +185,7 @@ export const stocksService = {
       method: "POST",
       body: JSON.stringify(params),
     });
-    return handleResponse<BuyStockResponse>(res);
+    return handleTransferResponse<BuyStockResponse>(res);
   },
 
   async getPortfolio(): Promise<ApiResponse<StockPortfolio>> {

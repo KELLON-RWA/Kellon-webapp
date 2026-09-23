@@ -120,7 +120,7 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-32 pt-4 md:space-y-6 md:px-6 md:pb-12 md:pt-28 min-[1024px]:max-w-none min-[1024px]:space-y-4 min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8">
       <DashboardHeader greeting={greeting} profile={activeProfile} />
 
-      <div className="grid grid-cols-1 gap-6 min-[1024px]:gap-4 min-[1280px]:grid-cols-12 min-[1280px]:items-start min-[1440px]:grid-cols-[minmax(0,1fr)_34rem]">
+      <div className="grid grid-cols-1 gap-6 min-[1024px]:gap-4 min-[1280px]:grid-cols-12 min-[1280px]:items-start min-[1440px]:grid-cols-[minmax(0,1.7fr)_minmax(22rem,1fr)]">
         <div className="contents min-[1280px]:col-span-8 min-[1280px]:flex min-[1280px]:min-w-0 min-[1280px]:flex-col min-[1280px]:gap-4 min-[1280px]:h-full min-[1440px]:col-span-1">
           <PortfolioBalanceCard
             activeBalanceLabel={dashboard.activeBalanceLabel}

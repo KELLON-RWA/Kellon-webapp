@@ -329,6 +329,22 @@ export default function BridgeFlow({
         plan,
         destination.chainKey,
         selectedRoute.messenger,
+        code && verification
+          ? {
+              verificationCode: code,
+              verificationType: getVerificationTypeForMethod(
+                verification.selectedMethod,
+              ),
+              verificationCodes: [
+                {
+                  type: getVerificationTypeForMethod(
+                    verification.selectedMethod,
+                  ),
+                  code,
+                },
+              ],
+            }
+          : undefined,
       )
       if (execution.transactions.length === 0) {
         setVerification(null)

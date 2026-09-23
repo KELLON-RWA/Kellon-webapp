@@ -299,6 +299,7 @@ export default function StockActionDialog({
           fundingSymbol: "USDC",
           fundingChain: targetStockChain,
           userAddress: client.account.address,
+          ...verificationPayload,
         });
 
         const batchedCalls = (buildRes.data?.calls || []).map((call) => ({
@@ -340,6 +341,7 @@ export default function StockActionDialog({
           txHash,
           fundingSymbol: "USDC",
           fundingChain: targetStockChain,
+          ...verificationPayload,
         });
 
         toast.success(
@@ -418,9 +420,10 @@ export default function StockActionDialog({
       }
 
       endOperation();
-      toast.error(
-        error instanceof Error ? error.message : `Failed to ${action} stock.`,
-      );
+      // RPC providers can include full calldata in an error message. That is useful
+      // for developers but far too noisy (and not actionable) in a customer toast.
+      console.error(`[StockActionDialog] Failed to ${action} stock:`, error);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setStickyVerificationCode(null);
       setIsSubmitting(false);
