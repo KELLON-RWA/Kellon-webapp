@@ -45,10 +45,10 @@ import {
   type VerificationMethod,
   type VerificationType,
 } from "@/services/api/transfers";
+import { transactionService } from "@/services/api/transactions";
 import {
   beginOperation,
   endOperation,
-  hasActiveOperation,
 } from "@/services/api";
 import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
 import {
@@ -261,6 +261,15 @@ export default function WithdrawFlow({
       ? selectedProviderRate.cryptoAmount
       : amountValue;
 
+  // An order that was created but whose funding transfer failed. Retrying the same
+  // withdrawal replays this exact request so the backend returns the existing order;
+  // any edit starts a fresh withdrawal instead of colliding with it.
+  const pendingOrderRef = useRef<{
+    identity: string;
+    request: { providerName: string; payload: OfframpInitRequest };
+    order: OfframpResponse;
+  } | null>(null);
+
   const goBack = () => {
     if (step === "amount") setStep("asset");
     else if (step === "provider") setStep("amount");
@@ -302,13 +311,27 @@ export default function WithdrawFlow({
 
     withdrawalInFlightRef.current = true;
     setIsSubmitting(true);
-    // One key per withdrawal intent; resumed on any retry so a funding failure can't
-    // open a second payout order.
+    const identity = JSON.stringify([
+      normalizeProviderKey(selectedProvider.name),
+      asset,
+      selectedNetworkKey,
+      amountValue,
+      fiatCurrency,
+      selectedBank.id,
+    ]);
+    const pendingOrder =
+      pendingOrderRef.current?.identity === identity ? pendingOrderRef.current : null;
+    if (!pendingOrder) pendingOrderRef.current = null;
+
+    // Resume only the MFA round trip or a retry of the same pending order.
     const operationKey = beginOperation(
-      Boolean(verification) || hasActiveOperation(),
+      Boolean(verification) ||
+        Boolean(retryRequest) ||
+        Boolean(retryOrder) ||
+        Boolean(pendingOrder),
     );
-    let request = retryRequest;
-    let createdOrder = retryOrder ?? null;
+    let request = retryRequest ?? pendingOrder?.request;
+    let createdOrder = retryOrder ?? pendingOrder?.order ?? null;
 
     try {
       if (!request) {
@@ -402,10 +425,24 @@ export default function WithdrawFlow({
       }
 
       const transactionId = getOfframpTransactionReference(createdOrder);
+      pendingOrderRef.current = { identity, request, order: createdOrder };
 
       // The ledger is already debited but the tokens haven't moved; don't report success yet.
       const pendingDeposit = getPendingDeposit(createdOrder);
-      if (pendingDeposit) {
+      // On a retry, a funding transfer that already reached the bundler must not be paid twice.
+      const alreadyFunded =
+        pendingOrder && transactionId
+          ? await transactionService
+              .getTransaction(transactionId)
+              .then((res) =>
+                Boolean(
+                  (res.data as { metadata?: Record<string, unknown> } | undefined)
+                    ?.metadata?.fundingTxHash,
+                ),
+              )
+              .catch(() => false)
+          : false;
+      if (pendingDeposit && !alreadyFunded) {
         toast.info("Order created. Confirm the transfer to complete it.");
 
         await fundOfframpOrder({
@@ -423,6 +460,7 @@ export default function WithdrawFlow({
       }
 
       setVerificationRequest(null);
+      pendingOrderRef.current = null;
       endOperation();
       toast.success(createdOrder.message || "Withdrawal initialized");
 
@@ -493,6 +531,7 @@ export default function WithdrawFlow({
 
       // Keep the key when an order exists so the retry replays it instead of duplicating.
       if (!createdOrder) {
+        pendingOrderRef.current = null;
         endOperation();
       }
 

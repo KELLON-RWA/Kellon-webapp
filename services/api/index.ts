@@ -366,6 +366,69 @@ let activeOperationKey: string | null = null;
  * user-initiated attempt always mints a new key, so a key left behind by an abandoned
  * operation can never be reused by the next, unrelated one.
  */
+// Mirrors the fields the backend idempotency middleware leaves out of its body hash.
+const IDEMPOTENCY_VOLATILE_FIELDS = new Set([
+  "verificationCode",
+  "verificationCodes",
+  "verificationType",
+  "otp",
+  "code",
+  "rate",
+  "fiatAmount",
+  "receivableAmount",
+  "amountReceived",
+  "amount_received",
+  "nairaValue",
+  "exchangeRate",
+  "quotedAmount",
+  "totalToPay",
+]);
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object")
+    return JSON.stringify(value ?? null);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b));
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
+}
+
+/**
+ * One key per (operation, endpoint, request intent). An identical retry of the same call
+ * reuses its key so the backend replays the first outcome; any different call made during
+ * the same operation gets its own key instead of colliding with the first one.
+ */
+export async function deriveIdempotencyKey(
+  operationKey: string,
+  method: string,
+  path: string,
+  rawBody: string,
+): Promise<string> {
+  let intent: unknown = rawBody;
+  try {
+    const parsed = rawBody ? JSON.parse(rawBody) : null;
+    intent =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? Object.fromEntries(
+            Object.entries(parsed).filter(
+              ([k]) => !IDEMPOTENCY_VOLATILE_FIELDS.has(k),
+            ),
+          )
+        : parsed;
+  } catch {
+    // Non-JSON bodies are keyed on their raw text.
+  }
+  const material = `${operationKey}:${method.toUpperCase()}:${path.split("?")[0]}:${stableStringify(intent)}`;
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(material),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function beginOperation(resume = false): string {
   if (!resume) activeOperationKey = null;
   if (!activeOperationKey) {
@@ -410,7 +473,15 @@ export async function apiFetch(
     ["POST", "PUT", "PATCH"].includes(method) &&
     !headers.has("Idempotency-Key")
   ) {
-    headers.set("Idempotency-Key", activeOperationKey);
+    headers.set(
+      "Idempotency-Key",
+      await deriveIdempotencyKey(
+        activeOperationKey,
+        method,
+        canonicalPath,
+        rawBody,
+      ),
+    );
   }
 
   if (mustSign) {
