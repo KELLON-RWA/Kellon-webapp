@@ -295,11 +295,10 @@ function DesktopYieldTable({
 
   return (
     <div className="hidden overflow-x-auto rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
-      <div className="grid min-w-[820px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3">
+      <div className="grid min-w-[700px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_70px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_90px] min-[1280px]:gap-3">
         <span>Position</span>
         <span className="text-right">Supplied</span>
         <span className="text-right">APY</span>
-        <span className="text-right">Est. annual yield</span>
         <span className="text-right">Status</span>
       </div>
       {isLoading ? (
@@ -309,12 +308,11 @@ function DesktopYieldTable({
           const opportunity = getPositionOpportunity(position, opportunities);
           if (!opportunity) return null;
           const amount = getPositionValue(position);
-          const annualYield = (amount * Number(position.entryApy || 0)) / 100;
           return (
             <Link
               key={position.id}
               href={`/earn/positions/${encodeURIComponent(position.id)}`}
-              className="grid min-w-[820px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_90px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_minmax(115px,.9fr)_90px] min-[1280px]:gap-3"
+              className="grid min-w-[700px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_90px] min-[1280px]:gap-3"
             >
               <AssetIdentity
                 name={getProtocolName(opportunity.protocol)}
@@ -326,9 +324,6 @@ function DesktopYieldTable({
               </span>
               <span className="text-right text-sm font-medium text-emerald-700 dark:text-emerald-300">
                 {formatApy(position.entryApy)}
-              </span>
-              <span className="text-right text-sm text-cryptoNight dark:text-white">
-                {annualYield.toFixed(2)} {opportunity.symbol}
               </span>
               <span className="justify-self-end rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
                 {position.status}

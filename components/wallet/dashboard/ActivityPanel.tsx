@@ -138,7 +138,7 @@ export default function ActivityPanel({
 function ActivityEmptyState({ title, text }: { title: string; text: string }) {
   return (
     <FlowEmptyState
-      className="min-h-[250px] flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:rounded-lg"
+      className="min-h-[250px] flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 min-[1024px]:min-h-0 min-[1024px]:p-4 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:rounded-lg"
       icon={
         <Clock
           size={24}

@@ -110,7 +110,3 @@ export function getPositionOpportunity(
 export function getPositionValue(position: YieldPosition): number {
   return toNumber(position.amount);
 }
-
-export function getEstimatedAnnualYield(position: YieldPosition): number {
-  return (getPositionValue(position) * toNumber(position.entryApy)) / 100;
-}

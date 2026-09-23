@@ -13,7 +13,6 @@ import EarnActionDialog from "./EarnActionDialog";
 import {
   formatApy,
   formatTokenAmount,
-  getEstimatedAnnualYield,
   getPositionOpportunity,
   getPositionValue,
   getProtocolName,
@@ -69,7 +68,6 @@ export default function YieldPositionDetailsPage({
   }
 
   const amount = position ? getPositionValue(position) : 0;
-  const annualYield = position ? getEstimatedAnnualYield(position) : 0;
   const title = opportunity?.symbol || "Yield position";
   const protocol = opportunity ? getProtocolName(opportunity.protocol) : "Loading";
 
@@ -112,11 +110,10 @@ export default function YieldPositionDetailsPage({
           </span>
         </div>
 
-        <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <PositionMetric label="Supplied" value={`${formatTokenAmount(amount)} ${title}`} />
           <PositionMetric label="Current APY" value={formatApy(opportunity?.apy || 0)} tone="positive" />
           <PositionMetric label="Entry APY" value={formatApy(position?.entryApy || 0)} tone="positive" />
-          <PositionMetric label="Est. annual yield" value={`${formatTokenAmount(annualYield)} ${title}`} tone="positive" />
         </div>
 
         <div className="mt-6 flex flex-col gap-3 border-t border-gray-80 pt-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">

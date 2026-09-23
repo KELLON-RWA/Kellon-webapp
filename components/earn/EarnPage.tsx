@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import { Button } from "@/components/ui/button";
+import { getActiveChains } from "@/lib/chains";
 import { cn } from "@/lib/utils";
 import { yieldService, type YieldActionType } from "@/services/api/yield";
 import {
@@ -71,6 +72,16 @@ const earnCategories: Array<{
     label: "RWA",
   },
 ];
+
+function getSupportedYieldChainKey(chain: string): string | null {
+  const normalized = chain.trim().toLowerCase();
+  if (normalized === "bsc" || normalized.includes("binance")) return "bnb";
+
+  return Object.entries(getActiveChains()).find(
+    ([key, config]) =>
+      key === normalized || config.name.toLowerCase() === normalized,
+  )?.[0] || null;
+}
 
 function isRwaHolding(
   holding: StockPortfolioHolding,
@@ -450,41 +461,32 @@ function RwaComingSoon() {
           </span>
         </div>
 
-        <div className="space-y-3 md:hidden">
+        <div className="space-y-2 md:hidden">
           {rwaPools.map((pool) => (
             <article
               key={pool.name}
-              className="rounded-xl border border-gray-80 bg-white/70 p-4 shadow-sm dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none"
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 shadow-sm dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
-                    <Building2 className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
-                      {pool.name}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-gray-30 dark:text-gray-40">
-                      {pool.symbol} · {pool.network}
-                    </p>
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                    {pool.apy}
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                  <Building2 className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
+                    {pool.name}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-gray-30 dark:text-gray-40">Est. APY</p>
+                  <p className="mt-0.5 truncate text-[11px] text-gray-30 dark:text-gray-40">
+                    {pool.symbol} · {pool.network}
+                  </p>
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-80 pt-3 text-[10px] dark:border-white/10">
-                <div className="min-w-0">
-                  <p className="truncate text-gray-30 dark:text-gray-40">{pool.protection}</p>
-                  <p className="mt-1 font-semibold text-primary-90 dark:text-primary-30">{pool.yieldType}</p>
-                </div>
-                <Button type="button" variant="outline" size="sm" disabled className="h-8 shrink-0 px-3">
-                  Coming soon
-                </Button>
+              <div className="shrink-0 text-right">
+                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  {pool.apy}
+                </p>
+                <span className="mt-1 inline-flex rounded-md bg-primary-90 px-2 py-0.5 text-[10px] font-bold text-white opacity-70 dark:bg-primary-70">
+                  Soon
+                </span>
               </div>
             </article>
           ))}
@@ -627,6 +629,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [isYieldSearchOpen, setIsYieldSearchOpen] = useState(false);
   const [yieldSearchQuery, setYieldSearchQuery] = useState("");
+  const [yieldChainFilter, setYieldChainFilter] = useState("all");
   const [selectedAction, setSelectedAction] = useState<SelectedAction>(null);
   const [selectedStockAction, setSelectedStockAction] = useState<{
     action: StockActionType;
@@ -745,11 +748,26 @@ export default function EarnPage({ profile }: EarnPageProps) {
       positions.filter((position) => position.status !== PositionStatus.CLOSED),
     [positions],
   );
+  const yieldChains = useMemo(
+    () =>
+      Object.entries(getActiveChains()).map(([id, chain]) => ({
+        id,
+        label: chain.name.replace(/\s+(network|smart chain)$/i, ""),
+      })),
+    [],
+  );
   const filteredOpportunities = useMemo(() => {
     const query = yieldSearchQuery.trim().toLowerCase();
-    if (!query) return opportunities;
+    const matchingChain = opportunities.filter((opportunity) => {
+      const supportedChain = getSupportedYieldChainKey(opportunity.chain);
+      return (
+        supportedChain !== null &&
+        (yieldChainFilter === "all" || supportedChain === yieldChainFilter)
+      );
+    });
+    if (!query) return matchingChain;
 
-    return opportunities.filter((opportunity) =>
+    return matchingChain.filter((opportunity) =>
       [
         opportunity.symbol,
         opportunity.chain,
@@ -757,7 +775,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
         getProtocolName(opportunity.protocol),
       ].some((value) => value.toLowerCase().includes(query)),
     );
-  }, [opportunities, yieldSearchQuery]);
+  }, [opportunities, yieldChainFilter, yieldSearchQuery]);
   const totalSupplied = activePositions.reduce(
     (total, position) => total + getPositionValue(position),
     0,
@@ -775,17 +793,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
         return {
           amount,
           apy,
-          annualYield: (amount * apy) / 100,
-          label: currentOpportunity
-            ? `${getProtocolName(currentOpportunity.protocol)} ${currentOpportunity.symbol}`
-            : position.opportunityId,
         };
       }),
     [activePositions, opportunities],
-  );
-  const estimatedAnnualYield = currentPositionMetrics.reduce(
-    (total, position) => total + position.annualYield,
-    0,
   );
   const averageApy =
     totalSupplied > 0
@@ -1059,7 +1069,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
       {activeTab === "yield" ? (
         <>
           {isYieldLoading ? (
-            <PortfolioSummarySkeleton metricCount={3} />
+            <PortfolioSummarySkeleton metricCount={2} />
           ) : (
             <>
           <MobileBalanceSummary
@@ -1075,11 +1085,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 value: `${averageApy.toFixed(2)}%`,
                 tone: averageApy > 0 ? "positive" : "default",
               },
-              {
-                label: "Est. annual yield",
-                value: formatMetricUsd(estimatedAnnualYield),
-                tone: estimatedAnnualYield > 0 ? "positive" : "default",
-              },
             ]}
           />
 
@@ -1092,7 +1097,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
                 {formatUsd(totalSupplied)}
               </p>
-              <div className="mt-8 grid max-w-2xl grid-cols-3 border-t border-gray-80 pt-5 dark:border-white/10">
+              <div className="mt-8 grid max-w-xl grid-cols-2 border-t border-gray-80 pt-5 dark:border-white/10">
                 <div className="pr-6">
                   <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
                     Active pools
@@ -1114,21 +1119,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     )}
                   >
                     {averageApy.toFixed(2)}%
-                  </p>
-                </div>
-                <div className="border-l border-gray-80 pl-6 dark:border-white/10">
-                  <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
-                    Est. annual yield
-                  </p>
-                  <p
-                    className={cn(
-                      "mt-2 text-lg font-bold tabular-nums",
-                      estimatedAnnualYield > 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-cryptoNight dark:text-white",
-                    )}
-                  >
-                    {formatUsd(estimatedAnnualYield)}
                   </p>
                 </div>
               </div>
@@ -1250,16 +1240,36 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </div>
               )}
             </div>
+            <div className="mb-3 flex w-full items-center gap-1 md:hidden">
+              {[
+                { id: "all", label: "All chains" },
+                ...yieldChains,
+              ].map((chain) => {
+                const isSelected = yieldChainFilter === chain.id;
+                return (
+                  <button
+                    key={chain.id}
+                    type="button"
+                    onClick={() => setYieldChainFilter(chain.id)}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "min-w-0 flex-1 truncate rounded-sm px-0.5 py-1 text-center text-[8px] font-semibold capitalize leading-none transition",
+                      isSelected
+                        ? "bg-primary-90 text-white dark:bg-primary-70"
+                        : "bg-secondary-60 text-gray-30 dark:bg-white/5 dark:text-gray-40",
+                    )}
+                  >
+                    {chain.label}
+                  </button>
+                );
+              })}
+            </div>
             {opportunitiesLoading ? (
               <YieldOpportunitySkeleton />
             ) : filteredOpportunities.length ? (
               <>
                 <div className="md:hidden">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 pb-2 text-[11px] text-gray-30 dark:text-gray-40">
-                    <span className="font-semibold">Protocol</span>
-                    <span className="text-right font-semibold">Est. APY</span>
-                  </div>
-                  <div className="overflow-hidden bg-transparent">
+                  <div className="space-y-2">
                     {filteredOpportunities.map((opportunity) => {
                       const available = getMaxUsableBalance(
                         profile,
@@ -1273,7 +1283,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           onClick={() =>
                             setSelectedAction({ action: "supply", opportunity })
                           }
-                          className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3 text-left transition-colors hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
+                          className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <AssetNetworkIcon
@@ -1285,18 +1295,18 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               <p className="truncate text-sm font-semibold text-cryptoNight dark:text-white">
                                 {getProtocolName(opportunity.protocol)}
                               </p>
-                              <p className="truncate text-xs text-gray-30 dark:text-gray-40">
+                              <p className="mt-0.5 truncate text-[11px] text-gray-30 dark:text-gray-40">
                                 {opportunity.symbol} · {opportunity.chain}
                               </p>
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                            <p className="text-[10px] font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                               {formatApy(opportunity.apy)}
                             </p>
-                            <p className="mt-0.5 text-xs text-primary-90 dark:text-primary-30">
+                            <span className="mt-1 inline-flex rounded-md bg-primary-90 px-2 py-0.5 text-[10px] font-bold text-white dark:bg-primary-70">
                               {available > 0 ? "Deposit" : "Unavailable"}
-                            </p>
+                            </span>
                           </div>
                         </button>
                       );
@@ -1672,29 +1682,14 @@ export default function EarnPage({ profile }: EarnPageProps) {
             ) : sortedStocks.length ? (
               <>
                 <div className="md:hidden">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 pb-2 text-[11px] text-gray-30 dark:text-gray-40">
-                    <span className="font-semibold">Name</span>
-                    <button
-                      type="button"
-                      onClick={() => toggleStockSort("change")}
-                      className="text-right font-semibold"
-                    >
-                      Price | 24h change
-                      {stockSort.key === "change"
-                        ? stockSort.direction === "asc"
-                          ? " ↑"
-                          : " ↓"
-                        : ""}
-                    </button>
-                  </div>
-                  <div className="overflow-hidden bg-transparent">
+                  <div className="space-y-2">
                   {desktopStocks.map((stock) => (
                     <button
                       key={`${stock.provider}_${stock.symbol}`}
                       type="button"
                       onClick={() => openStockDetails(stock)}
                       aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
-                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3 text-left transition-colors hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
+                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <StockLogo
@@ -1706,7 +1701,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           <p className="truncate text-sm font-semibold text-cryptoNight dark:text-white">
                             {getUnderlyingTicker(stock.symbol)}
                           </p>
-                          <p className="truncate text-xs text-gray-30 dark:text-gray-40">
+                          <p className="mt-0.5 truncate text-[11px] text-gray-30 dark:text-gray-40">
                             {getDisplayStockName(stock.name)}
                           </p>
                         </div>
