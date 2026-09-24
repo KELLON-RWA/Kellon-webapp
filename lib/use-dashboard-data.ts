@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useDetectCountry } from "@/hooks/use-detect-country"
 import { useExchangeRate } from "@/hooks/use-exchange-rate"
+import { getActiveChainKey } from "@/lib/chains"
 import {
   COUNTRY_CURRENCY_MAP,
   getCurrencySymbol,
@@ -212,7 +213,7 @@ export function useDashboardData(profile: User) {
       new Set(
         (profile.chainAccounts || [])
           .map((account) => account.chain.trim().toLowerCase())
-          .filter(Boolean),
+          .filter((chain) => getActiveChainKey(chain) !== null),
       ).size,
     [profile.chainAccounts],
   )

@@ -10,6 +10,7 @@ import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import SelectNetworkModal from "@/components/modals/SelectNetworkModal";
 import { Button } from "@/components/ui/button";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
+import { getActiveChainKey } from "@/lib/chains";
 
 interface ReceiveCryptoProps {
   chainAccounts: ChainAccount[];
@@ -18,10 +19,11 @@ interface ReceiveCryptoProps {
 
 const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
   const router = useRouter();
-  // Filter out avalanche and sort networks
+  // Chain accounts can include backend-provisioned networks that Kellon does
+  // not support yet. Only expose active Kellon networks in receive.
   const filteredChainAccounts = useMemo(() => {
     return chainAccounts
-      .filter((account) => account.chain.toLowerCase() !== "avalanche")
+      .filter((account) => getActiveChainKey(account.chain) !== null)
       .sort((a, b) => a.chain.localeCompare(b.chain));
   }, [chainAccounts]);
 

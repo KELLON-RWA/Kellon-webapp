@@ -266,6 +266,42 @@ const IS_TESTNET = process.env.NEXT_PUBLIC_NETWORK_MODE === "testnet"
 export const getActiveChains = () =>
   IS_TESTNET ? TESTNET_CHAINS : MAINNET_CHAINS
 
+/**
+ * Resolves backend chain labels to one of the networks Kellon currently
+ * supports.  Profile data can include provisioned-but-unsupported networks;
+ * those must not be offered in wallet flows.
+ */
+export function getActiveChainKey(
+  chain?: string | null,
+): SupportedChainKeys | null {
+  const normalized = (chain || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "")
+    .replace(/testnet|mainnet|network/g, "")
+
+  const aliases: Record<string, SupportedChainKeys> = {
+    bsc: "bnb",
+    bnbsmartchain: "bnb",
+    binance: "bnb",
+    binancechain: "bnb",
+    binancesmartchain: "bnb",
+  }
+
+  const candidate = aliases[normalized] || normalized
+  const chains = getActiveChains()
+  const match = Object.entries(chains).find(
+    ([key, config]) =>
+      key === candidate ||
+      config.name
+        .toLowerCase()
+        .replace(/[\s_-]+/g, "")
+        .replace(/testnet|mainnet|network/g, "") === candidate,
+  )
+
+  return (match?.[0] as SupportedChainKeys | undefined) || null
+}
+
 export const getChainById = (chainId: number | string) =>
   Object.values(getActiveChains()).find(
     (c) => c.id === chainId || c.id.toString() === chainId.toString(),
