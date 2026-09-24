@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Copy,
   Plus,
+  Waypoints,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrencyAmount } from "@/lib/dashboard-utils";
@@ -42,7 +43,7 @@ interface AssetChainViewProps {
   isBalanceVisible: boolean;
   isValueLoading: boolean;
   onCopyAddress: () => void;
-  onAction: (action: "send" | "buy" | "withdraw") => void;
+  onAction: (action: "send" | "buy" | "withdraw" | "bridge") => void;
   onViewTransaction: (transactionId: string) => void;
 }
 
@@ -87,10 +88,11 @@ export function AssetChainView({
         )}
       </section>
 
-      <section className="grid grid-cols-3 gap-3">
+      <section className="grid grid-cols-4 gap-3">
         {[
           { id: "send" as const, label: "Send", icon: ArrowUpRight },
           { id: "buy" as const, label: "Buy", icon: Plus },
+          { id: "bridge" as const, label: "Bridge", icon: Waypoints },
           { id: "withdraw" as const, label: "Withdraw", icon: ArrowUp },
         ].map((action) => {
           const Icon = action.icon;

@@ -10,9 +10,26 @@ export const metadata: Metadata = {
   alternates: { canonical: "/bridge" },
 };
 
-export default async function BridgePage() {
+interface BridgePageProps {
+  searchParams: Promise<{ asset?: string; network?: string }>;
+}
+
+export default async function BridgePage({ searchParams }: BridgePageProps) {
   const profile = (await currentProfile()) as User;
   if (!profile) redirect("/");
 
-  return <BridgeFlow profile={profile} />;
+  const { asset, network } = await searchParams;
+  const normalizedAsset = asset?.toUpperCase();
+  const initialSymbol =
+    normalizedAsset === "USDC" || normalizedAsset === "USDT"
+      ? normalizedAsset
+      : undefined;
+
+  return (
+    <BridgeFlow
+      profile={profile}
+      initialSymbol={initialSymbol}
+      initialSourceChain={network?.toLowerCase()}
+    />
+  );
 }

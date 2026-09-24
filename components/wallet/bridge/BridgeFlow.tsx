@@ -32,6 +32,7 @@ import type { User } from "@/types/db"
 import { bridgeService, type BridgeRateOption } from "@/services/api/bridge"
 import { BridgeComposeStep } from "./steps/ComposeStep"
 import { BridgeReviewStep } from "./steps/ReviewStep"
+import BridgeSuccessModal from "./BridgeSuccessModal"
 import type { BridgeVerification, EvmSmartAccountClient } from "./types"
 import {
   getRouteDuration,
@@ -119,6 +120,11 @@ export default function BridgeFlow({
   const [verification, setVerification] = useState<BridgeVerification | null>(
     null,
   )
+  const [bridgeSuccess, setBridgeSuccess] = useState<{
+    symbol: BridgeAssetOption["symbol"]
+    amount: string
+    destination: BridgeAssetOption
+  } | null>(null)
 
   const source = sources.find((item) => item.key === sourceKey) || null
   const selectedSymbol = source?.symbol || null
@@ -283,6 +289,18 @@ export default function BridgeFlow({
   const quoteError =
     quoteQuery.error instanceof Error ? quoteQuery.error.message : null
   const receiveAmount = selectedRoute?.estimatedOutput || ""
+  const finishBridge = () => {
+    if (!bridgeSuccess) return
+
+    if (embedded) {
+      onSubmitted?.()
+      return
+    }
+
+    router.push(
+      `/assets/${bridgeSuccess.symbol.toLowerCase()}?network=${bridgeSuccess.destination.chainKey}`,
+    )
+  }
 
   const executeBridge = async (code?: string) => {
     if (!source || !destination || !selectedRoute) return
@@ -348,9 +366,11 @@ export default function BridgeFlow({
       )
       if (execution.transactions.length === 0) {
         setVerification(null)
-        toast.success("Funds are already on the destination network")
-        if (embedded) onSubmitted?.()
-        else router.push("/")
+        setBridgeSuccess({
+          symbol: source.symbol,
+          amount,
+          destination,
+        })
         return
       }
 
@@ -390,8 +410,10 @@ export default function BridgeFlow({
       })
 
       setVerification(null)
-      toast.success("Bridge submitted", {
-        description: `Your ${source.symbol} is moving to ${destination.chainName}. Transaction: ${hash.slice(0, 10)}…`,
+      setBridgeSuccess({
+        symbol: source.symbol,
+        amount: receiveAmount || amount,
+        destination,
       })
       void monitorBridgeStatus({
         provider: selectedRoute.provider,
@@ -402,8 +424,6 @@ export default function BridgeFlow({
         amount,
         symbol: source.symbol,
       })
-      if (embedded) onSubmitted?.()
-      else router.push("/")
     } catch (error) {
       const verificationError = findTransferVerificationRequiredError(error)
       if (verificationError) {
@@ -569,6 +589,15 @@ export default function BridgeFlow({
         title="Confirm bridge"
         actionNoun="bridge"
       />
+      {bridgeSuccess ? (
+        <BridgeSuccessModal
+          open
+          amount={bridgeSuccess.amount}
+          symbol={bridgeSuccess.symbol}
+          destination={bridgeSuccess.destination.chainName}
+          onDone={finishBridge}
+        />
+      ) : null}
     </section>
   )
 }

@@ -33,11 +33,13 @@ import {
 interface AssetDetailsPageProps {
   profile: User;
   symbol: string;
+  initialChain?: string;
 }
 
 export default function AssetDetailsPage({
   profile,
   symbol,
+  initialChain,
 }: AssetDetailsPageProps) {
   const router = useRouter();
   const normalizedSymbol = symbol.toUpperCase();
@@ -46,7 +48,7 @@ export default function AssetDetailsPage({
   const { exchangeRate, isRateLoading } = useExchangeRate(localCurrency, null);
   const [tokenPrice, setTokenPrice] = useState(DEFAULT_TOKEN_PRICE);
   const [isPriceLoading, setIsPriceLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialChain || "overview");
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [copiedAddressChain, setCopiedAddressChain] = useState<string | null>(
@@ -231,7 +233,7 @@ export default function AssetDetailsPage({
     }, 2000);
   };
 
-  const handleAction = (action: "send" | "buy" | "withdraw") => {
+  const handleAction = (action: "send" | "buy" | "withdraw" | "bridge") => {
     const query = activeChainBalance
       ? `?asset=${normalizedSymbol}&network=${activeChainBalance.chain}`
       : `?asset=${normalizedSymbol}`;
@@ -239,6 +241,7 @@ export default function AssetDetailsPage({
     if (action === "send") router.push(`/send${query}`);
     if (action === "buy") router.push(`/buy${query}`);
     if (action === "withdraw") router.push(`/withdraw${query}`);
+    if (action === "bridge") router.push(`/bridge${query}`);
   };
 
   return (

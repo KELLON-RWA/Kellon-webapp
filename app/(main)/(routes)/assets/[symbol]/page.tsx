@@ -9,6 +9,9 @@ interface PageProps {
   params: Promise<{
     symbol: string;
   }>;
+  searchParams: Promise<{
+    network?: string;
+  }>;
 }
 
 export async function generateMetadata({
@@ -26,11 +29,18 @@ export async function generateMetadata({
   };
 }
 
-export default async function Page({ params }: PageProps) {
+export default async function Page({ params, searchParams }: PageProps) {
   const profile = (await currentProfile()) as User;
   if (!profile) redirect("/continue");
 
   const { symbol } = await params;
+  const { network } = await searchParams;
 
-  return <AssetDetailsPage profile={profile} symbol={symbol} />;
+  return (
+    <AssetDetailsPage
+      profile={profile}
+      symbol={symbol}
+      initialChain={network?.toLowerCase()}
+    />
+  );
 }
