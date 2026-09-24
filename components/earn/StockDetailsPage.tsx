@@ -349,11 +349,11 @@ export default function StockDetailsPage({
   return (
     <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-52 pt-4 md:px-6 md:pb-12 md:pt-28">
       <header className="mb-5 flex items-center justify-between md:mb-7">
-        <button type="button" onClick={() => router.back()} aria-label="Back to stock opportunities" className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-50/70 text-cryptoNight transition hover:bg-primary-90/10 hover:text-primary-90 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:text-primary-30">
+        <button type="button" onClick={() => router.back()} aria-label="Back to stock opportunities" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-gray-100 text-slate-600 transition-colors hover:bg-gray-200 dark:border-transparent dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-base font-bold text-cryptoNight dark:text-white">{title}</h1>
-        <button type="button" onClick={() => refetch()} aria-label="Refresh stock data" className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-50/70 text-cryptoNight transition hover:bg-primary-90/10 hover:text-primary-90 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:text-primary-30">
+        <button type="button" onClick={() => refetch()} aria-label="Refresh stock data" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-gray-100 text-slate-600 transition-colors hover:bg-gray-200 dark:border-transparent dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60">
           <RefreshCw className="h-4 w-4" />
         </button>
       </header>
@@ -367,7 +367,7 @@ export default function StockDetailsPage({
             className={cn(
               "min-h-9 rounded-lg px-1 text-[10px] font-semibold transition min-[360px]:px-2 min-[360px]:text-xs sm:text-sm",
               activeTab === tab
-                ? "bg-primary-90 text-white shadow-sm dark:bg-primary-70"
+                ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none"
                 : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
             )}
           >
@@ -413,9 +413,9 @@ export default function StockDetailsPage({
                 </p>
               ) : null}
             </div>
-            <div className="flex rounded-lg bg-secondary-50/70 p-1 dark:bg-black/20">
+            <div className="flex rounded-lg border border-gray-80 bg-white/70 p-1 dark:border-white/10 dark:bg-black/20">
               {TIME_RANGES.map((range) => (
-                <button key={range} type="button" onClick={() => setActiveRange(range)} className={cn("rounded-md px-4 py-2 text-xs font-semibold transition", activeRange === range ? "bg-primary-90 text-white shadow-sm dark:bg-primary-70" : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white")}>
+                <button key={range} type="button" onClick={() => setActiveRange(range)} className={cn("rounded-md px-4 py-2 text-xs font-semibold transition", activeRange === range ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none" : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white")}>
                   {range}
                 </button>
               ))}
@@ -476,7 +476,7 @@ export default function StockDetailsPage({
         {change !== undefined ? <p className={cn("mt-1 text-sm font-medium", isPositive ? "text-emerald-600 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300")}>{isPositive ? "+" : ""}{change.toFixed(2)}%</p> : null}
         <StockPriceChart values={values} timestamps={timestamps} selectedRange={activeRange} className="h-[240px]" />
         <div className="mt-1 grid grid-cols-5 border-t border-gray-80 pt-3 dark:border-white/10">
-          {TIME_RANGES.map((range) => <button key={range} type="button" onClick={() => setActiveRange(range)} className={cn("rounded-md py-1.5 text-xs font-medium transition", activeRange === range ? "bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30" : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white")}>{range}</button>)}
+          {TIME_RANGES.map((range) => <button key={range} type="button" onClick={() => setActiveRange(range)} className={cn("rounded-md py-1.5 text-xs font-medium transition", activeRange === range ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none" : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white")}>{range}</button>)}
         </div>
       </section>
 
@@ -629,8 +629,8 @@ function StockResearchContent({
 function StockholderInformation({ activeTab, onTabChange, title, holding }: { activeTab: StockholderTab; onTabChange: (tab: StockholderTab) => void; title: string; holding: { shares: number } | null }) {
   return (
     <section className="mt-5 md:mt-7">
-      <div className="grid grid-cols-3 rounded-xl bg-secondary-50/70 p-1 dark:bg-black/20">
-        {STOCKHOLDER_TABS.map((tab) => <button key={tab} type="button" onClick={() => onTabChange(tab)} className={cn("min-h-10 rounded-lg px-2 text-[11px] font-semibold transition sm:text-sm", activeTab === tab ? "bg-primary-90 text-white shadow-sm dark:bg-primary-70" : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10")}>{tab}</button>)}
+      <div className="grid grid-cols-3 rounded-xl border border-gray-80 bg-white/70 p-1.5 dark:border-white/10 dark:bg-secondary-50/60">
+        {STOCKHOLDER_TABS.map((tab) => <button key={tab} type="button" onClick={() => onTabChange(tab)} className={cn("min-h-10 rounded-lg px-2 text-[11px] font-semibold transition sm:text-sm", activeTab === tab ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none" : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10")}>{tab}</button>)}
       </div>
       <div className="mt-4 rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7">
         {activeTab === "Tokenholder rights" ? <><h2 className="text-lg font-bold text-cryptoNight dark:text-white">Tokenholder protections & rights</h2><div className="mt-5 grid gap-5 md:grid-cols-2"><RightItem icon={<Scale className="h-5 w-5" />} title="Economic exposure" text={`Token holders receive market exposure to ${title} through the selected tokenized-stock provider.`} /><RightItem icon={<WalletCards className="h-5 w-5" />} title="Dividend treatment" text="Dividend and corporate-action treatment is governed by the selected provider’s listing terms." /><RightItem icon={<Vote className="h-5 w-5" />} title="Voting rights disclosure" text="Tokenized equities may not carry direct voting rights. Review provider disclosures before purchase." /><RightItem icon={<ShieldCheck className="h-5 w-5" />} title="Custody & insolvency terms" text="Custody and redemption protections are defined by the provider’s verified token documentation." /></div></> : activeTab === "My positions" ? <div className="py-8 text-center"><WalletCards className="mx-auto h-9 w-9 text-gray-30 dark:text-gray-40" /><h2 className="mt-3 text-lg font-bold text-cryptoNight dark:text-white">{holding ? `${holding.shares} ${title} shares held` : "No active position"}</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-30 dark:text-gray-40">{holding ? "Your current position is available above in the sell action." : `You do not own any ${title} tokenized shares yet.`}</p></div> : <div className="py-8 text-center"><Activity className="mx-auto h-9 w-9 text-gray-30 dark:text-gray-40" /><h2 className="mt-3 text-lg font-bold text-cryptoNight dark:text-white">Recent activity</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-30 dark:text-gray-40">Your purchases, sales, and provider distributions for {title} will appear here.</p></div>}

@@ -607,7 +607,7 @@ const SearchBar = ({
         }}
         placeholder="Search Kellon"
         aria-label="Search Kellon"
-        className="h-10 w-full rounded-xl border-gray-80 bg-white/85 pl-10 pr-10 text-gray-20 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all placeholder:text-gray-30 focus-visible:border-primary-60 focus-visible:ring-1 focus-visible:ring-primary-50 [&::-webkit-search-cancel-button]:hidden dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:shadow-none dark:placeholder:text-white/38 dark:focus-visible:border-primary-80 dark:focus-visible:ring-primary-80/70 1xl:pr-12"
+        className="h-10 w-full rounded-xl border-gray-80 bg-white/85 pl-10 pr-10 text-gray-20 backdrop-blur-xl transition-all placeholder:text-gray-30 focus-visible:border-primary-60 focus-visible:ring-1 focus-visible:ring-primary-50 [&::-webkit-search-cancel-button]:hidden dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:placeholder:text-white/38 dark:focus-visible:border-primary-80 dark:focus-visible:ring-primary-80/70 1xl:pr-12"
       />
       {query ? (
         <button

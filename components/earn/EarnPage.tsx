@@ -49,7 +49,6 @@ import {
   formatApy,
   formatMetricUsd,
   formatUsd,
-  getMaxUsableBalance,
   getPositionValue,
   getProtocolName,
   getStockSettlementChain,
@@ -521,16 +520,16 @@ const rwaPools = [
 function RwaComingSoon() {
   return (
     <div className="w-full">
-      <section className="relative mb-7 overflow-hidden rounded-2xl border border-white/10 bg-secondary-50/65 p-5 shadow-sm shadow-primary-90/20 md:mb-9 md:p-7">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.34),transparent_48%),radial-gradient(circle_at_90%_18%,rgba(255,255,255,0.08),transparent_38%)]" />
+      <section className="relative mb-7 overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-5 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none md:mb-9 md:p-7">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
         <div className="relative">
           <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-gray-40 md:text-xs">
             Real-world asset yields
           </p>
-          <h1 className="mt-2 text-3xl font-extrabold text-white md:text-4xl">
+          <h1 className="mt-2 text-3xl font-extrabold text-cryptoNight dark:text-white md:text-4xl">
             Coming soon
           </h1>
-          <div className="mt-6 grid max-w-2xl grid-cols-2 border-t border-white/10 pt-4 md:mt-8 md:pt-5">
+          <div className="mt-6 grid max-w-2xl grid-cols-2 border-t border-gray-80 pt-4 dark:border-white/10 md:mt-8 md:pt-5">
             <div className="pr-4 md:pr-8">
               <p className="text-[10px] text-gray-40 md:text-xs">
                 Asset protection
@@ -539,7 +538,7 @@ function RwaComingSoon() {
                 Audited & regulated
               </p>
             </div>
-            <div className="border-l border-white/10 pl-4 md:pl-8">
+            <div className="border-l border-gray-80 pl-4 dark:border-white/10 md:pl-8">
               <p className="text-[10px] text-gray-40 md:text-xs">
                 Target APY range
               </p>
@@ -561,7 +560,7 @@ function RwaComingSoon() {
               Coming soon
             </p>
           </div>
-          <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+          <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
             RWA
           </span>
         </div>
@@ -636,7 +635,7 @@ function RwaComingSoon() {
                     {pool.protection}
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                    <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                       {pool.yieldType}
                     </span>
                   </td>
@@ -715,7 +714,7 @@ function MobileBalanceSummary({
   stats: BalanceSummaryStat[];
 }) {
   return (
-    <section className="relative mb-6 overflow-hidden rounded-xl border border-white/70 bg-white/70 p-5 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
+    <section className="relative mb-6 overflow-hidden rounded-xl border border-white/70 bg-white/70 p-4 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
 
       <div className="relative">
@@ -728,7 +727,7 @@ function MobileBalanceSummary({
 
         <div
           className={cn(
-            "mt-6 grid border-t border-gray-80 pt-4 dark:border-white/10",
+            "mt-5 grid border-t border-gray-80 pt-3 dark:border-white/10",
             stats.length === 2 ? "grid-cols-2" : "grid-cols-3",
           )}
         >
@@ -1250,9 +1249,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   selectCategory(category.id);
                 }}
                 className={cn(
-                  "flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-3 text-center transition md:rounded-full md:py-1.5 md:px-4",
+                  "flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-center transition md:rounded-full md:py-1.5 md:px-4",
                   isActive
-                    ? "bg-primary-90 text-white shadow-sm dark:bg-primary-70"
+                    ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none"
                     : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
                 )}
               >
@@ -1351,60 +1350,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
             <div className="mb-4 min-h-8">
               {isYieldSearchOpen ? (
                 <>
-                  <div className="flex w-full items-center gap-3 border-b border-gray-80 pb-2 dark:border-white/10 md:hidden">
-                    <Search
-                      className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
-                      aria-hidden="true"
-                    />
-                    <input
-                      ref={mobileYieldSearchInputRef}
-                      value={yieldSearchQuery}
-                      onChange={(event) =>
-                        setYieldSearchQuery(event.target.value)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          setIsYieldSearchOpen(false);
-                          setYieldSearchQuery("");
-                        }
-                      }}
-                      placeholder="Search yield"
-                      aria-label="Search yield opportunities"
-                      className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
-                    />
-                    {yieldSearchQuery ? (
-                      <button
-                        type="button"
-                        onClick={() => setYieldSearchQuery("")}
-                        aria-label="Clear yield search"
-                        className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsYieldSearchOpen(false);
-                        setYieldSearchQuery("");
-                      }}
-                      className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-
-                  <div className="hidden items-center gap-4 pb-2 md:flex">
-                    <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-                      Yield opportunities
-                    </h2>
-                    <div className="ml-auto flex w-full max-w-sm items-center gap-3">
-                      <Search
-                        className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
-                        aria-hidden="true"
-                      />
+                  <div className="flex w-full items-center gap-3 md:hidden">
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
                       <input
-                        ref={desktopYieldSearchInputRef}
+                        ref={mobileYieldSearchInputRef}
                         value={yieldSearchQuery}
                         onChange={(event) =>
                           setYieldSearchQuery(event.target.value)
@@ -1415,27 +1365,64 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             setYieldSearchQuery("");
                           }
                         }}
-                        placeholder="Search"
+                        placeholder="Search yield"
                         aria-label="Search yield opportunities"
-                        className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
+                        className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                       />
                       {yieldSearchQuery ? (
-                        <button
-                          type="button"
-                          onClick={() => setYieldSearchQuery("")}
-                          aria-label="Clear yield search"
-                          className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
-                        >
+                        <button type="button" onClick={() => setYieldSearchQuery("")} aria-label="Clear yield search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
                           <X className="h-4 w-4" />
                         </button>
                       ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsYieldSearchOpen(false);
+                        setYieldSearchQuery("");
+                      }}
+                      className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div className="hidden items-center gap-4 pb-2 md:flex">
+                    <h2 className="text-base font-bold text-cryptoNight dark:text-white">
+                      Yield opportunities
+                    </h2>
+                    <div className="ml-auto flex w-full max-w-sm items-center gap-3">
+                      <div className="relative min-w-0 flex-1">
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
+                        <input
+                          ref={desktopYieldSearchInputRef}
+                          value={yieldSearchQuery}
+                          onChange={(event) =>
+                            setYieldSearchQuery(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              setIsYieldSearchOpen(false);
+                              setYieldSearchQuery("");
+                            }
+                          }}
+                          placeholder="Search yield"
+                          aria-label="Search yield opportunities"
+                          className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
+                        />
+                        {yieldSearchQuery ? (
+                          <button type="button" onClick={() => setYieldSearchQuery("")} aria-label="Clear yield search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
+                            <X className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           setIsYieldSearchOpen(false);
                           setYieldSearchQuery("");
                         }}
-                        className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
+                        className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         Cancel
                       </button>
@@ -1472,8 +1459,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       className={cn(
                         "min-w-0 flex-1 truncate rounded-sm px-0.5 py-1 text-center text-[8px] font-semibold capitalize leading-none transition",
                         isSelected
-                          ? "bg-primary-90 text-white dark:bg-primary-70"
-                          : "bg-secondary-60 text-gray-30 dark:bg-white/5 dark:text-gray-40",
+                          ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none"
+                          : "bg-gray-90 text-gray-30 dark:bg-white/5 dark:text-gray-40",
                       )}
                     >
                       {chain.label}
@@ -1489,15 +1476,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 <div className="md:hidden">
                   <div className="space-y-2">
                     {filteredOpportunities.map((opportunity) => {
-                      const available = getMaxUsableBalance(
-                        profile,
-                        opportunity.symbol,
-                      );
                       return (
                         <button
                           key={opportunity.id}
                           type="button"
-                          disabled={available <= 0}
                           onClick={() =>
                             setSelectedAction({ action: "supply", opportunity })
                           }
@@ -1522,8 +1504,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             <p className="text-[10px] font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                               {formatApy(opportunity.apy)}
                             </p>
-                            <span className="mt-1 inline-flex rounded-md bg-primary-90 px-2 py-0.5 text-[10px] font-bold text-white dark:bg-primary-70">
-                              {available > 0 ? "Deposit" : "Unavailable"}
+                            <span className="mt-1 inline-flex rounded-md bg-gradient-to-r from-primary-70 to-primary-60 px-2 py-0.5 text-[10px] font-bold text-white dark:bg-primary-70 dark:bg-none">
+                              Deposit
                             </span>
                           </div>
                         </button>
@@ -1547,10 +1529,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     </thead>
                     <tbody className="divide-y divide-gray-80 dark:divide-white/10">
                       {filteredOpportunities.map((opportunity) => {
-                        const available = getMaxUsableBalance(
-                          profile,
-                          opportunity.symbol,
-                        );
                         const risk = Object.values(RiskLevel).includes(
                           opportunity.riskLevel,
                         )
@@ -1600,7 +1578,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               )}
                             </td>
                             <td className="px-4 py-3.5">
-                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                                 {opportunity.chain}
                               </span>
                             </td>
@@ -1610,7 +1588,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 variant="flow"
                                 size="sm"
                                 className="h-9 shrink-0 px-4"
-                                disabled={available <= 0}
                                 onClick={() =>
                                   setSelectedAction({
                                     action: "supply",
@@ -1619,10 +1596,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 }
                               >
                                 <span className="relative z-10 flex items-center justify-center gap-1.5">
-                                  {available > 0 ? "Deposit" : "Unavailable"}
-                                  {available > 0 ? (
-                                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                                  ) : null}
+                                  Deposit
+                                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                                 </span>
                               </Button>
                             </td>
@@ -1797,60 +1772,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
             <div className="mb-4 min-h-8">
               {isStockSearchOpen ? (
                 <>
-                  <div className="flex w-full items-center gap-3 border-b border-gray-80 pb-2 dark:border-white/10 md:hidden">
-                    <Search
-                      className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
-                      aria-hidden="true"
-                    />
-                    <input
-                      ref={mobileStockSearchInputRef}
-                      value={stockSearchQuery}
-                      onChange={(event) =>
-                        setStockSearchQuery(event.target.value)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          setIsStockSearchOpen(false);
-                          setStockSearchQuery("");
-                        }
-                      }}
-                      placeholder="Search stocks"
-                      aria-label="Search stock opportunities"
-                      className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
-                    />
-                    {stockSearchQuery ? (
-                      <button
-                        type="button"
-                        onClick={() => setStockSearchQuery("")}
-                        aria-label="Clear stock search"
-                        className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsStockSearchOpen(false);
-                        setStockSearchQuery("");
-                      }}
-                      className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-
-                  <div className="hidden items-center gap-4 pb-2 md:flex">
-                    <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-                      Stock opportunities
-                    </h2>
-                    <div className="ml-auto flex w-full max-w-sm items-center gap-3">
-                      <Search
-                        className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40"
-                        aria-hidden="true"
-                      />
+                  <div className="flex w-full items-center gap-3 md:hidden">
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
                       <input
-                        ref={desktopStockSearchInputRef}
+                        ref={mobileStockSearchInputRef}
                         value={stockSearchQuery}
                         onChange={(event) =>
                           setStockSearchQuery(event.target.value)
@@ -1861,27 +1787,64 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             setStockSearchQuery("");
                           }
                         }}
-                        placeholder="Search"
+                        placeholder="Search stocks"
                         aria-label="Search stock opportunities"
-                        className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
+                        className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                       />
                       {stockSearchQuery ? (
-                        <button
-                          type="button"
-                          onClick={() => setStockSearchQuery("")}
-                          aria-label="Clear stock search"
-                          className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
-                        >
+                        <button type="button" onClick={() => setStockSearchQuery("")} aria-label="Clear stock search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
                           <X className="h-4 w-4" />
                         </button>
                       ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsStockSearchOpen(false);
+                        setStockSearchQuery("");
+                      }}
+                      className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div className="hidden items-center gap-4 pb-2 md:flex">
+                    <h2 className="text-base font-bold text-cryptoNight dark:text-white">
+                      Stock opportunities
+                    </h2>
+                    <div className="ml-auto flex w-full max-w-sm items-center gap-3">
+                      <div className="relative min-w-0 flex-1">
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
+                        <input
+                          ref={desktopStockSearchInputRef}
+                          value={stockSearchQuery}
+                          onChange={(event) =>
+                            setStockSearchQuery(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              setIsStockSearchOpen(false);
+                              setStockSearchQuery("");
+                            }
+                          }}
+                          placeholder="Search stocks"
+                          aria-label="Search stock opportunities"
+                          className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
+                        />
+                        {stockSearchQuery ? (
+                          <button type="button" onClick={() => setStockSearchQuery("")} aria-label="Clear stock search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
+                            <X className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           setIsStockSearchOpen(false);
                           setStockSearchQuery("");
                         }}
-                        className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
+                        className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         Cancel
                       </button>
@@ -2124,7 +2087,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               />
                             </td>
                             <td className="px-4 py-3.5">
-                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                                 {getStockSettlementChain(
                                   stock.provider,
                                   stock.settlementChain ||
