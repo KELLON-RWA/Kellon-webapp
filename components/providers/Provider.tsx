@@ -1,17 +1,17 @@
-import { FC, Fragment, ReactNode } from "react";
+import { FC, Fragment, ReactNode } from "react"
 
-import { ThemeProvider } from "./theme-provider";
+import { ThemeProvider } from "./theme-provider"
 
-import { CustomWagmiProvider } from "./wagmi-provider";
-import React from "react";
-import ReactQueryProvider from "./ReactQueryProvider";
-import MyPrivyProvider from "./PrivyProvider";
-import RealtimeProvider from "./RealtimeProvider";
-import { Toaster } from "sonner";
-import SecureSessionRequiredDialog from "@/components/auth/SecureSessionRequiredDialog";
+import { CustomWagmiProvider } from "./wagmi-provider"
+import React from "react"
+import ReactQueryProvider from "./ReactQueryProvider"
+import MyPrivyProvider from "./PrivyProvider"
+import RealtimeProvider from "./RealtimeProvider"
+import { Toaster } from "sonner"
+import SecureSessionRequiredDialog from "@/components/auth/SecureSessionRequiredDialog"
 
 interface ProviderProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 const Provider: FC<ProviderProps> = async ({ children }) => {
@@ -31,7 +31,7 @@ const Provider: FC<ProviderProps> = async ({ children }) => {
                 <div className="font-manrope text-cryptoNight dark:text-white relative min-h-screen">
                   {/* Enhanced Glass Texture */}
                   <div className="fixed inset-0 z-0">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-90 to-violet1/10 dark:from-violet1/10 dark:via-secondary-50 dark:to-secondary-40" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:from-violet1/10 dark:via-secondary-50 dark:to-secondary-40" />
                     <div className="absolute inset-0 backdrop-blur-xl" />
                     <div className="absolute inset-0 bg-white/5 dark:bg-black/10" />
                   </div>
@@ -45,6 +45,6 @@ const Provider: FC<ProviderProps> = async ({ children }) => {
         </MyPrivyProvider>
       </ThemeProvider>
     </Fragment>
-  );
-};
-export default Provider;
+  )
+}
+export default Provider
