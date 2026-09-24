@@ -11,13 +11,23 @@ import {
   ChevronRight,
   Loader2,
   Search,
+  SlidersHorizontal,
   TrendingUp,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import { Button } from "@/components/ui/button";
-import { getActiveChains } from "@/lib/chains";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getActiveChainKey, getActiveChains } from "@/lib/chains";
 import { cn } from "@/lib/utils";
 import { yieldService, type YieldActionType } from "@/services/api/yield";
 import {
@@ -52,6 +62,7 @@ interface EarnPageProps {
 
 type EarnCategory = "yield" | "stocks" | "rwa";
 type StockSortKey = "name" | "price" | "change";
+type StockProviderOption = { id: string; label: string; count: number };
 
 const STOCKS_PER_DESKTOP_PAGE = 15;
 
@@ -74,13 +85,7 @@ const earnCategories: Array<{
 ];
 
 function getSupportedYieldChainKey(chain: string): string | null {
-  const normalized = chain.trim().toLowerCase();
-  if (normalized === "bsc" || normalized.includes("binance")) return "bnb";
-
-  return Object.entries(getActiveChains()).find(
-    ([key, config]) =>
-      key === normalized || config.name.toLowerCase() === normalized,
-  )?.[0] || null;
+  return getActiveChainKey(chain);
 }
 
 function isRwaHolding(
@@ -158,14 +163,19 @@ const STOCK_DOMAINS: Record<string, string> = {
   TSM: "tsmc.com",
 };
 
-export function getUnderlyingTicker(symbol: string): string {
+export function getUnderlyingTicker(symbol: string, provider?: string): string {
   const raw = symbol.trim();
   const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
+  const withoutXStockSuffix =
+    provider?.toLowerCase().includes("xstock") &&
+    /x$/i.test(withoutProviderSuffix)
+      ? withoutProviderSuffix.slice(0, -1)
+      : withoutProviderSuffix;
 
   return (
-    withoutProviderSuffix.startsWith("b")
-      ? withoutProviderSuffix.slice(1)
-      : withoutProviderSuffix
+    withoutXStockSuffix.startsWith("b")
+      ? withoutXStockSuffix.slice(1)
+      : withoutXStockSuffix
   ).toUpperCase();
 }
 
@@ -178,6 +188,70 @@ export function getStockLogoUrl(symbol: string, logoUrl?: string): string {
   if (logoUrl) return logoUrl;
 
   return `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getUnderlyingTicker(symbol))}.png`;
+}
+
+function StockProviderFilterMenu({
+  providers,
+  value,
+  onValueChange,
+  iconOnly = false,
+}: {
+  providers: StockProviderOption[];
+  value: string;
+  onValueChange: (value: string) => void;
+  iconOnly?: boolean;
+}) {
+  const selectedProvider = providers.find((provider) => provider.id === value);
+  const label = selectedProvider ? selectedProvider.label : "All providers";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Filter stocks by provider"
+          className={cn(
+            "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-80 bg-white/70 px-2 text-xs font-semibold text-gray-30 transition hover:border-primary-60 hover:text-primary-60 dark:border-white/10 dark:bg-secondary-50/65 dark:text-gray-40 dark:hover:border-primary-60 dark:hover:text-primary-60",
+            iconOnly && "w-8 px-0",
+          )}
+        >
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          {!iconOnly ? <span className="max-w-28 truncate">{label}</span> : null}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="min-w-52 rounded-xl border border-gray-80 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-secondary-50"
+      >
+        <DropdownMenuLabel className="text-xs text-gray-30 dark:text-gray-40">
+          Filter by provider
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="dark:bg-white/10" />
+        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
+          <DropdownMenuRadioItem
+            value="all"
+            className="cursor-pointer rounded-lg border border-transparent py-2.5 pr-3 pl-10 text-sm font-semibold text-gray-30 hover:border-primary-60/40 hover:bg-primary-70/5 hover:text-primary-60 focus:border-primary-60/40 focus:bg-primary-70/5 focus:text-primary-60 data-[state=checked]:border-primary-60 data-[state=checked]:bg-primary-70/5 data-[state=checked]:text-primary-60 dark:text-gray-40 dark:hover:bg-primary-70/10 dark:hover:text-primary-60 dark:focus:bg-primary-70/10 dark:focus:text-primary-60 dark:data-[state=checked]:border-primary-60 dark:data-[state=checked]:bg-primary-70/10 dark:data-[state=checked]:text-primary-60 [&>span:first-child]:left-3"
+          >
+            All providers
+          </DropdownMenuRadioItem>
+          {providers.map((provider) => (
+            <DropdownMenuRadioItem
+              key={provider.id}
+              value={provider.id}
+              className="group cursor-pointer rounded-lg border border-transparent py-2.5 pr-3 pl-10 text-sm font-semibold text-gray-30 hover:border-primary-60/40 hover:bg-primary-70/5 hover:text-primary-60 focus:border-primary-60/40 focus:bg-primary-70/5 focus:text-primary-60 data-[state=checked]:border-primary-60 data-[state=checked]:bg-primary-70/5 data-[state=checked]:text-primary-60 dark:text-gray-40 dark:hover:bg-primary-70/10 dark:hover:text-primary-60 dark:focus:bg-primary-70/10 dark:focus:text-primary-60 dark:data-[state=checked]:border-primary-60 dark:data-[state=checked]:bg-primary-70/10 dark:data-[state=checked]:text-primary-60 [&>span:first-child]:left-3"
+            >
+              <span className="flex w-full items-center justify-between gap-6">
+                {provider.label}
+                <span className="text-xs text-gray-30 group-data-[state=checked]:text-primary-60 dark:text-gray-40 dark:group-data-[state=checked]:text-primary-60">
+                  {provider.count}
+                </span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function getDisplayStockName(name: string): string {
@@ -619,6 +693,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [stockPage, setStockPage] = useState(1);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
+  const [stockProviderFilter, setStockProviderFilter] = useState("all");
   const [isYieldSearchOpen, setIsYieldSearchOpen] = useState(false);
   const [yieldSearchQuery, setYieldSearchQuery] = useState("");
   const [yieldChainFilter, setYieldChainFilter] = useState("all");
@@ -687,6 +762,13 @@ export default function EarnPage({ profile }: EarnPageProps) {
     ) {
       setActiveTab(requestedCategory);
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    // `provider` is also used by the buy deep link. Do not turn an active
+    // purchase link into a listing filter while it is being handled below.
+    if (searchParams.get("stock")) return;
+    setStockProviderFilter(searchParams.get("provider")?.toLowerCase() || "all");
   }, [searchParams]);
 
   useEffect(() => {
@@ -805,17 +887,40 @@ export default function EarnPage({ profile }: EarnPageProps) {
       ),
     [activeTab, stocks],
   );
+  const stockProviders = useMemo(() => {
+    const providers = new Map<string, { id: string; label: string; count: number }>();
+
+    categoryStocks.forEach((stock) => {
+      const id = stock.provider.trim().toLowerCase();
+      const existing = providers.get(id);
+      providers.set(id, {
+        id,
+        label: getProtocolName(stock.provider),
+        count: (existing?.count || 0) + 1,
+      });
+    });
+
+    return [...providers.values()].sort((left, right) =>
+      left.label.localeCompare(right.label),
+    );
+  }, [categoryStocks]);
   const unifiedStocks = useMemo(() => {
     const providerListings = new Map<string, StockListing>();
-    categoryStocks.forEach((stock) => {
+    categoryStocks
+      .filter(
+        (stock) =>
+          stockProviderFilter === "all" ||
+          stock.provider.toLowerCase() === stockProviderFilter,
+      )
+      .forEach((stock) => {
       // The same ticker can be offered by several providers. Keep each offer
       // visible, while ignoring an accidental repeat from the same provider.
       const key = `${stock.provider.toLowerCase()}:${stock.symbol.toLowerCase()}`;
       if (!providerListings.has(key)) providerListings.set(key, stock);
-    });
+      });
 
     return [...providerListings.values()];
-  }, [categoryStocks]);
+  }, [categoryStocks, stockProviderFilter]);
   const searchedStocks = useMemo(() => {
     const query = stockSearchQuery.trim().toLowerCase();
     if (!query) return unifiedStocks;
@@ -861,7 +966,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const chartSymbols = useMemo(
     () =>
       activeTab !== "yield"
-        ? desktopStocks.map((stock) => stock.symbol)
+        ? desktopStocks.map((stock) =>
+            getUnderlyingTicker(stock.symbol, stock.provider),
+          )
         : [],
     [activeTab, desktopStocks],
   );
@@ -909,8 +1016,20 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const openStockDetails = (stock: StockListing) => {
     const provider = encodeURIComponent(stock.provider);
     router.push(
-      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol))}?provider=${provider}`,
+      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}?provider=${provider}`,
     );
+  };
+  const selectStockProvider = (provider: string) => {
+    setStockProviderFilter(provider);
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("stock");
+    if (provider === "all") {
+      nextParams.delete("provider");
+    } else {
+      nextParams.set("provider", provider);
+    }
+    nextParams.set("category", activeTab);
+    router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
   };
   const marketEtfs = useMemo(() => {
     if (marketIndices.length) {
@@ -1650,15 +1769,36 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   <h2 className="text-base font-bold text-cryptoNight dark:text-white">
                     Stock opportunities
                   </h2>
-                  <button
-                    type="button"
-                    onClick={() => setIsStockSearchOpen(true)}
-                    aria-label="Search stock opportunities"
-                    aria-expanded={isStockSearchOpen}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
-                  >
-                    <Search className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {stockProviders.length > 1 ? (
+                      <span className="md:hidden">
+                        <StockProviderFilterMenu
+                          providers={stockProviders}
+                          value={stockProviderFilter}
+                          onValueChange={selectStockProvider}
+                          iconOnly
+                        />
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setIsStockSearchOpen(true)}
+                      aria-label="Search stock opportunities"
+                      aria-expanded={isStockSearchOpen}
+                      className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
+                    >
+                      <Search className="h-4 w-4" />
+                    </button>
+                    {stockProviders.length > 1 ? (
+                      <span className="hidden md:inline-flex">
+                        <StockProviderFilterMenu
+                          providers={stockProviders}
+                          value={stockProviderFilter}
+                          onValueChange={selectStockProvider}
+                        />
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </div>
@@ -1699,7 +1839,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         {(() => {
                           const change = getListingChange(
                             stock,
-                            stockChartChanges[stock.symbol],
+                            stockChartChanges[
+                              getUnderlyingTicker(stock.symbol, stock.provider)
+                            ],
                           );
                           return change === undefined ? null : (
                             <p
@@ -1776,7 +1918,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       {desktopStocks.map((stock) => {
                         const change = getListingChange(
                           stock,
-                          stockChartChanges[stock.symbol],
+                          stockChartChanges[
+                            getUnderlyingTicker(stock.symbol, stock.provider)
+                          ],
                         );
                         return (
                           <tr
@@ -1842,7 +1986,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             </td>
                             <td className="px-4 py-3.5">
                               <StockSparkline
-                                values={stockCharts[stock.symbol]}
+                                values={
+                                  stockCharts[
+                                    getUnderlyingTicker(stock.symbol, stock.provider)
+                                  ]
+                                }
                               />
                             </td>
                             <td className="px-4 py-3.5">

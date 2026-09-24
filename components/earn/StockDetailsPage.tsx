@@ -197,7 +197,7 @@ export default function StockDetailsPage({
   const requestedProvider = searchParams.get("provider")?.toLowerCase();
   const [activeRange, setActiveRange] = useState<(typeof TIME_RANGES)[number]>("1M");
   const [stockAction, setStockAction] = useState<StockActionType | null>(null);
-  const normalizedSymbol = getUnderlyingTicker(symbol);
+  const normalizedSymbol = getUnderlyingTicker(symbol, requestedProvider);
   const { data: stocks = [], isLoading, refetch } = useQuery({
     queryKey: ["available-stocks"],
     queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
@@ -207,10 +207,13 @@ export default function StockDetailsPage({
     () =>
       stocks.find(
         (item) =>
-          getUnderlyingTicker(item.symbol) === normalizedSymbol &&
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
           (!requestedProvider || item.provider.toLowerCase() === requestedProvider),
       ) ||
-      stocks.find((item) => getUnderlyingTicker(item.symbol) === normalizedSymbol),
+      stocks.find(
+        (item) =>
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol,
+      ),
     [normalizedSymbol, requestedProvider, stocks],
   );
   const { data: stockPortfolio, refetch: refetchPortfolio } = useQuery({
@@ -222,7 +225,7 @@ export default function StockDetailsPage({
     () =>
       (stockPortfolio?.holdings || []).find(
         (item) =>
-          getUnderlyingTicker(item.symbol) === normalizedSymbol &&
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
           (!requestedProvider ||
             item.provider.toLowerCase() === requestedProvider),
       ) || null,
@@ -230,23 +233,41 @@ export default function StockDetailsPage({
   );
   const canSell = Number(holding?.shares || 0) > 0;
   const { data: chartData } = useQuery({
-    queryKey: ["stock-charts", stock?.symbol, activeRange],
-    queryFn: () => getStockCharts(stock ? [stock.symbol] : [], activeRange),
+    queryKey: ["stock-charts", stock?.symbol, stock?.provider, activeRange],
+    queryFn: () =>
+      getStockCharts(
+        stock ? [getUnderlyingTicker(stock.symbol, stock.provider)] : [],
+        activeRange,
+      ),
     enabled: Boolean(stock),
     staleTime: 60_000,
   });
   const { data: dayChartData } = useQuery({
-    queryKey: ["stock-charts", stock?.symbol, "1D"],
-    queryFn: () => getStockCharts(stock ? [stock.symbol] : [], "1D"),
+    queryKey: ["stock-charts", stock?.symbol, stock?.provider, "1D"],
+    queryFn: () =>
+      getStockCharts(
+        stock ? [getUnderlyingTicker(stock.symbol, stock.provider)] : [],
+        "1D",
+      ),
     enabled: Boolean(stock),
     staleTime: 60_000,
   });
-  const values = stock ? chartData?.charts?.[stock.symbol] : undefined;
-  const timestamps = stock ? chartData?.timestamps?.[stock.symbol] : undefined;
-  const change = stock
-    ? getListingChange(stock, dayChartData?.changes?.[stock.symbol])
+  const chartTicker = stock
+    ? getUnderlyingTicker(stock.symbol, stock.provider)
     : undefined;
-  const chartStats = stock ? dayChartData?.stats?.[stock.symbol] : undefined;
+  const values = chartTicker ? chartData?.charts?.[chartTicker] : undefined;
+  const timestamps = chartTicker
+    ? chartData?.timestamps?.[chartTicker]
+    : undefined;
+  const change = stock
+    ? getListingChange(
+        stock,
+        chartTicker ? dayChartData?.changes?.[chartTicker] : undefined,
+      )
+    : undefined;
+  const chartStats = chartTicker
+    ? dayChartData?.stats?.[chartTicker]
+    : undefined;
   const chartHigh = chartStats?.high24h || Number(stock?.price || 0);
   const chartLow = chartStats?.low24h || Number(stock?.price || 0);
 
