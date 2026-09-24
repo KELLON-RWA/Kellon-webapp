@@ -22,7 +22,7 @@ import {
   getUnderlyingTicker,
   StockLogo,
 } from "./EarnPage";
-import { getStockCharts } from "./StockSparkline";
+import { getStockCharts, type StockChartRange } from "./StockSparkline";
 
 const TIME_RANGES = ["1D", "1W", "1M", "1Y", "ALL"] as const;
 
@@ -38,10 +38,12 @@ const STOCK_DESCRIPTIONS: Record<string, string> = {
 function StockPriceChart({
   values,
   timestamps,
+  selectedRange,
   className,
 }: {
   values?: number[];
   timestamps?: number[];
+  selectedRange?: StockChartRange;
   className?: string;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -70,9 +72,10 @@ function StockPriceChart({
   const percentageChange = values[0] > 0 ? (amountChange / values[0]) * 100 : 0;
   const activeTimestamp = timestamps?.[activeIndex];
   const tooltipTime = activeTimestamp
-    ? new Intl.DateTimeFormat("en-US", {
+      ? new Intl.DateTimeFormat("en-US", {
         month: "short",
         day: "numeric",
+        ...(selectedRange === "ALL" ? { year: "numeric" as const } : {}),
         hour: "numeric",
         minute: "2-digit",
       }).format(new Date(activeTimestamp * 1000))
@@ -343,7 +346,7 @@ export default function StockDetailsPage({
               ))}
             </div>
           </div>
-          <StockPriceChart values={values} timestamps={timestamps} className="mt-5 h-[300px]" />
+          <StockPriceChart values={values} timestamps={timestamps} selectedRange={activeRange} className="mt-5 h-[300px]" />
           <div className="mt-3 grid grid-cols-6 border-t border-gray-80 pt-5 dark:border-white/10">
             <DesktopMetric label="24h high" value={formatUsd(chartHigh)} />
             <DesktopMetric label="24h low" value={formatUsd(chartLow)} />
@@ -400,7 +403,7 @@ export default function StockDetailsPage({
       <section className="mt-5 rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-1 md:row-start-1 md:mt-0 md:p-6">
         <p className="text-2xl font-semibold tabular-nums text-cryptoNight dark:text-white">{formatUsd(price)}</p>
         {change !== undefined ? <p className={cn("mt-1 text-sm font-medium", isPositive ? "text-emerald-600 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300")}>{isPositive ? "+" : ""}{change.toFixed(2)}%</p> : null}
-        <StockPriceChart values={values} timestamps={timestamps} />
+        <StockPriceChart values={values} timestamps={timestamps} selectedRange={activeRange} />
         <div className="mt-1 grid grid-cols-5 border-t border-gray-80 pt-3 dark:border-white/10">
           {TIME_RANGES.map((range) => <button key={range} type="button" onClick={() => setActiveRange(range)} className={cn("rounded-md py-1.5 text-xs font-medium transition", activeRange === range ? "bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30" : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white")}>{range}</button>)}
         </div>
