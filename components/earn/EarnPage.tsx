@@ -498,7 +498,7 @@ function RwaComingSoon() {
           <div className="mt-6 grid max-w-2xl grid-cols-2 border-t border-white/10 pt-4 md:mt-8 md:pt-5">
             <div className="pr-4 md:pr-8">
               <p className="text-[10px] text-gray-40 md:text-xs">Asset protection</p>
-              <p className="mt-1 text-sm font-bold text-primary-30 md:text-base">
+              <p className="mt-1 text-sm font-bold text-primary-20 md:text-base">
                 Audited & regulated
               </p>
             </div>
@@ -522,7 +522,7 @@ function RwaComingSoon() {
               Coming soon
             </p>
           </div>
-          <span className="rounded-full bg-primary-90/10 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+          <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
             RWA
           </span>
         </div>
@@ -534,7 +534,7 @@ function RwaComingSoon() {
               className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 shadow-sm dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary-90/25 bg-primary-90/15 text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                   <Building2 className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
@@ -574,7 +574,7 @@ function RwaComingSoon() {
                 <tr key={pool.name} className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]">
                   <td className="px-5 py-3.5">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary-90/25 bg-primary-90/15 text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                         <Building2 className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
@@ -585,7 +585,7 @@ function RwaComingSoon() {
                   </td>
                   <td className="px-4 py-3.5 text-right font-normal tabular-nums text-emerald-600 dark:text-emerald-400">{pool.apy}</td>
                   <td className="px-4 py-3.5 text-sm text-cryptoNight dark:text-white">{pool.protection}</td>
-                  <td className="px-4 py-3.5"><span className="inline-flex rounded-full bg-primary-90/10 px-2 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">{pool.yieldType}</span></td>
+                  <td className="px-4 py-3.5"><span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">{pool.yieldType}</span></td>
                   <td className="px-5 py-3.5 text-right"><Button type="button" variant="outline" size="sm" disabled className="h-9 px-4">Coming soon</Button></td>
                 </tr>
               ))}
@@ -1141,7 +1141,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   selectCategory(category.id);
                 }}
                 className={cn(
-                  "flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-3 text-center transition md:rounded-full md:py-1.5 md:px-4",
+                  "flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-3 text-center transition md:rounded-full md:py-1.5 md:px-4",
                   isActive
                     ? "bg-primary-90 text-white shadow-sm dark:bg-primary-70"
                     : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
@@ -1485,7 +1485,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         )}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="inline-flex rounded-full bg-primary-90/10 px-2 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                        <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                           {opportunity.chain}
                         </span>
                       </td>
@@ -1696,7 +1696,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       aria-label="Search stock opportunities"
                       className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
                     />
-                    {stockSearchQuery ? (
+                      {stockSearchQuery ? (
                       <button
                         type="button"
                         onClick={() => setStockSearchQuery("")}
@@ -1704,9 +1704,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                    <button
+                        </button>
+                      ) : null}
+                      <button
                       type="button"
                       onClick={() => {
                         setIsStockSearchOpen(false);
@@ -1741,7 +1741,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         aria-label="Search stock opportunities"
                         className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
                       />
-                      {stockSearchQuery ? (
+                    {stockSearchQuery ? (
                         <button
                           type="button"
                           onClick={() => setStockSearchQuery("")}
@@ -1749,9 +1749,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                         >
                           <X className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      <button
+                      </button>
+                    ) : null}
+                    <button
                         type="button"
                         onClick={() => {
                           setIsStockSearchOpen(false);
@@ -1994,7 +1994,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               />
                             </td>
                             <td className="px-4 py-3.5">
-                              <span className="inline-flex rounded-full bg-primary-90/10 px-2 py-1 text-[10px] font-bold text-primary-90 dark:bg-primary-70/20 dark:text-primary-30">
+                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                                 {getProtocolName(stock.provider)}
                               </span>
                             </td>
