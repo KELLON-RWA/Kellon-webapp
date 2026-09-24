@@ -364,15 +364,15 @@ export default function StockDetailsPage({
       </div>
 
       <div className="md:hidden">
-      <section className="rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-2 md:row-start-1 md:sticky md:top-28 md:p-6">
-        <div className="flex items-center gap-3 border-b border-gray-80 pb-4 dark:border-white/10">
+      <section className="rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-2 md:row-start-1 md:sticky md:top-28 md:p-6">
+        <div className="flex items-center gap-3 border-b border-gray-80 pb-3 dark:border-white/10">
           <StockLogo symbol={title} src={stock ? getStockLogoUrl(stock.symbol, stock.logoUrl) : undefined} />
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-cryptoNight dark:text-white">{title}</h2>
             <p className="truncate text-sm text-gray-30 dark:text-gray-40">{name}</p>
           </div>
         </div>
-        <div className="mt-5 flex items-end justify-between gap-4">
+        <div className="mt-4 flex items-end justify-between gap-4">
           <p className="text-3xl font-semibold tabular-nums text-cryptoNight dark:text-white">{formatUsd(price)}</p>
           {change !== undefined ? <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold", isPositive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300" : "bg-rose-500/10 text-rose-600 dark:text-rose-300")}>
             {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
@@ -400,10 +400,10 @@ export default function StockDetailsPage({
         </div>
       </section>
 
-      <section className="mt-5 rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-1 md:row-start-1 md:mt-0 md:p-6">
+      <section className="mt-5 rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-1 md:row-start-1 md:mt-0 md:p-6">
         <p className="text-2xl font-semibold tabular-nums text-cryptoNight dark:text-white">{formatUsd(price)}</p>
         {change !== undefined ? <p className={cn("mt-1 text-sm font-medium", isPositive ? "text-emerald-600 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300")}>{isPositive ? "+" : ""}{change.toFixed(2)}%</p> : null}
-        <StockPriceChart values={values} timestamps={timestamps} selectedRange={activeRange} />
+        <StockPriceChart values={values} timestamps={timestamps} selectedRange={activeRange} className="h-[240px]" />
         <div className="mt-1 grid grid-cols-5 border-t border-gray-80 pt-3 dark:border-white/10">
           {TIME_RANGES.map((range) => <button key={range} type="button" onClick={() => setActiveRange(range)} className={cn("rounded-md py-1.5 text-xs font-medium transition", activeRange === range ? "bg-primary-90/10 text-primary-90 dark:bg-primary-70/20 dark:text-primary-30" : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white")}>{range}</button>)}
         </div>
@@ -428,11 +428,13 @@ export default function StockDetailsPage({
 
       </div>
 
-      <div className="fixed inset-x-0 bottom-[76px] z-30 flex gap-3 p-4 md:hidden">
-        {canSell ? (
-          <Button type="button" variant="outline" className="h-14 flex-1" onClick={() => setStockAction("sell")}>Sell {title}</Button>
-        ) : null}
-        <Button type="button" variant="flow" className="h-14 flex-1" disabled={!stock} onClick={() => setStockAction("buy")}><span className="relative z-10">Buy {title}</span></Button>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-80 bg-white/95 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-secondary-50/95 md:hidden">
+        <div className={cn("mx-auto grid max-w-3xl gap-3", canSell ? "grid-cols-2" : "grid-cols-1")}>
+          {canSell ? (
+            <Button type="button" variant="outline" className="h-12" onClick={() => setStockAction("sell")}>Sell {title}</Button>
+          ) : null}
+          <Button type="button" variant="flow" className="h-12" disabled={!stock} onClick={() => setStockAction("buy")}><span className="relative z-10">Buy {title}</span></Button>
+        </div>
       </div>
 
       <StockActionDialog
