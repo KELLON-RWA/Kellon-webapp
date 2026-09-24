@@ -52,6 +52,7 @@ import {
   getMaxUsableBalance,
   getPositionValue,
   getProtocolName,
+  getStockSettlementChain,
   toNumber,
 } from "./earn-utils";
 import { getStockCharts, StockSparkline } from "./StockSparkline";
@@ -62,7 +63,7 @@ interface EarnPageProps {
 
 type EarnCategory = "yield" | "stocks" | "rwa";
 type StockSortKey = "name" | "price" | "change";
-type StockProviderOption = { id: string; label: string; count: number };
+type StockNetworkOption = { id: string; label: string; count: number };
 
 const STOCKS_PER_DESKTOP_PAGE = 15;
 
@@ -190,33 +191,35 @@ export function getStockLogoUrl(symbol: string, logoUrl?: string): string {
   return `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getUnderlyingTicker(symbol))}.png`;
 }
 
-function StockProviderFilterMenu({
-  providers,
+function StockNetworkFilterMenu({
+  networks,
   value,
   onValueChange,
   iconOnly = false,
 }: {
-  providers: StockProviderOption[];
+  networks: StockNetworkOption[];
   value: string;
   onValueChange: (value: string) => void;
   iconOnly?: boolean;
 }) {
-  const selectedProvider = providers.find((provider) => provider.id === value);
-  const label = selectedProvider ? selectedProvider.label : "All providers";
+  const selectedNetwork = networks.find((network) => network.id === value);
+  const label = selectedNetwork ? selectedNetwork.label : "All networks";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Filter stocks by provider"
+          aria-label="Filter stocks by network"
           className={cn(
             "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-80 bg-white/70 px-2 text-xs font-semibold text-gray-30 transition hover:border-primary-60 hover:text-primary-60 dark:border-white/10 dark:bg-secondary-50/65 dark:text-gray-40 dark:hover:border-primary-60 dark:hover:text-primary-60",
             iconOnly && "w-8 px-0",
           )}
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          {!iconOnly ? <span className="max-w-28 truncate">{label}</span> : null}
+          {!iconOnly ? (
+            <span className="max-w-28 truncate">{label}</span>
+          ) : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -224,7 +227,7 @@ function StockProviderFilterMenu({
         className="min-w-52 rounded-xl border border-gray-80 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-secondary-50"
       >
         <DropdownMenuLabel className="text-xs text-gray-30 dark:text-gray-40">
-          Filter by provider
+          Filter by network
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="dark:bg-white/10" />
         <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
@@ -232,18 +235,18 @@ function StockProviderFilterMenu({
             value="all"
             className="cursor-pointer rounded-lg border border-transparent py-2.5 pr-3 pl-10 text-sm font-semibold text-gray-30 hover:border-primary-60/40 hover:bg-primary-70/5 hover:text-primary-60 focus:border-primary-60/40 focus:bg-primary-70/5 focus:text-primary-60 data-[state=checked]:border-primary-60 data-[state=checked]:bg-primary-70/5 data-[state=checked]:text-primary-60 dark:text-gray-40 dark:hover:bg-primary-70/10 dark:hover:text-primary-60 dark:focus:bg-primary-70/10 dark:focus:text-primary-60 dark:data-[state=checked]:border-primary-60 dark:data-[state=checked]:bg-primary-70/10 dark:data-[state=checked]:text-primary-60 [&>span:first-child]:left-3"
           >
-            All providers
+            All networks
           </DropdownMenuRadioItem>
-          {providers.map((provider) => (
+          {networks.map((network) => (
             <DropdownMenuRadioItem
-              key={provider.id}
-              value={provider.id}
+              key={network.id}
+              value={network.id}
               className="group cursor-pointer rounded-lg border border-transparent py-2.5 pr-3 pl-10 text-sm font-semibold text-gray-30 hover:border-primary-60/40 hover:bg-primary-70/5 hover:text-primary-60 focus:border-primary-60/40 focus:bg-primary-70/5 focus:text-primary-60 data-[state=checked]:border-primary-60 data-[state=checked]:bg-primary-70/5 data-[state=checked]:text-primary-60 dark:text-gray-40 dark:hover:bg-primary-70/10 dark:hover:text-primary-60 dark:focus:bg-primary-70/10 dark:focus:text-primary-60 dark:data-[state=checked]:border-primary-60 dark:data-[state=checked]:bg-primary-70/10 dark:data-[state=checked]:text-primary-60 [&>span:first-child]:left-3"
             >
               <span className="flex w-full items-center justify-between gap-6">
-                {provider.label}
+                {network.label}
                 <span className="text-xs text-gray-30 group-data-[state=checked]:text-primary-60 dark:text-gray-40 dark:group-data-[state=checked]:text-primary-60">
-                  {provider.count}
+                  {network.count}
                 </span>
               </span>
             </DropdownMenuRadioItem>
@@ -317,10 +320,8 @@ type SelectedAction = {
 const yieldRiskStyles: Record<RiskLevel, string> = {
   [RiskLevel.CONSERVATIVE]:
     "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  [RiskLevel.MODERATE]:
-    "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  [RiskLevel.AGGRESSIVE]:
-    "bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  [RiskLevel.MODERATE]: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  [RiskLevel.AGGRESSIVE]: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
 };
 
 function PortfolioSummarySkeleton({ metricCount }: { metricCount: 2 | 3 }) {
@@ -336,7 +337,9 @@ function PortfolioSummarySkeleton({ metricCount }: { metricCount: 2 | 3 }) {
         <div
           className={cn(
             "mt-7 grid border-t border-gray-80 pt-4 md:mt-8 md:pt-5",
-            metricCount === 3 ? "grid-cols-3 max-w-2xl" : "grid-cols-2 max-w-xl",
+            metricCount === 3
+              ? "grid-cols-3 max-w-2xl"
+              : "grid-cols-2 max-w-xl",
           )}
         >
           {Array.from({ length: metricCount }).map((_, index) => (
@@ -390,11 +393,24 @@ function YieldOpportunitySkeleton() {
       </div>
       <div className="hidden overflow-hidden rounded-2xl border border-gray-80 dark:border-white/10 md:block">
         <div className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_5rem] gap-4 border-b border-gray-80 px-5 py-3 text-[11px] font-semibold text-gray-30 dark:border-white/10 dark:text-gray-40">
-          <span>Protocol</span><span className="text-right">Est. APY</span><span>Risk</span><span>Network</span><span />
+          <span>Protocol</span>
+          <span className="text-right">Est. APY</span>
+          <span>Risk</span>
+          <span>Network</span>
+          <span />
         </div>
         {rows.map((_, index) => (
-          <div key={index} className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_5rem] items-center gap-4 border-b border-gray-80 px-5 py-3.5 last:border-b-0 dark:border-white/10">
-            <div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" /><div className="space-y-2"><div className="h-3 w-20 animate-pulse rounded bg-gray-90 dark:bg-white/10" /><div className="h-2.5 w-24 animate-pulse rounded bg-gray-90 dark:bg-white/10" /></div></div>
+          <div
+            key={index}
+            className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_5rem] items-center gap-4 border-b border-gray-80 px-5 py-3.5 last:border-b-0 dark:border-white/10"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+              <div className="space-y-2">
+                <div className="h-3 w-20 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                <div className="h-2.5 w-24 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+              </div>
+            </div>
             <div className="ml-auto h-3 w-12 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
             <div className="h-5 w-16 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
             <div className="h-5 w-14 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
@@ -410,7 +426,9 @@ function StockListSkeleton({ category }: { category: "stocks" | "rwa" }) {
   const rows = Array.from({ length: 8 });
 
   return (
-    <div aria-label={`Loading ${category === "rwa" ? "RWA" : "stock"} opportunities`}>
+    <div
+      aria-label={`Loading ${category === "rwa" ? "RWA" : "stock"} opportunities`}
+    >
       <div className="md:hidden">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-1 pb-2 text-[11px] font-semibold text-gray-30 dark:text-gray-40">
           <span>Name</span>
@@ -418,7 +436,10 @@ function StockListSkeleton({ category }: { category: "stocks" | "rwa" }) {
         </div>
         <div className="space-y-1">
           {rows.map((_, index) => (
-            <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3">
+            <div
+              key={index}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-1 py-3"
+            >
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
                 <div className="space-y-2">
@@ -436,11 +457,25 @@ function StockListSkeleton({ category }: { category: "stocks" | "rwa" }) {
       </div>
       <div className="hidden overflow-hidden rounded-2xl border border-gray-80 dark:border-white/10 md:block">
         <div className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_1fr_5rem] gap-4 border-b border-gray-80 px-5 py-3 text-[11px] font-semibold text-gray-30 dark:border-white/10 dark:text-gray-40">
-          <span>Name</span><span className="text-right">Price</span><span className="text-right">24h change</span><span>Last 24h</span><span>Provider</span><span />
+          <span>Name</span>
+          <span className="text-right">Price</span>
+          <span className="text-right">24h change</span>
+          <span>Last 24h</span>
+          <span>Provider</span>
+          <span />
         </div>
         {rows.map((_, index) => (
-          <div key={index} className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_1fr_5rem] items-center gap-4 border-b border-gray-80 px-5 py-3.5 last:border-b-0 dark:border-white/10">
-            <div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" /><div className="space-y-2"><div className="h-3 w-16 animate-pulse rounded bg-gray-90 dark:bg-white/10" /><div className="h-2.5 w-28 animate-pulse rounded bg-gray-90 dark:bg-white/10" /></div></div>
+          <div
+            key={index}
+            className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_1fr_5rem] items-center gap-4 border-b border-gray-80 px-5 py-3.5 last:border-b-0 dark:border-white/10"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
+              <div className="space-y-2">
+                <div className="h-3 w-16 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+                <div className="h-2.5 w-28 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
+              </div>
+            </div>
             <div className="ml-auto h-3 w-16 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
             <div className="ml-auto h-3 w-12 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
             <div className="h-7 w-24 animate-pulse rounded bg-gray-90 dark:bg-white/10" />
@@ -497,13 +532,17 @@ function RwaComingSoon() {
           </h1>
           <div className="mt-6 grid max-w-2xl grid-cols-2 border-t border-white/10 pt-4 md:mt-8 md:pt-5">
             <div className="pr-4 md:pr-8">
-              <p className="text-[10px] text-gray-40 md:text-xs">Asset protection</p>
+              <p className="text-[10px] text-gray-40 md:text-xs">
+                Asset protection
+              </p>
               <p className="mt-1 text-sm font-bold text-primary-20 md:text-base">
                 Audited & regulated
               </p>
             </div>
             <div className="border-l border-white/10 pl-4 md:pl-8">
-              <p className="text-[10px] text-gray-40 md:text-xs">Target APY range</p>
+              <p className="text-[10px] text-gray-40 md:text-xs">
+                Target APY range
+              </p>
               <p className="mt-1 text-sm font-bold text-emerald-400 md:text-base">
                 4.5% – 8.4%
               </p>
@@ -571,22 +610,47 @@ function RwaComingSoon() {
             </thead>
             <tbody className="divide-y divide-gray-80 dark:divide-white/10">
               {rwaPools.map((pool) => (
-                <tr key={pool.name} className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]">
+                <tr
+                  key={pool.name}
+                  className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
+                >
                   <td className="px-5 py-3.5">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary-90/25 bg-primary-90/15 text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                         <Building2 className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
-                        <p className="font-bold text-cryptoNight dark:text-white">{pool.name}</p>
-                        <p className="mt-0.5 text-xs text-gray-30 dark:text-gray-40">{pool.symbol} · {pool.network}</p>
+                        <p className="font-bold text-cryptoNight dark:text-white">
+                          {pool.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-30 dark:text-gray-40">
+                          {pool.symbol} · {pool.network}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-right font-normal tabular-nums text-emerald-600 dark:text-emerald-400">{pool.apy}</td>
-                  <td className="px-4 py-3.5 text-sm text-cryptoNight dark:text-white">{pool.protection}</td>
-                  <td className="px-4 py-3.5"><span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">{pool.yieldType}</span></td>
-                  <td className="px-5 py-3.5 text-right"><Button type="button" variant="outline" size="sm" disabled className="h-9 px-4">Coming soon</Button></td>
+                  <td className="px-4 py-3.5 text-right font-normal tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {pool.apy}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-cryptoNight dark:text-white">
+                    {pool.protection}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                      {pool.yieldType}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-right">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled
+                      className="h-9 px-4"
+                    >
+                      Coming soon
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -595,16 +659,38 @@ function RwaComingSoon() {
       </section>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">Compliance & protection</h2>
+        <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">
+          Compliance & protection
+        </h2>
         <div className="rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/65 md:grid md:grid-cols-3 md:gap-4 md:p-5">
           {[
-            ["Regulated institutional custody", "Direct backing held with tier-1 regulated bank trusts."],
-            ["Real-time proof of reserves", "On-chain transparency and verifiable collateral."],
-            ["Bankruptcy-remote SPVs", "Assets legally separated and insulated from credit risk."],
+            [
+              "Regulated institutional custody",
+              "Direct backing held with tier-1 regulated bank trusts.",
+            ],
+            [
+              "Real-time proof of reserves",
+              "On-chain transparency and verifiable collateral.",
+            ],
+            [
+              "Bankruptcy-remote SPVs",
+              "Assets legally separated and insulated from credit risk.",
+            ],
           ].map(([title, description], index) => (
-            <div key={title} className={cn("py-3 first:pt-0 last:pb-0 md:py-0", index > 0 && "border-t border-gray-80 md:border-l md:border-t-0 dark:border-white/10")}>
-              <p className="text-sm font-bold text-cryptoNight dark:text-white">{title}</p>
-              <p className="mt-1 text-xs leading-5 text-gray-30 dark:text-gray-40">{description}</p>
+            <div
+              key={title}
+              className={cn(
+                "py-3 first:pt-0 last:pb-0 md:py-0",
+                index > 0 &&
+                  "border-t border-gray-80 md:border-l md:border-t-0 dark:border-white/10",
+              )}
+            >
+              <p className="text-sm font-bold text-cryptoNight dark:text-white">
+                {title}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-gray-30 dark:text-gray-40">
+                {description}
+              </p>
             </div>
           ))}
         </div>
@@ -693,7 +779,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [stockPage, setStockPage] = useState(1);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
-  const [stockProviderFilter, setStockProviderFilter] = useState("all");
+  const [stockNetworkFilter, setStockNetworkFilter] = useState("all");
   const [isYieldSearchOpen, setIsYieldSearchOpen] = useState(false);
   const [yieldSearchQuery, setYieldSearchQuery] = useState("");
   const [yieldChainFilter, setYieldChainFilter] = useState("all");
@@ -724,7 +810,15 @@ export default function EarnPage({ profile }: EarnPageProps) {
     refetch: refetchStocks,
   } = useQuery({
     queryKey: ["available-stocks"],
-    queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
+    queryFn: async () => {
+      const response = await stocksService.getAvailableStocks("all");
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Earn] Available stocks response:", response.data);
+      }
+
+      return response.data;
+    },
     enabled: activeTab === "stocks",
     staleTime: 60_000,
     refetchOnWindowFocus: true,
@@ -765,10 +859,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
   }, [searchParams]);
 
   useEffect(() => {
-    // `provider` is also used by the buy deep link. Do not turn an active
-    // purchase link into a listing filter while it is being handled below.
+    // `provider` is used by the buy deep link. Do not turn an active purchase
+    // link into a network filter while it is being handled below.
     if (searchParams.get("stock")) return;
-    setStockProviderFilter(searchParams.get("provider")?.toLowerCase() || "all");
+    setStockNetworkFilter(searchParams.get("network")?.toLowerCase() || "all");
   }, [searchParams]);
 
   useEffect(() => {
@@ -887,20 +981,26 @@ export default function EarnPage({ profile }: EarnPageProps) {
       ),
     [activeTab, stocks],
   );
-  const stockProviders = useMemo(() => {
-    const providers = new Map<string, { id: string; label: string; count: number }>();
+  const stockNetworks = useMemo(() => {
+    const networks = new Map<
+      string,
+      { id: string; label: string; count: number }
+    >();
 
     categoryStocks.forEach((stock) => {
-      const id = stock.provider.trim().toLowerCase();
-      const existing = providers.get(id);
-      providers.set(id, {
+      const id = getStockSettlementChain(
+        stock.provider,
+        stock.settlementChain || stock.chain || stock.network,
+      );
+      const existing = networks.get(id);
+      networks.set(id, {
         id,
-        label: getProtocolName(stock.provider),
+        label: id.toUpperCase(),
         count: (existing?.count || 0) + 1,
       });
     });
 
-    return [...providers.values()].sort((left, right) =>
+    return [...networks.values()].sort((left, right) =>
       left.label.localeCompare(right.label),
     );
   }, [categoryStocks]);
@@ -909,34 +1009,42 @@ export default function EarnPage({ profile }: EarnPageProps) {
     categoryStocks
       .filter(
         (stock) =>
-          stockProviderFilter === "all" ||
-          stock.provider.toLowerCase() === stockProviderFilter,
+          stockNetworkFilter === "all" ||
+          getStockSettlementChain(
+            stock.provider,
+            stock.settlementChain || stock.chain || stock.network,
+          ) === stockNetworkFilter,
       )
       .forEach((stock) => {
-      // The same ticker can be offered by several providers. Keep each offer
-      // visible, while ignoring an accidental repeat from the same provider.
-      const key = `${stock.provider.toLowerCase()}:${stock.symbol.toLowerCase()}`;
-      if (!providerListings.has(key)) providerListings.set(key, stock);
+        // The same ticker can be offered by several providers. Keep each offer
+        // visible, while ignoring an accidental repeat from the same provider.
+        const key = `${stock.provider.toLowerCase()}:${stock.symbol.toLowerCase()}`;
+        if (!providerListings.has(key)) providerListings.set(key, stock);
       });
 
     return [...providerListings.values()];
-  }, [categoryStocks, stockProviderFilter]);
+  }, [categoryStocks, stockNetworkFilter]);
   const searchedStocks = useMemo(() => {
     const query = stockSearchQuery.trim().toLowerCase();
     if (!query) return unifiedStocks;
 
     return unifiedStocks.filter((stock) =>
-      [
-        getUnderlyingTicker(stock.symbol),
-        getDisplayStockName(stock.name),
-      ].some((value) => value.toLowerCase().includes(query)),
+      [getUnderlyingTicker(stock.symbol), getDisplayStockName(stock.name)].some(
+        (value) => value.toLowerCase().includes(query),
+      ),
     );
   }, [stockSearchQuery, unifiedStocks]);
   const sortedStocks = useMemo(() => {
     const multiplier = stockSort.direction === "asc" ? 1 : -1;
     return [...searchedStocks].sort((left, right) => {
       if (stockSort.key === "name") {
-        return multiplier * left.symbol.localeCompare(right.symbol);
+        const tickerOrder = getUnderlyingTicker(
+          left.symbol,
+          left.provider,
+        ).localeCompare(getUnderlyingTicker(right.symbol, right.provider));
+        return (
+          multiplier * (tickerOrder || left.symbol.localeCompare(right.symbol))
+        );
       }
 
       const leftValue =
@@ -1019,14 +1127,15 @@ export default function EarnPage({ profile }: EarnPageProps) {
       `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}?provider=${provider}`,
     );
   };
-  const selectStockProvider = (provider: string) => {
-    setStockProviderFilter(provider);
+  const selectStockNetwork = (network: string) => {
+    setStockNetworkFilter(network);
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("stock");
-    if (provider === "all") {
-      nextParams.delete("provider");
+    nextParams.delete("provider");
+    if (network === "all") {
+      nextParams.delete("network");
     } else {
-      nextParams.set("provider", provider);
+      nextParams.set("network", network);
     }
     nextParams.set("category", activeTab);
     router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
@@ -1147,7 +1256,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
                 )}
               >
-                <CategoryIcon className="h-4 w-4 shrink-0 md:hidden" aria-hidden="true" />
+                <CategoryIcon
+                  className="h-4 w-4 shrink-0 md:hidden"
+                  aria-hidden="true"
+                />
                 <span className="block truncate text-xs font-bold min-[360px]:text-sm">
                   {category.label}
                 </span>
@@ -1155,7 +1267,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
             );
           })}
         </section>
-
       </div>
 
       {error && !isSecureSessionError ? (
@@ -1177,61 +1288,60 @@ export default function EarnPage({ profile }: EarnPageProps) {
             <PortfolioSummarySkeleton metricCount={2} />
           ) : (
             <>
-          <MobileBalanceSummary
-            label="Total portfolio balance"
-            value={formatMetricUsd(totalSupplied)}
-            stats={[
-              {
-                label: "Active pools",
-                value: activePositions.length.toString(),
-              },
-              {
-                label: "Average APY",
-                value: `${averageApy.toFixed(2)}%`,
-                tone: averageApy > 0 ? "positive" : "default",
-              },
-            ]}
-          />
+              <MobileBalanceSummary
+                label="Total portfolio balance"
+                value={formatMetricUsd(totalSupplied)}
+                stats={[
+                  {
+                    label: "Active pools",
+                    value: activePositions.length.toString(),
+                  },
+                  {
+                    label: "Average APY",
+                    value: `${averageApy.toFixed(2)}%`,
+                    tone: averageApy > 0 ? "positive" : "default",
+                  },
+                ]}
+              />
 
-          <section className="relative mb-8 hidden overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-7 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:block dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
-                Total portfolio balance
-              </p>
-              <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
-                {formatUsd(totalSupplied)}
-              </p>
-              <div className="mt-8 grid max-w-xl grid-cols-2 border-t border-gray-80 pt-5 dark:border-white/10">
-                <div className="pr-6">
-                  <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
-                    Active pools
+              <section className="relative mb-8 hidden overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-7 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:block dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
+                    Total portfolio balance
                   </p>
-                  <p className="mt-2 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
-                    {activePositions.length}
+                  <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
+                    {formatUsd(totalSupplied)}
                   </p>
+                  <div className="mt-8 grid max-w-xl grid-cols-2 border-t border-gray-80 pt-5 dark:border-white/10">
+                    <div className="pr-6">
+                      <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                        Active pools
+                      </p>
+                      <p className="mt-2 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
+                        {activePositions.length}
+                      </p>
+                    </div>
+                    <div className="border-l border-gray-80 px-6 dark:border-white/10">
+                      <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                        Average APY
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-2 text-lg font-bold tabular-nums",
+                          averageApy > 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-cryptoNight dark:text-white",
+                        )}
+                      >
+                        {averageApy.toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="border-l border-gray-80 px-6 dark:border-white/10">
-                  <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
-                    Average APY
-                  </p>
-                  <p
-                    className={cn(
-                      "mt-2 text-lg font-bold tabular-nums",
-                      averageApy > 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-cryptoNight dark:text-white",
-                    )}
-                  >
-                    {averageApy.toFixed(2)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
+              </section>
             </>
           )}
-
         </>
       ) : null}
 
@@ -1249,7 +1359,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     <input
                       ref={mobileYieldSearchInputRef}
                       value={yieldSearchQuery}
-                      onChange={(event) => setYieldSearchQuery(event.target.value)}
+                      onChange={(event) =>
+                        setYieldSearchQuery(event.target.value)
+                      }
                       onKeyDown={(event) => {
                         if (event.key === "Escape") {
                           setIsYieldSearchOpen(false);
@@ -1294,7 +1406,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       <input
                         ref={desktopYieldSearchInputRef}
                         value={yieldSearchQuery}
-                        onChange={(event) => setYieldSearchQuery(event.target.value)}
+                        onChange={(event) =>
+                          setYieldSearchQuery(event.target.value)
+                        }
                         onKeyDown={(event) => {
                           if (event.key === "Escape") {
                             setIsYieldSearchOpen(false);
@@ -1346,28 +1460,27 @@ export default function EarnPage({ profile }: EarnPageProps) {
               )}
             </div>
             <div className="mb-3 flex w-full items-center gap-1 md:hidden">
-              {[
-                { id: "all", label: "All chains" },
-                ...yieldChains,
-              ].map((chain) => {
-                const isSelected = yieldChainFilter === chain.id;
-                return (
-                  <button
-                    key={chain.id}
-                    type="button"
-                    onClick={() => setYieldChainFilter(chain.id)}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      "min-w-0 flex-1 truncate rounded-sm px-0.5 py-1 text-center text-[8px] font-semibold capitalize leading-none transition",
-                      isSelected
-                        ? "bg-primary-90 text-white dark:bg-primary-70"
-                        : "bg-secondary-60 text-gray-30 dark:bg-white/5 dark:text-gray-40",
-                    )}
-                  >
-                    {chain.label}
-                  </button>
-                );
-              })}
+              {[{ id: "all", label: "All chains" }, ...yieldChains].map(
+                (chain) => {
+                  const isSelected = yieldChainFilter === chain.id;
+                  return (
+                    <button
+                      key={chain.id}
+                      type="button"
+                      onClick={() => setYieldChainFilter(chain.id)}
+                      aria-pressed={isSelected}
+                      className={cn(
+                        "min-w-0 flex-1 truncate rounded-sm px-0.5 py-1 text-center text-[8px] font-semibold capitalize leading-none transition",
+                        isSelected
+                          ? "bg-primary-90 text-white dark:bg-primary-70"
+                          : "bg-secondary-60 text-gray-30 dark:bg-white/5 dark:text-gray-40",
+                      )}
+                    >
+                      {chain.label}
+                    </button>
+                  );
+                },
+              )}
             </div>
             {opportunitiesLoading ? (
               <YieldOpportunitySkeleton />
@@ -1424,93 +1537,98 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
                       <tr>
                         <th className="px-5 py-3 font-semibold">Protocol</th>
-                        <th className="px-4 py-3 text-right font-semibold">Est. APY</th>
+                        <th className="px-4 py-3 text-right font-semibold">
+                          Est. APY
+                        </th>
                         <th className="px-4 py-3 font-semibold">Risk</th>
                         <th className="px-4 py-3 font-semibold">Network</th>
                         <th className="px-5 py-3" aria-label="Action" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-80 dark:divide-white/10">
-                {filteredOpportunities.map((opportunity) => {
-                  const available = getMaxUsableBalance(
-                    profile,
-                    opportunity.symbol,
-                  );
-                  const risk = Object.values(RiskLevel).includes(
-                    opportunity.riskLevel,
-                  )
-                    ? opportunity.riskLevel
-                    : null;
-                  return (
-                    <tr
-                      key={opportunity.id}
-                      className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
-                    >
-                      <td className="px-5 py-3.5">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <AssetNetworkIcon
-                            symbol={opportunity.symbol}
-                            network={opportunity.chain}
-                            size="sm"
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate font-bold text-cryptoNight dark:text-white">
-                              {getProtocolName(opportunity.protocol)}
-                            </p>
-                            <p className="mt-0.5 text-xs text-gray-30 dark:text-gray-40">
-                              {opportunity.symbol} · {opportunity.chain}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <span className="font-normal tabular-nums text-emerald-600 dark:text-emerald-400">
-                          {formatApy(opportunity.apy)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {risk ? (
-                          <span
-                            className={cn(
-                              "inline-flex rounded-full px-2 py-1 text-[10px] font-bold capitalize",
-                              yieldRiskStyles[risk],
-                            )}
+                      {filteredOpportunities.map((opportunity) => {
+                        const available = getMaxUsableBalance(
+                          profile,
+                          opportunity.symbol,
+                        );
+                        const risk = Object.values(RiskLevel).includes(
+                          opportunity.riskLevel,
+                        )
+                          ? opportunity.riskLevel
+                          : null;
+                        return (
+                          <tr
+                            key={opportunity.id}
+                            className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
                           >
-                            {risk.toLowerCase()}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-30 dark:text-gray-40">
-                            —
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                          {opportunity.chain}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <Button
-                          type="button"
-                          variant="flow"
-                          size="sm"
-                          className="h-9 shrink-0 px-4"
-                          disabled={available <= 0}
-                          onClick={() =>
-                            setSelectedAction({ action: "supply", opportunity })
-                          }
-                        >
-                          <span className="relative z-10 flex items-center justify-center gap-1.5">
-                            {available > 0 ? "Deposit" : "Unavailable"}
-                            {available > 0 ? (
-                              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                            ) : null}
-                          </span>
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <td className="px-5 py-3.5">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <AssetNetworkIcon
+                                  symbol={opportunity.symbol}
+                                  network={opportunity.chain}
+                                  size="sm"
+                                />
+                                <div className="min-w-0">
+                                  <p className="truncate font-bold text-cryptoNight dark:text-white">
+                                    {getProtocolName(opportunity.protocol)}
+                                  </p>
+                                  <p className="mt-0.5 text-xs text-gray-30 dark:text-gray-40">
+                                    {opportunity.symbol} · {opportunity.chain}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <span className="font-normal tabular-nums text-emerald-600 dark:text-emerald-400">
+                                {formatApy(opportunity.apy)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {risk ? (
+                                <span
+                                  className={cn(
+                                    "inline-flex rounded-full px-2 py-1 text-[10px] font-bold capitalize",
+                                    yieldRiskStyles[risk],
+                                  )}
+                                >
+                                  {risk.toLowerCase()}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-30 dark:text-gray-40">
+                                  —
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                                {opportunity.chain}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <Button
+                                type="button"
+                                variant="flow"
+                                size="sm"
+                                className="h-9 shrink-0 px-4"
+                                disabled={available <= 0}
+                                onClick={() =>
+                                  setSelectedAction({
+                                    action: "supply",
+                                    opportunity,
+                                  })
+                                }
+                              >
+                                <span className="relative z-10 flex items-center justify-center gap-1.5">
+                                  {available > 0 ? "Deposit" : "Unavailable"}
+                                  {available > 0 ? (
+                                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                                  ) : null}
+                                </span>
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1538,75 +1656,77 @@ export default function EarnPage({ profile }: EarnPageProps) {
               <PortfolioSummarySkeleton metricCount={2} />
             ) : (
               <>
-            <MobileBalanceSummary
-              label="Stock portfolio value"
-              value={formatMetricUsd(categoryPortfolio.totalPortfolioValue)}
-              stats={[
-                {
-                  label: "Total return (PnL)",
-                  value: `${categoryPortfolio.totalUnrealizedPnL >= 0 ? "+" : ""}${formatMetricUsd(categoryPortfolio.totalUnrealizedPnL)} (${categoryPortfolio.totalUnrealizedPnLPercentage.toFixed(2)}%)`,
-                  tone:
-                    categoryPortfolio.totalUnrealizedPnL > 0
-                      ? "positive"
-                      : categoryPortfolio.totalUnrealizedPnL < 0
-                        ? "negative"
-                        : "default",
-                },
-                {
-                  label: "Cost basis",
-                  value: formatMetricUsd(categoryPortfolio.totalCostBasis),
-                },
-              ]}
-            />
+                <MobileBalanceSummary
+                  label="Stock portfolio value"
+                  value={formatMetricUsd(categoryPortfolio.totalPortfolioValue)}
+                  stats={[
+                    {
+                      label: "Total return (PnL)",
+                      value: `${categoryPortfolio.totalUnrealizedPnL >= 0 ? "+" : ""}${formatMetricUsd(categoryPortfolio.totalUnrealizedPnL)} (${categoryPortfolio.totalUnrealizedPnLPercentage.toFixed(2)}%)`,
+                      tone:
+                        categoryPortfolio.totalUnrealizedPnL > 0
+                          ? "positive"
+                          : categoryPortfolio.totalUnrealizedPnL < 0
+                            ? "negative"
+                            : "default",
+                    },
+                    {
+                      label: "Cost basis",
+                      value: formatMetricUsd(categoryPortfolio.totalCostBasis),
+                    },
+                  ]}
+                />
 
-            {/* Portfolio Performance Summary */}
-            {stockPortfolio && (
-              <div className="relative mb-8 hidden overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-7 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:block dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
+                {/* Portfolio Performance Summary */}
+                {stockPortfolio && (
+                  <div className="relative mb-8 hidden overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-7 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:block dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
 
-                <div className="relative">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
-                    Stock portfolio value
-                  </p>
-                  <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
-                    {formatUsd(categoryPortfolio.totalPortfolioValue)}
-                  </p>
+                    <div className="relative">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
+                        Stock portfolio value
+                      </p>
+                      <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
+                        {formatUsd(categoryPortfolio.totalPortfolioValue)}
+                      </p>
 
-                  <div className="mt-8 grid max-w-xl grid-cols-2 border-t border-gray-80 pt-5 dark:border-white/10">
-                    <div className="pr-8">
-                      <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
-                        Total return (PnL)
-                      </p>
-                      <p
-                        className={cn(
-                          "mt-2 text-lg font-bold tabular-nums",
-                          categoryPortfolio.totalUnrealizedPnL > 0
-                            ? "text-emerald-600 dark:text-emerald-300"
-                            : categoryPortfolio.totalUnrealizedPnL < 0
-                              ? "text-rose-600 dark:text-rose-300"
-                              : "text-cryptoNight dark:text-white",
-                        )}
-                      >
-                        {categoryPortfolio.totalUnrealizedPnL >= 0 ? "+" : ""}
-                        {formatUsd(categoryPortfolio.totalUnrealizedPnL)} (
-                        {categoryPortfolio.totalUnrealizedPnLPercentage.toFixed(
-                          2,
-                        )}
-                        %)
-                      </p>
-                    </div>
-                    <div className="border-l border-gray-80 pl-8 dark:border-white/10">
-                      <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
-                        Cost basis
-                      </p>
-                      <p className="mt-2 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
-                        {formatUsd(categoryPortfolio.totalCostBasis)}
-                      </p>
+                      <div className="mt-8 grid max-w-xl grid-cols-2 border-t border-gray-80 pt-5 dark:border-white/10">
+                        <div className="pr-8">
+                          <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                            Total return (PnL)
+                          </p>
+                          <p
+                            className={cn(
+                              "mt-2 text-lg font-bold tabular-nums",
+                              categoryPortfolio.totalUnrealizedPnL > 0
+                                ? "text-emerald-600 dark:text-emerald-300"
+                                : categoryPortfolio.totalUnrealizedPnL < 0
+                                  ? "text-rose-600 dark:text-rose-300"
+                                  : "text-cryptoNight dark:text-white",
+                            )}
+                          >
+                            {categoryPortfolio.totalUnrealizedPnL >= 0
+                              ? "+"
+                              : ""}
+                            {formatUsd(categoryPortfolio.totalUnrealizedPnL)} (
+                            {categoryPortfolio.totalUnrealizedPnLPercentage.toFixed(
+                              2,
+                            )}
+                            %)
+                          </p>
+                        </div>
+                        <div className="border-l border-gray-80 pl-8 dark:border-white/10">
+                          <p className="text-xs font-medium text-gray-30 dark:text-gray-40">
+                            Cost basis
+                          </p>
+                          <p className="mt-2 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
+                            {formatUsd(categoryPortfolio.totalCostBasis)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
               </>
             )}
 
@@ -1685,7 +1805,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     <input
                       ref={mobileStockSearchInputRef}
                       value={stockSearchQuery}
-                      onChange={(event) => setStockSearchQuery(event.target.value)}
+                      onChange={(event) =>
+                        setStockSearchQuery(event.target.value)
+                      }
                       onKeyDown={(event) => {
                         if (event.key === "Escape") {
                           setIsStockSearchOpen(false);
@@ -1696,7 +1818,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       aria-label="Search stock opportunities"
                       className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
                     />
-                      {stockSearchQuery ? (
+                    {stockSearchQuery ? (
                       <button
                         type="button"
                         onClick={() => setStockSearchQuery("")}
@@ -1704,9 +1826,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         <X className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      <button
+                      </button>
+                    ) : null}
+                    <button
                       type="button"
                       onClick={() => {
                         setIsStockSearchOpen(false);
@@ -1730,7 +1852,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       <input
                         ref={desktopStockSearchInputRef}
                         value={stockSearchQuery}
-                        onChange={(event) => setStockSearchQuery(event.target.value)}
+                        onChange={(event) =>
+                          setStockSearchQuery(event.target.value)
+                        }
                         onKeyDown={(event) => {
                           if (event.key === "Escape") {
                             setIsStockSearchOpen(false);
@@ -1741,7 +1865,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         aria-label="Search stock opportunities"
                         className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
                       />
-                    {stockSearchQuery ? (
+                      {stockSearchQuery ? (
                         <button
                           type="button"
                           onClick={() => setStockSearchQuery("")}
@@ -1749,9 +1873,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                         >
                           <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                    <button
+                        </button>
+                      ) : null}
+                      <button
                         type="button"
                         onClick={() => {
                           setIsStockSearchOpen(false);
@@ -1770,12 +1894,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     Stock opportunities
                   </h2>
                   <div className="flex items-center gap-1">
-                    {stockProviders.length > 1 ? (
+                    {stockNetworks.length > 1 ? (
                       <span className="md:hidden">
-                        <StockProviderFilterMenu
-                          providers={stockProviders}
-                          value={stockProviderFilter}
-                          onValueChange={selectStockProvider}
+                        <StockNetworkFilterMenu
+                          networks={stockNetworks}
+                          value={stockNetworkFilter}
+                          onValueChange={selectStockNetwork}
                           iconOnly
                         />
                       </span>
@@ -1789,12 +1913,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     >
                       <Search className="h-4 w-4" />
                     </button>
-                    {stockProviders.length > 1 ? (
+                    {stockNetworks.length > 1 ? (
                       <span className="hidden md:inline-flex">
-                        <StockProviderFilterMenu
-                          providers={stockProviders}
-                          value={stockProviderFilter}
-                          onValueChange={selectStockProvider}
+                        <StockNetworkFilterMenu
+                          networks={stockNetworks}
+                          value={stockNetworkFilter}
+                          onValueChange={selectStockNetwork}
                         />
                       </span>
                     ) : null}
@@ -1809,57 +1933,60 @@ export default function EarnPage({ profile }: EarnPageProps) {
               <>
                 <div className="md:hidden">
                   <div className="space-y-2">
-                  {desktopStocks.map((stock) => (
-                    <button
-                      key={`${stock.provider}_${stock.symbol}`}
-                      type="button"
-                      onClick={() => openStockDetails(stock)}
-                      aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
-                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <StockLogo
-                          symbol={stock.symbol}
-                          src={getStockLogoUrl(stock.symbol, stock.logoUrl)}
-                          size="sm"
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-cryptoNight dark:text-white">
-                            {getUnderlyingTicker(stock.symbol)}
-                          </p>
-                          <p className="mt-0.5 truncate text-[11px] text-gray-30 dark:text-gray-40">
-                            {getDisplayStockName(stock.name)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-normal tabular-nums text-cryptoNight dark:text-white">
-                          {formatUsd(Number(stock.price) || 0)}
-                        </p>
-                        {(() => {
-                          const change = getListingChange(
-                            stock,
-                            stockChartChanges[
-                              getUnderlyingTicker(stock.symbol, stock.provider)
-                            ],
-                          );
-                          return change === undefined ? null : (
-                            <p
-                              className={cn(
-                                "mt-0.5 text-xs font-normal tabular-nums",
-                                change >= 0
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : "text-rose-600 dark:text-rose-400",
-                              )}
-                            >
-                              {change >= 0 ? "+" : ""}
-                              {change.toFixed(2)}%
+                    {desktopStocks.map((stock) => (
+                      <button
+                        key={`${stock.provider}_${stock.symbol}`}
+                        type="button"
+                        onClick={() => openStockDetails(stock)}
+                        aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
+                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <StockLogo
+                            symbol={stock.symbol}
+                            src={getStockLogoUrl(stock.symbol, stock.logoUrl)}
+                            size="sm"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-cryptoNight dark:text-white">
+                              {getUnderlyingTicker(stock.symbol)}
                             </p>
-                          );
-                        })()}
-                      </div>
-                    </button>
-                  ))}
+                            <p className="mt-0.5 truncate text-[11px] text-gray-30 dark:text-gray-40">
+                              {getDisplayStockName(stock.name)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-normal tabular-nums text-cryptoNight dark:text-white">
+                            {formatUsd(Number(stock.price) || 0)}
+                          </p>
+                          {(() => {
+                            const change = getListingChange(
+                              stock,
+                              stockChartChanges[
+                                getUnderlyingTicker(
+                                  stock.symbol,
+                                  stock.provider,
+                                )
+                              ],
+                            );
+                            return change === undefined ? null : (
+                              <p
+                                className={cn(
+                                  "mt-0.5 text-xs font-normal tabular-nums",
+                                  change >= 0
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-rose-600 dark:text-rose-400",
+                                )}
+                              >
+                                {change >= 0 ? "+" : ""}
+                                {change.toFixed(2)}%
+                              </p>
+                            );
+                          })()}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -1910,7 +2037,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           </button>
                         </th>
                         <th className="px-4 py-3 font-semibold">Last 24h</th>
-                        <th className="px-4 py-3 font-semibold">Provider</th>
+                        <th className="px-4 py-3 font-semibold">Network</th>
                         <th className="px-5 py-3" aria-label="Action" />
                       </tr>
                     </thead>
@@ -1988,14 +2115,22 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               <StockSparkline
                                 values={
                                   stockCharts[
-                                    getUnderlyingTicker(stock.symbol, stock.provider)
+                                    getUnderlyingTicker(
+                                      stock.symbol,
+                                      stock.provider,
+                                    )
                                   ]
                                 }
                               />
                             </td>
                             <td className="px-4 py-3.5">
                               <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                                {getProtocolName(stock.provider)}
+                                {getStockSettlementChain(
+                                  stock.provider,
+                                  stock.settlementChain ||
+                                    stock.chain ||
+                                    stock.network,
+                                ).toUpperCase()}
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-right">
