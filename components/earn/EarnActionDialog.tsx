@@ -233,7 +233,7 @@ export default function EarnActionDialog({
       );
       setOtpSent(true);
       toast.success(
-        response.message || "Verification code sent by email.",
+        response.data?.message || "Verification code sent by email.",
       );
     } catch (error) {
       setOtpSent(false);

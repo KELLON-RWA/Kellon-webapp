@@ -209,7 +209,7 @@ export default function StockActionDialog({
       );
       setOtpSent(true);
       toast.success(
-        response.message ||
+        response.data?.message ||
           `Verification code sent by ${deliveryChannel === "sms" ? "SMS" : "email"}.`,
       );
     } catch (error) {
