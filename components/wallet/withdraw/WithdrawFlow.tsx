@@ -1,5 +1,7 @@
 "use client";
 
+import { chainStatus } from "@/lib/chain-status";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -334,6 +336,8 @@ export default function WithdrawFlow({
     let createdOrder = retryOrder ?? pendingOrder?.order ?? null;
 
     try {
+      const chainBlocked = chainStatus.blockedMessage(networkName, "out");
+      if (chainBlocked) throw new Error(chainBlocked);
       if (!request) {
         const providerName = normalizeProviderKey(selectedProvider.name);
         const rate = selectedProviderRawRate

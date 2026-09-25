@@ -1,5 +1,6 @@
 "use client"
 
+import { useChainStatus } from "@/lib/chain-status"
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useDetectCountry } from "@/hooks/use-detect-country"
@@ -65,9 +66,15 @@ export function useDashboardData(profile: User) {
   const localCurrency = currencyCode || "USD"
   const { exchangeRate, isRateLoading } = useExchangeRate(localCurrency, null)
 
+  // A STOPPED chain is hidden from every balance and picker built on these assets.
+  const chainStatus = useChainStatus()
   const rawAssets = useMemo(
-    () => (profile?.assets || []).filter((asset): asset is Asset => !!asset),
-    [profile?.assets],
+    () =>
+      (profile?.assets || []).filter(
+        (asset): asset is Asset => !!asset && chainStatus.isVisible(asset.chain),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profile?.assets, chainStatus.version],
   )
 
   const cryptoAssets = useMemo(

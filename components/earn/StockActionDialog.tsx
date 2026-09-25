@@ -1,5 +1,7 @@
 "use client";
 
+import { chainStatus } from "@/lib/chain-status";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useWallets } from "@privy-io/react-auth";
 import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react";
@@ -271,6 +273,8 @@ export default function StockActionDialog({
             currentStock.chain ||
             currentStock.network,
         );
+        const chainBlocked = chainStatus.blockedMessage(transactionChain, "in");
+        if (chainBlocked) throw new Error(chainBlocked);
         if (transactionChain !== targetStockChain) {
           throw new Error(
             "Funding chain does not match the chain this stock settles on.",
@@ -356,6 +360,8 @@ export default function StockActionDialog({
           res.message || `Successfully purchased ${currentStock.symbol} stock!`,
         );
       } else {
+        const sellBlocked = chainStatus.blockedMessage(targetStockChain, "out");
+        if (sellBlocked) throw new Error(sellBlocked);
         const res = await stocksService.sellStock({
           symbol: currentStock.symbol,
           shares: Number(values.value),

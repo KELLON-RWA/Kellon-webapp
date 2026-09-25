@@ -1,5 +1,7 @@
 "use client"
 
+import { chainStatus } from "@/lib/chain-status"
+
 import React, { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -412,6 +414,8 @@ export default function BuyCryptoFlow({
     setInitializedOrder(null)
     setInstructionsError(null)
     try {
+      const chainBlocked = chainStatus.blockedMessage(networkName, "in")
+      if (chainBlocked) throw new Error(chainBlocked)
       const payload: OnrampInitRequest = {
         fiatAmount: fiatAmountNum,
         fiatCurrency,

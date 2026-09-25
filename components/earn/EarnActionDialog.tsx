@@ -1,5 +1,7 @@
 "use client";
 
+import { chainStatus } from "@/lib/chain-status";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMfa, useWallets } from "@privy-io/react-auth";
 import {
@@ -337,6 +339,11 @@ export default function EarnActionDialog({
     }
 
     try {
+      const chainBlocked = chainStatus.blockedMessage(
+        opportunity.chain,
+        action === "withdraw" ? "out" : "in",
+      );
+      if (chainBlocked) throw new Error(chainBlocked);
       const verificationPayload =
         verification && !isBundlerVerification
           ? {

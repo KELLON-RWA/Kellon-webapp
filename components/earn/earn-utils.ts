@@ -11,6 +11,25 @@ export function toNumber(value: number | string | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const CHAIN_ALIASES: Record<string, string> = {
+  bsc: "bnb",
+  binance: "bnb",
+  "binance-smart-chain": "bnb",
+  sol: "solana",
+  xlm: "stellar",
+  matic: "polygon",
+};
+
+/**
+ * The backend names BNB assets "bnb" while the stocks flow asks for "bsc". Matching the raw
+ * strings returned a zero balance for every PancakeSwap stock, so the buy form rejected any
+ * amount as over the maximum.
+ */
+export function normalizeChainKey(chain: string): string {
+  const lower = chain.trim().toLowerCase();
+  return CHAIN_ALIASES[lower] ?? lower;
+}
+
 export function formatTokenAmount(value: number): string {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
@@ -80,13 +99,12 @@ export function getMaxUsableBalanceForChain(
   targetChain?: string,
 ): number {
   if (!targetChain) return getMaxUsableBalance(profile, symbol);
-
-  const normalizedTarget = targetChain.toLowerCase();
+  const normTarget = normalizeChainKey(targetChain);
   return (profile.assets || [])
     .filter(
       (asset: Asset) =>
         asset.symbol.toUpperCase() === symbol.toUpperCase() &&
-        asset.chain?.toLowerCase() === normalizedTarget,
+        normalizeChainKey(asset.chain ?? "") === normTarget,
     )
     .reduce((total, asset) => total + toNumber(asset.amount), 0);
 }
