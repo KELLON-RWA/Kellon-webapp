@@ -19,7 +19,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -246,6 +246,16 @@ export default function StockDetailsPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedProvider = searchParams.get("provider")?.toLowerCase();
+  const requestedNetwork = searchParams.get("network")?.toLowerCase();
+  useEffect(() => {
+    if (!requestedProvider || requestedNetwork) return;
+
+    const network = getStockSettlementChain(requestedProvider);
+    router.replace(
+      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(symbol, requestedProvider))}?network=${network}`,
+      { scroll: false },
+    );
+  }, [requestedNetwork, requestedProvider, router, symbol]);
   const [activeRange, setActiveRange] = useState<(typeof TIME_RANGES)[number]>("1M");
   const [stockAction, setStockAction] = useState<StockActionType | null>(null);
   const [activeTab, setActiveTab] = useState<StockPageTab>("Charts");
@@ -261,13 +271,23 @@ export default function StockDetailsPage({
       stocks.find(
         (item) =>
           getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
-          (!requestedProvider || item.provider.toLowerCase() === requestedProvider),
+          (!requestedProvider || item.provider.toLowerCase() === requestedProvider) &&
+          (!requestedNetwork ||
+            getStockSettlementChain(
+              item.provider,
+              item.settlementChain || item.chain || item.network,
+            ) === requestedNetwork),
       ) ||
       stocks.find(
         (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol,
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
+          (!requestedNetwork ||
+            getStockSettlementChain(
+              item.provider,
+              item.settlementChain || item.chain || item.network,
+            ) === requestedNetwork),
       ),
-    [normalizedSymbol, requestedProvider, stocks],
+    [normalizedSymbol, requestedNetwork, requestedProvider, stocks],
   );
   const { data: stockPortfolio, refetch: refetchPortfolio } = useQuery({
     queryKey: ["stock-portfolio"],
@@ -280,9 +300,11 @@ export default function StockDetailsPage({
         (item) =>
           getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
           (!requestedProvider ||
-            item.provider.toLowerCase() === requestedProvider),
+            item.provider.toLowerCase() === requestedProvider) &&
+          (!requestedNetwork ||
+            getStockSettlementChain(item.provider) === requestedNetwork),
       ) || null,
-    [normalizedSymbol, requestedProvider, stockPortfolio?.holdings],
+    [normalizedSymbol, requestedNetwork, requestedProvider, stockPortfolio?.holdings],
   );
   const canSell = Number(holding?.shares || 0) > 0;
   const { data: chartData } = useQuery({
@@ -567,7 +589,7 @@ function StockResearchContent({
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="mr-2 text-xl font-bold text-cryptoNight dark:text-white">{title}</h2>
           <span className="rounded-full border border-primary-60/40 bg-primary-70/5 px-2.5 py-1 text-xs font-semibold text-primary-60 dark:bg-primary-70/10 dark:text-primary-60">{company?.sector || "Public equity"}</span>
-          <span className="rounded-full bg-secondary-50 px-2.5 py-1 text-xs font-semibold text-gray-30 dark:bg-white/5 dark:text-gray-40">{company?.industry || "Tokenized stock"}</span>
+          <span className="rounded-full border border-primary-60/40 bg-primary-70/5 px-2.5 py-1 text-xs font-semibold text-primary-60 dark:bg-primary-70/10 dark:text-primary-60">{company?.industry || "Tokenized stock"}</span>
         </div>
         <p className="mt-5 max-w-3xl text-sm leading-6 text-gray-30 dark:text-gray-40">{description}</p>
         {company?.website ? (

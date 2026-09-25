@@ -1121,9 +1121,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
     }));
   };
   const openStockDetails = (stock: StockListing) => {
-    const provider = encodeURIComponent(stock.provider);
+    const network = getStockSettlementChain(
+      stock.provider,
+      stock.settlementChain || stock.chain || stock.network,
+    );
     router.push(
-      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}?provider=${provider}`,
+      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}?network=${network}`,
     );
   };
   const selectStockNetwork = (network: string) => {

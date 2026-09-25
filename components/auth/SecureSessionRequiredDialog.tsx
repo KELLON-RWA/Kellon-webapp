@@ -53,12 +53,12 @@ export default function SecureSessionRequiredDialog() {
           <div className="mb-2 flex size-12 items-center justify-center rounded-2xl bg-primary-70/15 text-primary-60">
             <ShieldAlert className="size-6" aria-hidden="true" />
           </div>
-          <AlertDialogTitle className="w-full text-center text-xl font-bold text-white">
+          <AlertDialogTitle className="w-full text-center text-xl font-bold text-cryptoNight dark:text-white">
             Session expired
           </AlertDialogTitle>
           <AlertDialogDescription
             id="secure-session-description"
-            className="mx-auto max-w-xs text-center text-sm leading-6 text-gray-40"
+            className="mx-auto max-w-xs text-center text-sm leading-6 text-gray-10 dark:text-gray-40"
           >
             Your session has expired. Log in again to continue.
           </AlertDialogDescription>
@@ -69,7 +69,7 @@ export default function SecureSessionRequiredDialog() {
             type="button"
             variant="flow"
             size="flow"
-            className="w-full"
+            className="w-full bg-primary-40 bg-none text-white hover:bg-primary-30 dark:bg-gradient-to-r dark:from-primary-70 dark:to-primary-60 dark:hover:bg-none"
             disabled={isLeaving}
             onClick={returnToLogin}
           >
