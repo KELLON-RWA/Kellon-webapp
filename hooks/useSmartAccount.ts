@@ -328,14 +328,15 @@ export function useSmartAccount() {
           },
         })
 
-        // PUBLIC_RPC_URLS is keyed by chain alone, so in testnet it would point a testnet chain
-        // (e.g. Arc 5042002) at a mainnet RPC and viem rejects the mismatch. Always include the
-        // network-aware chain's own RPCs so the transport matches `chain`.
+        // PUBLIC_RPC_URLS is keyed by chain alone and lists mainnet endpoints. viem does not check
+        // the chain id on reads, so in testnet a mainnet RPC would silently answer for the testnet
+        // chain, so testnet uses only the chain's own RPCs.
         const rpcUrls = Array.from(
-          new Set([
-            ...(PUBLIC_RPC_URLS[targetChainKey] || []),
-            ...(chain.rpcUrls?.default?.http ?? []),
-          ]),
+          new Set(
+            IS_TESTNET
+              ? (chain.rpcUrls?.default?.http ?? [])
+              : [...(PUBLIC_RPC_URLS[targetChainKey] || []), ...(chain.rpcUrls?.default?.http ?? [])],
+          ),
         )
         const publicClient = createPublicClient({
           transport: fallback(
