@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { getActiveChains } from "@/lib/chains";
 
 interface NetworkItem {
   name: string;
@@ -25,14 +26,14 @@ interface NetworkItem {
   isActive: boolean;
 }
 
-const NETWORKS: NetworkItem[] = [
-  { name: "Stellar", chainId: 0, isActive: true },
-  { name: "Base", chainId: 8453, isActive: true },
-  { name: "Polygon", chainId: 137, isActive: true },
-  { name: "Celo", chainId: 42220, isActive: true },
-  { name: "Arc", chainId: 5042, isActive: true },
-  { name: "BNB Chain", chainId: 56, isActive: true },
-];
+const IS_TESTNET = process.env.NEXT_PUBLIC_NETWORK_MODE === "testnet"
+
+// Derived from the active (mainnet or testnet) chain set so chain ids never drift from config.
+const NETWORKS: NetworkItem[] = Object.values(getActiveChains()).map((c) => ({
+  name: c.name,
+  chainId: c.id,
+  isActive: true,
+}));
 
 interface NetworkInformationModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ const NetworkInformationModal: FC<NetworkInformationModalProps> = ({
             Network Information
           </h2>
           <p className="text-xs font-bold text-gray-20 dark:text-secondary-90 uppercase tracking-widest">
-            Current Mode: <span className="text-primary-70">MAINNET</span>
+            Current Mode: <span className="text-primary-70">{IS_TESTNET ? "TESTNET" : "MAINNET"}</span>
           </p>
         </div>
       </div>
@@ -121,7 +122,7 @@ const NetworkInformationModal: FC<NetworkInformationModalProps> = ({
       <div className="mt-8 pt-6 border-t border-gray-80 dark:border-secondary-40 flex items-start gap-3 px-2">
         <Activity className="w-4 h-4 text-primary-70 shrink-0 mt-0.5" />
         <p className="text-[10px] leading-relaxed text-gray-20 dark:text-secondary-90">
-          All transactions are processed on the respective mainnet chains.
+          All transactions are processed on the respective {IS_TESTNET ? "testnet" : "mainnet"} chains.
           Ensure you have the correct network selected for outgoing transfers.
         </p>
       </div>

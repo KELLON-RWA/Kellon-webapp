@@ -1,5 +1,6 @@
 "use client"
 
+import { chainStatus } from "@/lib/chain-status"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
@@ -120,10 +121,12 @@ function extractRevertFromError(err: unknown): string | null {
   return null
 }
 
+const IS_TESTNET = process.env.NEXT_PUBLIC_NETWORK_MODE === "testnet"
+
 const BALANCE_CHECK_RPC: Record<string, string> = {
   base: "https://mainnet.base.org",
   celo: "https://forno.celo.org",
-  arc: "https://rpc.mainnet.arc.io",
+  arc: IS_TESTNET ? "https://rpc.testnet.arc.io" : "https://rpc.mainnet.arc.io",
   polygon: "https://polygon-rpc.com",
   bnb: "https://bsc-dataseed.binance.org",
   bsc: "https://bsc-dataseed.binance.org",
@@ -850,6 +853,8 @@ export function useSendFlow(profile: User) {
       // transfer rather than creating a second one.
       beginOperation(Boolean(verification))
       try {
+        const chainBlocked = chainStatus.blockedMessage(selectedAsset.chain, "out")
+        if (chainBlocked) throw new Error(chainBlocked)
         const trimmedRecipient = recipientInput.trim()
         const chainLower = normalizeBridgeChain(selectedAsset.chain)
 
