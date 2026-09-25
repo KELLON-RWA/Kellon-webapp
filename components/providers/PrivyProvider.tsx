@@ -29,10 +29,10 @@ export default function MyPrivyProvider({
       appId={getPrivyAppId()}
       clientId={getPrivyClientId()}
       config={{
-        // Create embedded wallets for users who don't have a wallet
+        // The backend mints every wallet; a client-side mint races it and leaves a second signer.
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "users-without-wallets",
+            createOnLogin: "off",
           },
         },
       }}
