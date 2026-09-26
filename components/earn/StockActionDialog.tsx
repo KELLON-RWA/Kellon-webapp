@@ -54,10 +54,12 @@ import {
 
 export type StockActionType = "buy" | "sell";
 
+type StockVerificationContext = "stocks" | "transfer";
+
 interface StockActionVerification {
   verificationCode: string;
   verificationType: "email_otp" | "sms_otp" | "totp" | "webauthn";
-  context: "stocks";
+  context: StockVerificationContext;
 }
 
 interface StockActionDialogProps {
@@ -109,7 +111,8 @@ export default function StockActionDialog({
   const [verificationType, setVerificationType] = useState<
     "email_otp" | "sms_otp" | "totp" | null
   >(null);
-  const [verificationAction, setVerificationAction] = useState("stocks");
+  const [verificationAction, setVerificationAction] =
+    useState<StockVerificationContext>("stocks");
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const otpRequestInFlightRef = useRef(false);
@@ -244,18 +247,19 @@ export default function StockActionDialog({
     setIsSubmitting(true);
     beginOperation(Boolean(verification));
 
-    if (verification) {
-      setStickyVerificationCode({
-        type: verification.verificationType,
-        code: verification.verificationCode,
-      });
-    } else {
-      setStickyVerificationCode(null);
-    }
+    setStickyVerificationCode(
+      verification?.context === "transfer"
+        ? {
+            type: verification.verificationType,
+            code: verification.verificationCode,
+          }
+        : null,
+    );
 
     try {
-      const verificationPayload = verification
-        ? {
+      const verificationPayload =
+        verification?.context === "stocks"
+          ? {
             verificationCode: verification.verificationCode,
             verificationType: verification.verificationType,
             verificationCodes: [
@@ -264,8 +268,8 @@ export default function StockActionDialog({
                 code: verification.verificationCode,
               },
             ],
-          }
-        : {};
+            }
+          : {};
 
       if (action === "buy") {
         const transactionChain = getStockSettlementChain(
@@ -388,6 +392,11 @@ export default function StockActionDialog({
       const mfaErr = findTransferVerificationRequiredError(error);
 
       if (mfaErr) {
+        const nextAction: StockVerificationContext =
+          mfaErr.action === "transfer" ? "transfer" : "stocks";
+        const nextType = mfaErr.verificationType;
+        setVerificationAction(nextAction);
+
         if (mfaErr.availableMethods?.includes("webauthn")) {
           if (verification?.verificationType === "webauthn") {
             endOperation();
@@ -402,7 +411,7 @@ export default function StockActionDialog({
             await performStockAction(values, {
               verificationCode: attestation,
               verificationType: "webauthn",
-              context: "stocks",
+              context: nextAction,
             });
             return;
           } catch (passkeyErr) {
@@ -416,9 +425,6 @@ export default function StockActionDialog({
           }
         }
 
-        const nextType = mfaErr.verificationType;
-        const nextAction = mfaErr.action || "stocks";
-        setVerificationAction(nextAction);
         setVerificationType(
           nextType === "totp"
             ? "totp"
@@ -427,7 +433,7 @@ export default function StockActionDialog({
               : "email_otp",
         );
 
-        if (nextType !== "totp" && !verification) {
+        if (nextType !== "totp" && verification?.context !== nextAction) {
           await requestStockOtp(
             nextType === "sms_otp" ? "sms" : "email",
             nextAction,
@@ -659,7 +665,7 @@ export default function StockActionDialog({
             performStockAction(values, {
               verificationCode,
               verificationType: activeVerificationType,
-              context: "stocks",
+              context: verificationAction,
             }),
           )();
         }}
