@@ -26,6 +26,7 @@ import {
   setStickyVerificationCode,
   setStickyTransferMeta,
 } from "@/hooks/useSmartAccount"
+import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer"
 import { getActiveChains } from "@/lib/chains"
 import { normalizeBridgeChain } from "@/lib/bridge-assets"
 import { clampDust, toBaseUnits } from "@/lib/token-amount"
@@ -962,23 +963,20 @@ export function useSendFlow(profile: User) {
             )
           }
 
-          // Must be the Privy embedded wallet specifically. External wallets are not
-          // disabled in PrivyProvider, so a user with a browser extension can have one in
-          // this list — and picking it by address prefix alone derives the smart account
-          // from the wrong owner EOA, pointing at a Safe that holds none of their funds.
-          const evmWallet = wallets.find(
-            (w) => w.walletClientType === "privy" && w.address.startsWith("0x"),
-          )
+          // Any wallet but the backend's recorded signer derives a Safe that holds none
+          // of the user's funds: an extension wallet, or a second embedded wallet.
+          const evmWallet = resolveEvmSigner(wallets, profile.chainAccounts)
 
           if (!evmWallet) {
             throw new Error(
-              "Embedded wallet not found. Please log out and log in again.",
+              "Your wallet is not available on this device. Please log out and log in again.",
             )
           }
 
           const smartAccountClient = await getSmartAccountClient(
             evmWallet,
             chainLower,
+            expectedSafeFor(profile.chainAccounts, chainLower),
           )
           if (!smartAccountClient) {
             throw new Error("Failed to initialize smart account client.")
@@ -1145,6 +1143,7 @@ export function useSendFlow(profile: User) {
       isAmountValid,
       isCurrentRecipientVerified,
       isRecipientValid,
+      profile.chainAccounts,
       recipientInput,
       recipientKind,
       router,

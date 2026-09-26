@@ -46,6 +46,7 @@ import {
   resolveVerificationType,
 } from "@/services/api/transfers"
 import type { ConnectedWallet } from "@privy-io/react-auth"
+import { SignerMismatchError } from "@/lib/evm-signer"
 
 interface BundlerErrorResponse {
   message?: string
@@ -163,6 +164,7 @@ export function useSmartAccount() {
     async (
       privyWallet: ConnectedWallet,
       chainKey: string,
+      expectedSafe?: string,
     ): Promise<SmartAccountClient | null> => {
       setIsLoading(true)
       setError(null)
@@ -174,9 +176,18 @@ export function useSmartAccount() {
 
         const { chain, slug } = config
 
+        const assertOwnsSafe = (safeAddress?: string) => {
+          if (!expectedSafe || safeAddress?.toLowerCase() === expectedSafe.toLowerCase()) return
+          console.error(
+            `[useSmartAccount] Signer ${privyWallet.address} derives Safe ${safeAddress}, not the account's Safe ${expectedSafe}`,
+          )
+          throw new SignerMismatchError()
+        }
+
         const cacheKey = `${privyWallet.address}_${targetChainKey}`
         const existing = clientCache.get(cacheKey)
         if (existing) {
+          assertOwnsSafe(existing.account?.address)
           return existing
         }
 
@@ -374,6 +385,7 @@ export function useSmartAccount() {
           },
         })
 
+        assertOwnsSafe(safeAccount.address)
         console.log(
           `[useSmartAccount] Initialized Safe Account: ${safeAccount.address} (Owner: ${privyWallet.address})`,
         )
@@ -402,6 +414,10 @@ export function useSmartAccount() {
         clientCache.set(cacheKey, smartAccountClient)
         return smartAccountClient
       } catch (err) {
+        if (err instanceof SignerMismatchError) {
+          setError(err.message)
+          throw err
+        }
         const errorObject = err as Error
         console.error("[useSmartAccount] Error creating client:", errorObject)
         setError(errorObject.message || "Failed to initialize Smart Account")

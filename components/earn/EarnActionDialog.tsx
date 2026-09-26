@@ -19,6 +19,7 @@ import {
   setStickyVerificationCode,
   useSmartAccount,
 } from "@/hooks/useSmartAccount";
+import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
 import {
   findTransferVerificationRequiredError,
   transferService,
@@ -260,11 +261,8 @@ export default function EarnActionDialog({
       throw new Error("Wallet is still loading. Please try again in a moment.");
     }
 
-    // Must be the embedded wallet — an extension wallet here derives the wrong Safe.
-    const evmWallet = wallets.find(
-      (wallet) =>
-        wallet.walletClientType === "privy" && wallet.address.startsWith("0x"),
-    );
+    // Any wallet but the backend's recorded signer derives the wrong Safe.
+    const evmWallet = resolveEvmSigner(wallets, profile.chainAccounts);
     if (!evmWallet) {
       throw new Error("Your EVM wallet is unavailable. Please log in again.");
     }
@@ -288,7 +286,11 @@ export default function EarnActionDialog({
       const chainId = Number(transaction.chainId);
       const chainKey =
         CHAIN_BY_ID[chainId] || opportunity?.chain.toLowerCase() || "";
-      const client = await getSmartAccountClient(evmWallet, chainKey);
+      const client = await getSmartAccountClient(
+        evmWallet,
+        chainKey,
+        expectedSafeFor(profile.chainAccounts, chainKey),
+      );
       if (!client) {
         throw new Error(`Could not initialize your ${chainKey} account.`);
       }

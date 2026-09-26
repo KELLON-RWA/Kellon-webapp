@@ -24,6 +24,7 @@ import {
   setStickyVerificationCode,
   useSmartAccount,
 } from "@/hooks/useSmartAccount";
+import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
 import {
   stocksService,
   type StockListing,
@@ -284,18 +285,20 @@ export default function StockActionDialog({
           throw new Error("Your wallet is still loading. Please try again.");
         }
 
-        const embeddedWallet = wallets.find(
-          (wallet) =>
-            wallet.walletClientType === "privy" &&
-            wallet.address.toLowerCase().startsWith("0x"),
+        const embeddedWallet = resolveEvmSigner(
+          wallets,
+          profile.chainAccounts,
         );
         if (!embeddedWallet) {
-          throw new Error("Your embedded wallet is not available.");
+          throw new Error(
+            "Your wallet is not available on this device. Please log out and log in again.",
+          );
         }
 
         const rawClient = await getSmartAccountClient(
           embeddedWallet,
           targetStockChain,
+          expectedSafeFor(profile.chainAccounts, targetStockChain),
         );
         if (!rawClient) {
           throw new Error("Smart Account wallet client is not ready.");

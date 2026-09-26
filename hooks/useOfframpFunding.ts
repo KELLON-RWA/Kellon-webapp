@@ -2,6 +2,8 @@
 
 import { useCallback } from "react"
 import { useWallets } from "@privy-io/react-auth"
+import { useUser } from "@/hooks/use-user"
+import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer"
 import { encodeFunctionData, erc20Abi, formatUnits } from "viem"
 import { toBaseUnits } from "@/lib/token-amount"
 import {
@@ -60,6 +62,7 @@ const EVM_DECIMALS_BY_CHAIN_ID: Record<number, number> = {
 export function useOfframpFunding() {
   const { wallets, ready: walletsReady } = useWallets()
   const { getSmartAccountClient } = useSmartAccount()
+  const { data: profile } = useUser()
 
   /** Sends the tokens gaslessly via the smart account; null when nothing is owed. */
   const fundOfframpOrder = useCallback(
@@ -96,18 +99,17 @@ export function useOfframpFunding() {
         )
       }
 
-      const evmWallet = wallets.find(
-        (w) => w.walletClientType === "privy" && w.address.startsWith("0x"),
-      )
+      const evmWallet = resolveEvmSigner(wallets, profile?.chainAccounts)
       if (!evmWallet) {
         throw new Error(
-          "Embedded wallet not found. Please log out and log in again.",
+          "Your wallet is not available on this device. Please log out and log in again.",
         )
       }
 
       const smartAccountClient = await getSmartAccountClient(
         evmWallet,
         chainKey,
+        expectedSafeFor(profile?.chainAccounts, chainKey),
       )
       if (!smartAccountClient?.account) {
         throw new Error("Failed to initialize smart account for the transfer.")
@@ -180,7 +182,7 @@ export function useOfframpFunding() {
         setStickyTransferMeta(null)
       }
     },
-    [wallets, walletsReady, getSmartAccountClient],
+    [wallets, walletsReady, getSmartAccountClient, profile?.chainAccounts],
   )
 
   return { fundOfframpOrder }
