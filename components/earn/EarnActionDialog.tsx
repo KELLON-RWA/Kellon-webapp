@@ -33,6 +33,8 @@ import {
   type YieldActionType,
   type YieldTransaction,
 } from "@/services/api/yield";
+import { type BridgeProvider } from "@/services/api/bridge";
+import { bridgeOutbox } from "@/services/api/bridge-outbox";
 import type { User, YieldOpportunity, YieldPosition } from "@/types/db";
 import { Button } from "@/components/ui/button";
 import {
@@ -262,6 +264,7 @@ export default function EarnActionDialog({
 
   const executeEvmTransactions = async (
     prepared: PreparedYieldAction,
+    amount: string,
   ): Promise<string> => {
     // `wallets` is [] until Privy settles.
     if (!walletsReady) {
@@ -313,11 +316,33 @@ export default function EarnActionDialog({
       });
 
       if (transaction.stepType === "bridge") {
+        const provider = transaction.provider;
+        if (
+          provider === "lifi" ||
+          provider === "allbridge" ||
+          provider === "cctp"
+        ) {
+          bridgeOutbox.save(profile.id, {
+            txHash: finalHash,
+            provider: provider as BridgeProvider,
+            fromChain: chainKey,
+            toChain:
+              prepared.plan?.targetChain || opportunity?.chain || chainKey,
+            amount,
+            symbol:
+              prepared.plan?.sources?.[0]?.symbol ||
+              prepared.metadata?.symbol ||
+              "USDC",
+          });
+          void bridgeOutbox.flush(profile.id);
+        }
+
         toast.loading("Moving funds to the earning network...", {
           id: "yield-bridge",
         });
         try {
           await waitForBridge(transaction, finalHash);
+          bridgeOutbox.remove(profile.id, finalHash);
         } finally {
           toast.dismiss("yield-bridge");
         }
@@ -431,7 +456,7 @@ export default function EarnActionDialog({
         );
       } else {
         activeVerificationContext = "submitUserOp";
-        const txHash = await executeEvmTransactions(prepared);
+        const txHash = await executeEvmTransactions(prepared, values.amount);
         if (!txHash) throw new Error("The transaction did not return a hash.");
         await yieldService.confirmPosition(
           opportunity.id,

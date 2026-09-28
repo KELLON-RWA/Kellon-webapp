@@ -232,6 +232,15 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  webpack: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      "@react-native-async-storage/async-storage": false,
+    }
+    return config
+  },
+
   async rewrites() {
     if (!backendApiUrl) return []
 

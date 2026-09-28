@@ -1,5 +1,6 @@
 import BottomNavigationBar from "@/components/navigation/BottomNavigationBar"
 import Topbar from "@/components/navigation/Topbar"
+import BridgeOutboxWatcher from "@/components/bridge/BridgeOutboxWatcher"
 import DashboardDesktopNavigation from "@/components/wallet/dashboard/DashboardDesktopNavigation"
 import { currentProfile } from "@/lib/current-profile"
 import { User } from "@/types/db"
@@ -21,6 +22,7 @@ const layout: FC<layoutProps> = async ({ children }) => {
   return (
     <main id="main-content" tabIndex={-1}>
       <Topbar profile={profile} />
+      <BridgeOutboxWatcher />
       {profile && <DashboardDesktopNavigation profile={profile} />}
       <div className="min-[1024px]:pl-56 min-[1024px]:pl-[var(--desktop-sidebar-width)]">{children}</div>
       <BottomNavigationBar className="md:hidden z-20" profile={profile} />

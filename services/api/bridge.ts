@@ -6,7 +6,7 @@ import {
 import { handleTransferResponse } from "./transfers";
 import type { BridgeStatus } from "./yield";
 
-export type BridgeProvider = "lifi" | "allbridge";
+export type BridgeProvider = "lifi" | "allbridge" | "cctp";
 export type BridgeMessenger = "1" | "2" | "4";
 
 export interface BridgeRateOption {
@@ -119,6 +119,16 @@ export interface BridgeVerificationPayload {
   verificationCodes: Array<{ type: string; code: string }>;
 }
 
+export interface TrackBridgeRequest {
+  txHash: string;
+  provider: BridgeProvider;
+  fromChain: string;
+  toChain: string;
+  amount: string;
+  symbol: string;
+  groupId?: string;
+}
+
 export const bridgeService = {
   getUnifiedBalances: async (
     symbol: CalculateFundingPlanRequest["symbol"] = "USDC",
@@ -186,6 +196,17 @@ export const bridgeService = {
     return response.data;
   },
 
+  track: async (request: TrackBridgeRequest): Promise<ApiResponse<unknown>> =>
+    bridgeRequest<unknown>(
+      "/api/bridge/track",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      },
+      { authenticated: "required", signed: true },
+    ),
+
   getStatus: async (params: {
     provider: BridgeProvider;
     txHash: string;
@@ -194,6 +215,7 @@ export const bridgeService = {
     toChain?: string;
     amount?: string;
     symbol?: string;
+    groupId?: string;
   }): Promise<BridgeStatus> => {
     const search = new URLSearchParams({
       provider: params.provider,
@@ -204,6 +226,7 @@ export const bridgeService = {
     if (params.toChain) search.set("toChain", params.toChain);
     if (params.amount) search.set("amount", params.amount);
     if (params.symbol) search.set("symbol", params.symbol);
+    if (params.groupId) search.set("groupId", params.groupId);
 
     const response = await bridgeRequest<BridgeStatus>(
       `/api/funding/bridge-status?${search.toString()}`,
