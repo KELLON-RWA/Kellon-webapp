@@ -10,6 +10,12 @@ export const ASSET_LABELS: Record<string, string> = {
   USDT: "Tether USD",
 };
 
+export const STABLECOIN_SYMBOLS = new Set(["USDC", "USDT"]);
+
+export function isStablecoinSymbol(symbol: string): boolean {
+  return STABLECOIN_SYMBOLS.has(symbol.trim().toUpperCase());
+}
+
 export const DEFAULT_TOKEN_PRICE = 1;
 
 export function parseAssetAmount(amount: Asset["amount"]): number {

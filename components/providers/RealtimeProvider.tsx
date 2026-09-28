@@ -26,6 +26,7 @@ export default function RealtimeProvider({ children }: { children: ReactNode }) 
 
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stableTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasConnected = useRef(false)
 
   useEffect(() => {
     if (!getAuthToken()) return
@@ -47,8 +48,13 @@ export default function RealtimeProvider({ children }: { children: ReactNode }) 
       onEvent: (event) => applyPlan(planInvalidation(event)),
       onConnected: () => {
         setIsConnected(true)
-        // Nothing is replayed for the disconnected window, so resync coarsely.
-        applyPlan(RECONNECT_INVALIDATION)
+        // The initial RSC response is already a fresh snapshot. A router refresh
+        // here immediately duplicated the profile request and delayed first paint.
+        // Only reconnects need a coarse resync because events may have been missed.
+        if (hasConnected.current) {
+          applyPlan(RECONNECT_INVALIDATION)
+        }
+        hasConnected.current = true
         if (stableTimer.current) clearTimeout(stableTimer.current)
         stableTimer.current = setTimeout(() => client.markStable(), STABLE_AFTER_MS)
       },

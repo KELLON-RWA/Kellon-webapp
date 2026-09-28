@@ -1,6 +1,6 @@
 "use client"
 
-import { type FC, type PropsWithChildren, useEffect, useState } from "react"
+import { type FC, type PropsWithChildren } from "react"
 import { createClient, http } from "viem"
 import { mainnet } from "viem/chains"
 import type { Config, CreateConnectorFn } from "wagmi"
@@ -21,14 +21,6 @@ export const wagmiConfig: Config = createWagmiConfig({
 })
 
 export const CustomWagmiProvider: FC<PropsWithChildren> = ({ children }) => {
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  if (!isMounted) return null
-
   return (
     <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
       {children}

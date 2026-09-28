@@ -1120,14 +1120,18 @@ export default function EarnPage({ profile }: EarnPageProps) {
             : "desc",
     }));
   };
-  const openStockDetails = (stock: StockListing) => {
+  const getStockDetailsHref = (stock: StockListing) => {
     const network = getStockSettlementChain(
       stock.provider,
       stock.settlementChain || stock.chain || stock.network,
     );
-    router.push(
-      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}?network=${network}`,
-    );
+    return `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}?network=${network}`;
+  };
+  const prefetchStockDetails = (stock: StockListing) => {
+    router.prefetch(getStockDetailsHref(stock));
+  };
+  const openStockDetails = (stock: StockListing) => {
+    router.push(getStockDetailsHref(stock));
   };
   const selectStockNetwork = (network: string) => {
     setStockNetworkFilter(network);
@@ -1903,6 +1907,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       <button
                         key={`${stock.provider}_${stock.symbol}`}
                         type="button"
+                        onPointerEnter={() => prefetchStockDetails(stock)}
+                        onFocus={() => prefetchStockDetails(stock)}
                         onClick={() => openStockDetails(stock)}
                         aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
                         className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
@@ -2018,6 +2024,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         return (
                           <tr
                             key={`${stock.provider}_${stock.symbol}`}
+                            onPointerEnter={() => prefetchStockDetails(stock)}
+                            onFocus={() => prefetchStockDetails(stock)}
                             onClick={() => openStockDetails(stock)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {

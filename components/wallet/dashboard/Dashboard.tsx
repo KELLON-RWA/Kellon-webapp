@@ -16,6 +16,7 @@ import PortfolioBalanceCard from "./PortfolioBalanceCard"
 import QuickActionsPanel from "./QuickActionsPanel"
 import TopMoversPanel from "./TopMoversPanel"
 import { useDashboardData } from "@/lib/use-dashboard-data"
+import { isStablecoinSymbol } from "@/lib/dashboard-utils"
 import { useUser } from "@/hooks/use-user"
 import { isRwaStockListing, stocksService } from "@/services/api/stocks"
 import { yieldService } from "@/services/api/yield"
@@ -111,6 +112,17 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
         }),
     [dashboard.exchangeRate, stockListings, stockPortfolio?.holdings],
   )
+  const holdingCount = useMemo(() => {
+    const stablecoinCount = dashboard.groupedAssets.filter(
+      (asset) => asset.amount > 0 && isStablecoinSymbol(asset.symbol),
+    ).length
+    const purchasedStockCount = investmentAssets.filter(
+      (asset) => asset.kind === "stock" && asset.shares > 0,
+    ).length
+    const total = stablecoinCount + purchasedStockCount
+
+    return `${total} ${total === 1 ? "asset" : "assets"}`
+  }, [dashboard.groupedAssets, investmentAssets])
 
   useEffect(() => {
     setGreeting(getGreeting())
@@ -124,7 +136,7 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
         <div className="contents min-[1280px]:col-span-8 min-[1280px]:flex min-[1280px]:min-w-0 min-[1280px]:flex-col min-[1280px]:gap-4 min-[1280px]:h-full min-[1440px]:col-span-1">
           <PortfolioBalanceCard
             activeBalanceLabel={dashboard.activeBalanceLabel}
-            assetCountLabel={dashboard.assetCountLabel}
+            assetCountLabel={holdingCount}
             canToggleCurrency={dashboard.canToggleCurrency}
             countryCode={dashboard.countryCode}
             flag={dashboard.flag}

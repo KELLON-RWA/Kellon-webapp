@@ -5,12 +5,15 @@ import { useEffect, useState } from "react";
 import { ChevronRight, Coins, MoreHorizontal, Search, X } from "lucide-react";
 import AssetCard from "@/components/wallet/dashboard/AssetCard";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
-import { MAINNET_CHAINS } from "@/lib/chains";
 import type {
   GroupedAssetSummary,
   InvestmentAssetSummary,
 } from "@/lib/dashboard-types";
-import { formatAssetAmount, formatCurrencyAmount } from "@/lib/dashboard-utils";
+import {
+  formatAssetAmount,
+  formatCurrencyAmount,
+  isStablecoinSymbol,
+} from "@/lib/dashboard-utils";
 import {
   formatApy,
   formatTokenAmount,
@@ -19,12 +22,6 @@ import {
   getProtocolName,
 } from "@/components/earn/earn-utils";
 import type { YieldOpportunity, YieldPosition } from "@/types/db";
-
-const NATIVE_ASSET_SYMBOLS = new Set(
-  Object.values(MAINNET_CHAINS).map((chain) =>
-    chain.nativeCurrency.symbol.toUpperCase(),
-  ),
-);
 
 interface AssetsPanelProps {
   activeCurrency: string;
@@ -54,8 +51,11 @@ export default function AssetsPanel({
   const [activeTable, setActiveTable] = useState<"assets" | "yield">("assets");
   const [isDesktopSearchOpen, setIsDesktopSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const visibleAssets = groupedAssets.filter(
-    (asset) => !NATIVE_ASSET_SYMBOLS.has(asset.symbol.trim().toUpperCase()),
+  // Kellon dashboard holdings are stablecoins and purchased tokenized stocks.
+  // USDC is Arc's gas token but is still a stablecoin balance on every chain,
+  // so filtering by any chain's native currency would incorrectly hide it.
+  const visibleAssets = groupedAssets.filter((asset) =>
+    isStablecoinSymbol(asset.symbol),
   );
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const matchesSearch = (name: string, symbol: string) =>
