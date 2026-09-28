@@ -2,6 +2,7 @@ import { Eye, EyeOff } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import type { DisplayCurrency } from "@/lib/dashboard-types";
 import { SkeletonLine } from "./DashboardSkeletons";
+import { ActionToolTip } from "@/components/ActionTooltip";
 
 interface PortfolioBalanceCardProps {
   activeBalanceLabel: string;
@@ -77,14 +78,19 @@ export default function PortfolioBalanceCard({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsBalanceVisible((visible) => !visible)}
-            className="hidden cursor-pointer rounded-full border border-black/10 bg-white/85 p-1.5 text-primary-50 shadow-sm shadow-primary-90/20 transition hover:border-black/20 hover:bg-primary-99 hover:text-primary-30 md:block md:dark:border-white/10 md:dark:bg-white/10 md:dark:text-white/70 md:dark:shadow-none md:dark:hover:bg-white/15 md:dark:hover:text-white"
-            aria-label={isBalanceVisible ? "Hide balances" : "Show balances"}
+          <ActionToolTip
+            label={isBalanceVisible ? "Hide balances" : "Show balances"}
+            side="bottom"
           >
-            {isBalanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsBalanceVisible((visible) => !visible)}
+              className="hidden cursor-pointer rounded-full border border-black/10 bg-white/85 p-1.5 text-primary-50 shadow-sm shadow-primary-90/20 transition hover:border-black/20 hover:bg-primary-99 hover:text-primary-30 md:block md:dark:border-white/10 md:dark:bg-white/10 md:dark:text-white/70 md:dark:shadow-none md:dark:hover:bg-white/15 md:dark:hover:text-white"
+              aria-label={isBalanceVisible ? "Hide balances" : "Show balances"}
+            >
+              {isBalanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+            </button>
+          </ActionToolTip>
         </div>
 
         <div className="relative flex flex-1 flex-col justify-start self-stretch pt-1 md:justify-center md:pt-0 min-[1024px]:justify-start min-[1024px]:pt-1">

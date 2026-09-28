@@ -5,6 +5,7 @@ import Image from "next/image";
 import FlowHeader, {
   FlowHeaderActionButton,
 } from "@/components/wallet/shared/FlowHeader";
+import { ActionToolTip } from "@/components/ActionTooltip";
 import { getAssetIcon } from "./asset-details-utils";
 
 interface AssetDetailsHeaderProps {
@@ -42,23 +43,30 @@ export function AssetDetailsHeader({
       onBack={onBack}
       rightContent={
         <div className="flex items-center gap-2">
-          <FlowHeaderActionButton
-            onClick={onToggleBalance}
-            aria-label={isBalanceVisible ? "Hide balances" : "Show balances"}
+          <ActionToolTip
+            label={isBalanceVisible ? "Hide balances" : "Show balances"}
+            side="bottom"
           >
-          {isBalanceVisible ? (
-            <Eye className="h-5 w-5" />
-          ) : (
-            <EyeOff className="h-5 w-5" />
-          )}
-          </FlowHeaderActionButton>
-          <FlowHeaderActionButton
-            onClick={onOpenInfo}
-            aria-label={`About ${symbol}`}
-            className="text-primary-60 dark:text-primary-80"
-          >
-            <Info className="h-5 w-5" />
-          </FlowHeaderActionButton>
+            <FlowHeaderActionButton
+              onClick={onToggleBalance}
+              aria-label={isBalanceVisible ? "Hide balances" : "Show balances"}
+            >
+              {isBalanceVisible ? (
+                <Eye className="h-5 w-5" />
+              ) : (
+                <EyeOff className="h-5 w-5" />
+              )}
+            </FlowHeaderActionButton>
+          </ActionToolTip>
+          <ActionToolTip label={`About ${symbol}`} side="bottom">
+            <FlowHeaderActionButton
+              onClick={onOpenInfo}
+              aria-label={`About ${symbol}`}
+              className="text-primary-60 dark:text-primary-80"
+            >
+              <Info className="h-5 w-5" />
+            </FlowHeaderActionButton>
+          </ActionToolTip>
         </div>
       }
       className="mb-8"

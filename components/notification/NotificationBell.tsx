@@ -5,19 +5,21 @@ import Link from "next/link";
 import { FC } from "react";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
+import { ActionToolTip } from "@/components/ActionTooltip";
 
 const NotificationBell: FC = () => {
   const { data: unreadCount = 0 } = useUnreadCount();
   const hasUnread = unreadCount > 0;
 
+  const label = hasUnread
+    ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+    : "Notifications";
+
   return (
+    <ActionToolTip label={label} side="bottom">
     <Link
       href="/notifications"
-      aria-label={
-        hasUnread
-          ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
-          : "Notifications"
-      }
+      aria-label={label}
       className={cn(
         "relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl",
         "transition-colors hover:bg-gray-90 dark:hover:bg-secondary-60/50",
@@ -47,6 +49,7 @@ const NotificationBell: FC = () => {
         </span>
       )}
     </Link>
+    </ActionToolTip>
   );
 };
 

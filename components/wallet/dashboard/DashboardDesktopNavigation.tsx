@@ -15,6 +15,7 @@ import {
 import SearchBar from "@/components/SearchBar";
 import NotificationBell from "@/components/notification/NotificationBell";
 import UserNavigation from "@/components/navigation/user-navigation/UserNavigation";
+import { ActionToolTip } from "@/components/ActionTooltip";
 import { Icons } from "@/components/Icons";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/db";
@@ -63,26 +64,29 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
               <span className="text-xl font-semibold tracking-tight text-cryptoNight dark:text-white">Kellon</span>
             )}
           </Link>
-          <button
-            type="button"
-            onClick={() => setCollapsed((value) => !value)}
-            className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-primary-99 hover:text-cryptoNight dark:text-gray-40 dark:hover:bg-white/5 dark:hover:text-white"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          <ActionToolTip
+            label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            side="right"
           >
-            {collapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
-          </button>
+            <button
+              type="button"
+              onClick={() => setCollapsed((value) => !value)}
+              className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-primary-99 hover:text-cryptoNight dark:text-gray-40 dark:hover:bg-white/5 dark:hover:text-white"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
+            </button>
+          </ActionToolTip>
         </div>
 
         <nav aria-label="Dashboard navigation" className="space-y-1">
           {items.map(({ href, icon: Icon, label }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href.split("?")[0]);
-            return (
+            const link = (
               <Link
                 key={label}
                 href={href}
-                title={collapsed ? label : undefined}
                 className={cn(
                   "flex items-center rounded-lg py-2.5 text-sm font-medium transition",
                   collapsed ? "justify-center px-0" : "gap-3 px-3",
@@ -94,6 +98,13 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
                 <Icon className="h-[18px] w-[18px]" />
                 <span className={collapsed ? "sr-only" : undefined}>{label}</span>
               </Link>
+            );
+            return collapsed ? (
+              <ActionToolTip key={label} label={label} side="right">
+                {link}
+              </ActionToolTip>
+            ) : (
+              link
             );
           })}
         </nav>

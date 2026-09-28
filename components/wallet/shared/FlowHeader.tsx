@@ -4,6 +4,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ActionToolTip } from "@/components/ActionTooltip";
 
 export interface FlowHeaderAction {
   label: string;
@@ -73,16 +74,20 @@ export default function FlowHeader({
     >
       <div className="justify-self-start">
         {backHref ? (
-          <Link href={backHref} aria-label={backLabel}>
-            {backButton}
-          </Link>
+          <ActionToolTip label={backLabel} side="bottom">
+            <Link href={backHref} aria-label={backLabel}>
+              {backButton}
+            </Link>
+          </ActionToolTip>
         ) : (
-          <FlowHeaderActionButton
-            aria-label={backLabel}
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </FlowHeaderActionButton>
+          <ActionToolTip label={backLabel} side="bottom">
+            <FlowHeaderActionButton
+              aria-label={backLabel}
+              onClick={onBack}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </FlowHeaderActionButton>
+          </ActionToolTip>
         )}
       </div>
 
@@ -96,21 +101,25 @@ export default function FlowHeader({
       <div className="justify-self-end">
         {rightContent ??
           (rightAction ? (
-            <FlowHeaderActionButton
-              aria-label={rightAction.label}
-              onClick={rightAction.onClick}
-              disabled={rightAction.disabled}
-              className={rightAction.className}
-            >
-              {rightAction.icon}
-            </FlowHeaderActionButton>
+            <ActionToolTip label={rightAction.label} side="bottom">
+              <FlowHeaderActionButton
+                aria-label={rightAction.label}
+                onClick={rightAction.onClick}
+                disabled={rightAction.disabled}
+                className={rightAction.className}
+              >
+                {rightAction.icon}
+              </FlowHeaderActionButton>
+            </ActionToolTip>
           ) : onClose ? (
-            <FlowHeaderActionButton
-              aria-label={closeLabel}
-              onClick={onClose}
-            >
-              <X className="h-5 w-5" />
-            </FlowHeaderActionButton>
+            <ActionToolTip label={closeLabel} side="bottom">
+              <FlowHeaderActionButton
+                aria-label={closeLabel}
+                onClick={onClose}
+              >
+                <X className="h-5 w-5" />
+              </FlowHeaderActionButton>
+            </ActionToolTip>
           ) : (
             <span className="block h-9 w-9" aria-hidden="true" />
           ))}
