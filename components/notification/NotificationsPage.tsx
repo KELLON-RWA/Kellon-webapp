@@ -10,6 +10,7 @@ import {
   useMarkAllAsRead,
   useMarkAsRead,
   useNotifications,
+  useUnreadCount,
 } from "@/hooks/use-notifications";
 import { toast } from "sonner";
 import { ActionToolTip } from "@/components/ActionTooltip";
@@ -573,6 +574,7 @@ export default function NotificationsPage() {
   const [activeCategory, setActiveCategory] =
     useState<NotificationCategoryFilter>("All");
   const { data: notifications = [], isLoading, error } = useNotifications();
+  const { data: serverUnreadCount } = useUnreadCount();
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
@@ -584,7 +586,9 @@ export default function NotificationsPage() {
   const { mutate: markAsRead } = useMarkAsRead();
   const { mutate: markAllAsRead, isPending: isMarkingAll } = useMarkAllAsRead();
 
-  const unreadCount = notifications.filter((n) => !n.readAt).length;
+  const unreadCount =
+    serverUnreadCount ??
+    notifications.filter((notification) => !notification.readAt).length;
   const hasUnread = unreadCount > 0;
   const transactionById = new Map(
     transactions.map((transaction) => [transaction.id, transaction]),

@@ -35,7 +35,8 @@ function normalizeNotification(value: unknown): Notification {
   const isRead =
     notification.read === true ||
     notification.isRead === true ||
-    Boolean(notification.readAt);
+    Boolean(notification.readAt) ||
+    asString(notification.status).toUpperCase() === "READ";
 
   return {
     id: asString(notification.id || notification._id),
