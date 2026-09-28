@@ -1,5 +1,7 @@
 "use client";
 
+import { chainStatus } from "@/lib/chain-status";
+
 import {
   useState,
   useEffect,
@@ -49,6 +51,34 @@ import { RouteOptionSkeleton } from "@/components/Skeletons";
 import RoutesCard from "./RoutesCard";
 import RouteOptionsMobile from "./RouteOptionMobile";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useWallets } from "@privy-io/react-auth";
+import {
+  setStickyVerificationCode,
+  useSmartAccount,
+} from "@/hooks/useSmartAccount";
+import { useUser } from "@/hooks/use-user";
+import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
+import { bridgeService, type BridgeProvider } from "@/services/api/bridge";
+import { bridgeOutbox } from "@/services/api/bridge-outbox";
+import { yieldService } from "@/services/api/yield";
+import { beginOperation, endOperation } from "@/services/api";
+import {
+  findTransferVerificationRequiredError,
+  getAvailableVerificationMethods,
+  getOtpChannelForMethod,
+  transferService,
+  type VerificationMethod,
+} from "@/services/api/transfers";
+import { getActiveChains } from "@/lib/chains";
+import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
+
+const BRIDGEABLE_SYMBOLS = ["USDC", "USDT"];
+
+function getChainKeyById(chainId: number): string | undefined {
+  return Object.entries(getActiveChains()).find(
+    ([, chain]) => String(chain.id) === String(chainId),
+  )?.[0];
+}
 
 // import { getAPIKey } from "@/lib/APIConfig"
 
@@ -74,7 +104,20 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
   const [fromToken, setFromToken] = useState<Token | null>(null);
   const [toToken, setToToken] = useState<Token | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
-  const isBridging = false;
+  const [isBridging, setIsBridging] = useState(false);
+  const [verificationType, setVerificationType] =
+    useState<VerificationMethod | null>(null);
+  const [verificationMethods, setVerificationMethods] = useState<
+    VerificationMethod[]
+  >([]);
+  const [verificationContext, setVerificationContext] = useState<
+    "bridge" | "transfer"
+  >("bridge");
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const { wallets } = useWallets();
+  const { getSmartAccountClient } = useSmartAccount();
+  const { data: profile } = useUser();
   const { chains } = useSupportedChains();
   const [isChainSelectOpen, setIsChainSelectOpen] = useState<boolean>(false);
   const [selectingSide, setSelectingSide] = useState<"from" | "to" | null>(
@@ -200,7 +243,215 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
 
   const routes = routesData?.routes || [];
 
-  // Execute swap
+  const requestVerificationCode = async (
+    method: VerificationMethod,
+    context = verificationContext,
+  ) => {
+    const channel = getOtpChannelForMethod(method);
+    if (!channel) {
+      setOtpSent(true);
+      return;
+    }
+    setIsRequestingOtp(true);
+    try {
+      const response = await transferService.requestOTP(context, channel);
+      setOtpSent(true);
+      toast.success(
+        response.data?.message ||
+          `Verification code sent by ${channel === "sms" ? "SMS" : "email"}.`,
+      );
+    } catch (error) {
+      setOtpSent(false);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send a verification code.",
+      );
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  };
+
+  /**
+   * LI.FI remains the quote source, while the backend prepares and records execution so
+   * sponsored smart-account transactions and verification use the same server policy.
+   */
+  const executeSwap = async (verification?: {
+    verificationCode: string;
+    verificationType: VerificationMethod;
+    context: "bridge" | "transfer";
+  }) => {
+    if (!selectedRoute || !fromToken || !toToken) return;
+
+    const fromChainKey = getChainKeyById(fromChain);
+    const toChainKey = getChainKeyById(toChain);
+    const symbol = fromToken.symbol.toUpperCase();
+
+    if (!fromChainKey || !toChainKey) {
+      toast.error("This network pair is not supported yet.");
+      return;
+    }
+    if (!BRIDGEABLE_SYMBOLS.includes(symbol)) {
+      toast.error(
+        `${symbol} cannot be bridged yet — only USDC and USDT are supported.`,
+      );
+      return;
+    }
+    if (!wallets.length) {
+      toast.error("Your wallet is not ready. Please reload and try again.");
+      return;
+    }
+
+    setIsBridging(true);
+    beginOperation(Boolean(verification));
+    try {
+      const chainBlocked =
+        chainStatus.blockedMessage(fromChainKey, "out") ||
+        chainStatus.blockedMessage(toChainKey, "in");
+      if (chainBlocked) throw new Error(chainBlocked);
+
+      const planRes = await bridgeService.calculatePlan({
+        symbol: symbol as "USDC" | "USDT",
+        amount: fromAmount,
+        selectedChains: [fromChainKey],
+        targetChain: toChainKey,
+      });
+      if (planRes.insufficientBalances) {
+        throw new Error(
+          `You do not have enough ${symbol} on ${fromChainKey} for this transfer.`,
+        );
+      }
+
+      const execRes = await bridgeService.executePlan(
+        planRes,
+        toChainKey,
+        undefined,
+        verification?.context === "bridge"
+          ? {
+              verificationCode: verification.verificationCode,
+              verificationType: verification.verificationType,
+              verificationCodes: [
+                {
+                  type: verification.verificationType,
+                  code: verification.verificationCode,
+                },
+              ],
+            }
+          : undefined,
+      );
+      const calls = execRes.transactions || [];
+      if (!calls.length)
+        throw new Error(
+          "No executable transaction was returned for this route.",
+        );
+
+      let txHash = "";
+      if (fromChainKey === "stellar") {
+        for (const call of calls) {
+          if (!call.data)
+            throw new Error("Stellar bridge transaction payload is missing.");
+          const result = await yieldService.executeStellar(
+            "bridge",
+            fromAmount,
+            call.data,
+            "supply",
+          );
+          txHash = result.data?.txHash || "";
+          if (!txHash) throw new Error("Stellar bridge execution failed.");
+        }
+      } else {
+        const signer = resolveEvmSigner(wallets, profile?.chainAccounts);
+        if (!signer)
+          throw new Error(
+            "Your wallet is not available on this device. Please log out and log in again.",
+          );
+        const client = await getSmartAccountClient(
+          signer,
+          fromChainKey,
+          expectedSafeFor(profile?.chainAccounts, fromChainKey),
+        );
+        if (!client)
+          throw new Error(
+            `Failed to initialize your wallet on ${fromChainKey}.`,
+          );
+        setStickyVerificationCode(
+          verification?.context === "transfer"
+            ? {
+                type: verification.verificationType,
+                code: verification.verificationCode,
+              }
+            : null,
+        );
+        const sender = client as unknown as {
+          sendTransaction(args: Record<string, unknown>): Promise<string>;
+        };
+        txHash = await sender.sendTransaction({
+          account: client.account!,
+          calls: calls.map((call) => ({
+            to: call.to as `0x${string}`,
+            data: (call.data || "0x") as `0x${string}`,
+            value: BigInt(call.value || "0"),
+          })),
+        });
+      }
+      if (!txHash) throw new Error("The transaction failed to broadcast.");
+
+      const provider = execRes.steps?.[0]?.bridgeProvider;
+      const tracked =
+        fromChainKey !== toChainKey &&
+        profile?.id &&
+        (provider === "lifi" ||
+          provider === "allbridge" ||
+          provider === "cctp");
+      if (tracked) {
+        bridgeOutbox.save(profile.id, {
+          txHash,
+          provider: provider as BridgeProvider,
+          fromChain: fromChainKey,
+          toChain: toChainKey,
+          amount: fromAmount,
+          symbol,
+        });
+        void bridgeOutbox.flush(profile.id);
+      }
+
+      setVerificationType(null);
+      setVerificationMethods([]);
+      endOperation();
+      toast.success(
+        fromChainKey === toChainKey
+          ? "Swap submitted."
+          : "Bridge submitted. Funds will arrive on the destination chain shortly.",
+      );
+      form.reset();
+      setSelectedRoute(null);
+    } catch (error) {
+      setStickyVerificationCode(null);
+      const challenge = findTransferVerificationRequiredError(error);
+      if (challenge) {
+        const context = challenge.action === "transfer" ? "transfer" : "bridge";
+        const methods = getAvailableVerificationMethods(
+          challenge.availableMethods,
+          challenge.verificationType,
+        );
+        const method = methods.includes("email_otp") ? "email_otp" : methods[0];
+        setVerificationContext(context);
+        setVerificationMethods(methods);
+        setVerificationType(method);
+        setOtpSent(method === "totp");
+        if (method !== "totp") void requestVerificationCode(method, context);
+        return;
+      }
+      endOperation();
+      console.error("Swap error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Transaction failed",
+      );
+    } finally {
+      setIsBridging(false);
+    }
+  };
+
   // const executeSwap = async () => {
   //   if (!selectedRoute || !address || !fromToken || !walletClient) return
   //   setIsBridging(true)
@@ -449,13 +700,18 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
                 )}
                 variant="link"
                 size="lg"
-                // onClick={executeSwap}
+                onClick={() => executeSwap()}
                 disabled={
                   !selectedRoute || !isConnected || isBridging || routesLoading
                 }
-                // isLoading={isBridging || routesLoading}
               >
-                {routesLoading ? "Finding routes..." : "Swap"}
+                {routesLoading
+                  ? "Finding routes..."
+                  : isBridging
+                    ? "Submitting..."
+                    : isBridge
+                      ? "Bridge"
+                      : "Swap"}
               </Button>
             </CardFooter>
           </Card>
@@ -493,6 +749,40 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
           </div>
         </div>
       )}
+
+      <TransferVerificationModal
+        isOpen={Boolean(verificationType)}
+        isSubmitting={isBridging}
+        verificationType={verificationType || "email_otp"}
+        title={isBridge ? "Verify bridge" : "Verify swap"}
+        actionNoun={isBridge ? "bridge" : "swap"}
+        selectedMethod={verificationType || "email_otp"}
+        availableMethods={verificationMethods}
+        onMethodChange={(method) => {
+          setVerificationType(method);
+          setOtpSent(method === "totp");
+          if (method !== "totp") void requestVerificationCode(method);
+        }}
+        otpSent={otpSent}
+        onResend={() =>
+          verificationType && requestVerificationCode(verificationType)
+        }
+        isResending={isRequestingOtp}
+        onClose={() => {
+          setVerificationType(null);
+          setVerificationMethods([]);
+          setOtpSent(false);
+          endOperation();
+        }}
+        onSubmit={(verificationCode) => {
+          if (!verificationType) return;
+          void executeSwap({
+            verificationCode,
+            verificationType,
+            context: verificationContext,
+          });
+        }}
+      />
     </section>
   );
 };
