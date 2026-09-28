@@ -13,7 +13,9 @@ import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
 import {
   findTransferVerificationRequiredError,
+  getAvailableVerificationMethods,
   transferService,
+  type VerificationMethod,
 } from "@/services/api/transfers";
 import {
   beginOperation,
@@ -111,6 +113,9 @@ export default function StockActionDialog({
   const [verificationType, setVerificationType] = useState<
     "email_otp" | "sms_otp" | "totp" | null
   >(null);
+  const [verificationMethods, setVerificationMethods] = useState<
+    VerificationMethod[]
+  >([]);
   const [verificationAction, setVerificationAction] =
     useState<StockVerificationContext>("stocks");
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
@@ -268,7 +273,7 @@ export default function StockActionDialog({
                 code: verification.verificationCode,
               },
             ],
-            }
+          }
           : {};
 
       if (action === "buy") {
@@ -383,6 +388,7 @@ export default function StockActionDialog({
       }
 
       setVerificationType(null);
+      setVerificationMethods([]);
       setOtpSent(false);
       form.reset();
       onOpenChange(false);
@@ -395,6 +401,10 @@ export default function StockActionDialog({
         const nextAction: StockVerificationContext =
           mfaErr.action === "transfer" ? "transfer" : "stocks";
         const nextType = mfaErr.verificationType;
+        const availableMethods = getAvailableVerificationMethods(
+          mfaErr.availableMethods,
+          nextType,
+        );
         setVerificationAction(nextAction);
 
         if (mfaErr.availableMethods?.includes("webauthn")) {
@@ -425,17 +435,15 @@ export default function StockActionDialog({
           }
         }
 
-        setVerificationType(
-          nextType === "totp"
-            ? "totp"
-            : nextType === "sms_otp"
-              ? "sms_otp"
-              : "email_otp",
-        );
+        setVerificationMethods(availableMethods);
+        const selectedMethod = availableMethods.includes("email_otp")
+          ? "email_otp"
+          : availableMethods[0] || nextType;
+        setVerificationType(selectedMethod);
 
-        if (nextType !== "totp" && verification?.context !== nextAction) {
+        if (selectedMethod !== "totp" && verification?.context !== nextAction) {
           await requestStockOtp(
-            nextType === "sms_otp" ? "sms" : "email",
+            selectedMethod === "sms_otp" ? "sms" : "email",
             nextAction,
           );
         }
@@ -650,11 +658,17 @@ export default function StockActionDialog({
               : `Send a one-time code by ${verificationType === "sms_otp" ? "SMS" : "email"}.`
         }
         selectedMethod={verificationType || "email_otp"}
+        availableMethods={verificationMethods}
+        onMethodChange={(method) => {
+          setVerificationType(method);
+          setOtpSent(method === "totp");
+        }}
         otpSent={otpSent}
         onResend={requestStockOtp}
         isResending={isRequestingOtp}
         onClose={() => {
           setVerificationType(null);
+          setVerificationMethods([]);
           setVerificationAction("stocks");
           setOtpSent(false);
           endOperation();

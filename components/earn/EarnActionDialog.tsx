@@ -22,7 +22,9 @@ import {
 import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
 import {
   findTransferVerificationRequiredError,
+  getAvailableVerificationMethods,
   transferService,
+  type VerificationMethod,
 } from "@/services/api/transfers";
 import { createWebauthnAttestation } from "@/services/api";
 import {
@@ -168,6 +170,9 @@ export default function EarnActionDialog({
   const [verificationType, setVerificationType] = useState<
     "email_otp" | "sms_otp" | "totp" | null
   >(null);
+  const [verificationMethods, setVerificationMethods] = useState<
+    VerificationMethod[]
+  >([]);
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const otpRequestInFlightRef = useRef(false);
@@ -232,13 +237,15 @@ export default function EarnActionDialog({
     setIsRequestingOtp(true);
 
     try {
+      const channel = verificationType === "sms_otp" ? "sms" : "email";
       const response = await transferService.requestOTP(
         verificationContext,
-        "email",
+        channel,
       );
       setOtpSent(true);
       toast.success(
-        response.data?.message || "Verification code sent by email.",
+        response.data?.message ||
+          `Verification code sent by ${channel === "sms" ? "SMS" : "email"}.`,
       );
     } catch (error) {
       setOtpSent(false);
@@ -435,6 +442,7 @@ export default function EarnActionDialog({
       }
 
       setVerificationType(null);
+      setVerificationMethods([]);
       setOtpSent(false);
       form.reset();
       onOpenChange(false);
@@ -447,8 +455,12 @@ export default function EarnActionDialog({
     } catch (error) {
       const verificationError = findTransferVerificationRequiredError(error);
       if (verificationError) {
-        const availableMethods = verificationError.availableMethods || [];
-        const normalizedMethods = availableMethods.map((method) =>
+        const availableMethods = getAvailableVerificationMethods(
+          verificationError.availableMethods,
+          verificationError.verificationType,
+        );
+        const rawAvailableMethods = verificationError.availableMethods || [];
+        const normalizedMethods = rawAvailableMethods.map((method) =>
           method.toLowerCase(),
         );
         const requiresWebauthn = normalizedMethods.includes("webauthn");
@@ -487,8 +499,15 @@ export default function EarnActionDialog({
         }
 
         setVerificationContext(activeVerificationContext);
-        setOtpSent(verificationError.verificationType !== "totp");
-        setVerificationType(verificationError.verificationType);
+        setVerificationMethods(availableMethods);
+        const selectedMethod = availableMethods.includes("email_otp")
+          ? "email_otp"
+          : availableMethods[0] || verificationError.verificationType;
+        setOtpSent(
+          selectedMethod !== "totp" &&
+            selectedMethod === verificationError.verificationType,
+        );
+        setVerificationType(selectedMethod);
 
         if (verificationError.verificationType === "totp") {
           toast.info("Enter your authenticator code to continue.");
@@ -657,24 +676,25 @@ export default function EarnActionDialog({
         verificationType={verificationType || "email_otp"}
         title={
           verificationType !== "totp" && !otpSent
-            ? "Email verification"
+            ? verificationType === "sms_otp"
+              ? "SMS verification"
+              : "Email verification"
             : action === "supply"
               ? "Confirm deposit"
               : "Confirm withdrawal"
         }
-        description={
-          verificationType === "totp"
-            ? "Enter the code from your authenticator app to continue."
-            : otpSent
-              ? "Enter the one-time code sent by email."
-              : "We'll send a verification code to your email to authorize this transaction."
-        }
-        selectedMethod={verificationType === "totp" ? "totp" : "email_otp"}
+        selectedMethod={verificationType || "email_otp"}
+        availableMethods={verificationMethods}
+        onMethodChange={(method) => {
+          setVerificationType(method);
+          setOtpSent(method !== "totp" ? false : true);
+        }}
         otpSent={otpSent}
         onResend={requestEarnOtp}
         isResending={isRequestingOtp}
         onClose={() => {
           setVerificationType(null);
+          setVerificationMethods([]);
           setOtpSent(false);
         }}
         onSubmit={(verificationCode) => {

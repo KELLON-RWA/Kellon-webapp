@@ -9,6 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  getEnabledTransactionVerificationMethods,
+  securityService,
+} from "@/services/api/security";
 import type { VerificationMethod } from "@/services/api/transfers";
 
 interface TransferVerificationModalProps {
@@ -45,13 +49,48 @@ export default function TransferVerificationModal({
   otpSent = true,
 }: TransferVerificationModalProps) {
   const [code, setCode] = useState("");
+  const [enabledMethods, setEnabledMethods] = useState<
+    VerificationMethod[] | null
+  >(null);
+  const [setupCode, setSetupCode] = useState("");
+  const [setupSent, setSetupSent] = useState(false);
+  const [isSettingUp, setIsSettingUp] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) setCode("");
+    if (!isOpen) {
+      setCode("");
+      setSetupCode("");
+      setSetupSent(false);
+      setSetupError(null);
+      return;
+    }
+
+    let cancelled = false;
+    void securityService
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) {
+          setEnabledMethods(getEnabledTransactionVerificationMethods(settings));
+        }
+      })
+      // Preserve the server challenge if security settings cannot be loaded.
+      .catch(() => {
+        if (!cancelled) setEnabledMethods(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   const activeMethod = selectedMethod || verificationType;
-  const methods = availableMethods?.length ? availableMethods : [activeMethod];
+  const challengeMethods = availableMethods?.length ? availableMethods : null;
+  const methods = enabledMethods
+    ? challengeMethods
+      ? enabledMethods.filter((method) => challengeMethods.includes(method))
+      : enabledMethods
+    : challengeMethods || [activeMethod];
   const isOtpMethod = activeMethod !== "totp";
   const trimmedCode = code.trim();
   const canSubmit =
@@ -68,6 +107,51 @@ export default function TransferVerificationModal({
   useEffect(() => {
     setCode("");
   }, [activeMethod]);
+
+  useEffect(() => {
+    if (methods.length && !methods.includes(activeMethod) && onMethodChange) {
+      onMethodChange(methods[0]);
+    }
+  }, [activeMethod, methods, onMethodChange]);
+
+  const sendSetupCode = async () => {
+    setIsSettingUp(true);
+    setSetupError(null);
+    try {
+      await securityService.requestOtp("email", "enable_otp");
+      setSetupSent(true);
+    } catch (error) {
+      setSetupError(
+        error instanceof Error ? error.message : "Unable to send a setup code.",
+      );
+    } finally {
+      setIsSettingUp(false);
+    }
+  };
+
+  const completeEmailSetup = async () => {
+    if (setupCode.trim().length < 4) return;
+    setIsSettingUp(true);
+    setSetupError(null);
+    try {
+      await securityService.enableOtp("email", setupCode.trim());
+      setEnabledMethods(["email_otp"]);
+      onMethodChange?.("email_otp");
+      setSetupCode("");
+      setSetupSent(false);
+    } catch (error) {
+      setSetupError(
+        error instanceof Error
+          ? error.message
+          : "Unable to enable email verification.",
+      );
+    } finally {
+      setIsSettingUp(false);
+    }
+  };
+
+  const requiresSecuritySetup =
+    enabledMethods !== null && enabledMethods.length === 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -90,12 +174,52 @@ export default function TransferVerificationModal({
                 ? activeMethod === "email_otp"
                   ? "We'll send a verification code to your email to authorize this transaction."
                   : showMethodPicker
-                  ? "Choose a verification method, then request your code."
-                  : `Request your ${methodLabel} code to complete this ${actionNoun}.`
+                    ? "Choose a verification method, then request your code."
+                    : `Request your ${methodLabel} code to complete this ${actionNoun}.`
                 : `Enter your ${methodLabel} code to complete this ${actionNoun}.`)}
           </p>
 
-          {showMethodPicker ? (
+          {requiresSecuritySetup ? (
+            <div className="mt-5 rounded-xl border border-primary-90/30 bg-primary-99 p-4 text-left dark:border-primary-70/30 dark:bg-primary-70/10">
+              <p className="text-sm font-semibold text-cryptoNight dark:text-white">
+                Enable a verification method to continue
+              </p>
+              <p className="mt-1 text-xs leading-5 text-gray-20 dark:text-gray-40">
+                Enable email verification now. Your pending action will stay
+                open and can continue afterwards.
+              </p>
+              {setupSent ? (
+                <Input
+                  value={setupCode}
+                  onChange={(event) => setSetupCode(event.target.value)}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="Enter email code"
+                  className="mt-3 h-11 rounded-xl border-black/5 bg-white text-center text-sm font-semibold tracking-[0.2em] text-cryptoNight placeholder:tracking-normal dark:border-white/10 dark:bg-secondary-60 dark:text-white"
+                  disabled={isSettingUp}
+                />
+              ) : null}
+              {setupError ? (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-300">
+                  {setupError}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={setupSent ? completeEmailSetup : sendSetupCode}
+                disabled={
+                  isSettingUp || (setupSent && setupCode.trim().length < 4)
+                }
+                className="mt-3 h-10 w-full rounded-xl bg-primary-50 text-sm font-semibold text-white transition hover:bg-primary-40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-70 dark:hover:bg-primary-80"
+              >
+                {isSettingUp
+                  ? "Please wait..."
+                  : setupSent
+                    ? "Enable email verification"
+                    : "Send setup code"}
+              </button>
+            </div>
+          ) : showMethodPicker ? (
             <div className="mt-5 flex flex-wrap gap-2 rounded-xl bg-gray-90 p-1 dark:bg-secondary-60">
               {methods.map((method) => {
                 const MethodIcon =
@@ -133,7 +257,7 @@ export default function TransferVerificationModal({
             </div>
           ) : null}
 
-          {isOtpMethod && onResend && otpSent ? (
+          {!requiresSecuritySetup && isOtpMethod && onResend && otpSent ? (
             <button
               type="button"
               onClick={() => onResend()}
@@ -144,7 +268,7 @@ export default function TransferVerificationModal({
             </button>
           ) : null}
 
-          {!isOtpMethod || otpSent ? (
+          {!requiresSecuritySetup && (!isOtpMethod || otpSent) ? (
             <Input
               value={code}
               onChange={(event) => setCode(event.target.value)}
@@ -168,24 +292,31 @@ export default function TransferVerificationModal({
             <button
               type="button"
               onClick={
-                isChoosingOtpChannel
-                  ? () => onResend?.()
-                  : () => onSubmit(trimmedCode)
+                requiresSecuritySetup
+                  ? undefined
+                  : isChoosingOtpChannel
+                    ? () => onResend?.()
+                    : () => onSubmit(trimmedCode)
               }
               disabled={
-                isChoosingOtpChannel ? isSubmitting || isResending : !canSubmit
+                requiresSecuritySetup ||
+                (isChoosingOtpChannel
+                  ? isSubmitting || isResending
+                  : !canSubmit)
               }
               className="h-11 rounded-xl bg-primary-50 text-sm font-semibold text-white transition hover:bg-primary-40 disabled:opacity-60 dark:bg-primary-70 dark:hover:bg-primary-80 cursor-pointer"
             >
-              {isChoosingOtpChannel
-                ? isResending
-                  ? "Sending..."
-                  : activeMethod === "email_otp"
-                    ? "Send code"
-                    : `Send ${methodLabel} code`
-                : isSubmitting
-                  ? "Confirming..."
-                  : "Confirm"}
+              {requiresSecuritySetup
+                ? "Set up verification"
+                : isChoosingOtpChannel
+                  ? isResending
+                    ? "Sending..."
+                    : activeMethod === "email_otp"
+                      ? "Send code"
+                      : `Send ${methodLabel} code`
+                  : isSubmitting
+                    ? "Confirming..."
+                    : "Confirm"}
             </button>
           </div>
         </div>
