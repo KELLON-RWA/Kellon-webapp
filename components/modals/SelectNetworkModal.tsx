@@ -77,7 +77,7 @@ const SelectNetworkModal: FC<SelectNetworkModalProps> = ({
               key={chain.id}
               onClick={() => handleSelectChain(chainId, chainName)}
               className={cn(
-                "w-full rounded-[24px] border p-5 text-left transition-all group outline-none cursor-pointer",
+                "group w-full cursor-pointer rounded-[24px] border px-5 py-3 text-left outline-none transition-all md:p-5",
                 isSelected
                   ? "border-primary-60 bg-primary-70/5 ring-2 ring-primary-60/20"
                   : "border-black/5 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50",
