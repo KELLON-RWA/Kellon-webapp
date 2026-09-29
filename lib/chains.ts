@@ -1,4 +1,4 @@
-import { Chain as ViemChain } from "viem"
+import { Chain as ViemChain } from "viem";
 
 /**
  * 1. EXTENDED TYPES
@@ -6,21 +6,21 @@ import { Chain as ViemChain } from "viem"
  * token addresses, and Paymaster configurations).
  */
 export type ChainConfig = Omit<ViemChain, "id"> & {
-  id: number | string
-  type: "evm" | "stellar" | "solana"
-  usdcAddress?: string
-  usdtAddress?: string
-  primaryToken?: "USDC" | "USDT"
+  id: number | string;
+  type: "evm" | "stellar" | "solana";
+  usdcAddress?: string;
+  usdtAddress?: string;
+  primaryToken?: "USDC" | "USDT";
   paymaster?: {
-    enabled: boolean
-    paymasterUrl?: string
-    bundlerUrl?: string
-    coinbasePaymaster?: boolean
-    circlePaymaster?: boolean
-    pimlicoPaymaster?: boolean
-    stellarSponsorship?: boolean
-  }
-}
+    enabled: boolean;
+    paymasterUrl?: string;
+    bundlerUrl?: string;
+    coinbasePaymaster?: boolean;
+    circlePaymaster?: boolean;
+    pimlicoPaymaster?: boolean;
+    stellarSponsorship?: boolean;
+  };
+};
 
 export type SupportedChainKeys =
   | "stellar"
@@ -29,7 +29,7 @@ export type SupportedChainKeys =
   | "polygon"
   | "base"
   | "bnb"
-  | "solana"
+  | "solana";
 
 /**
  * 2. MAINNET CONFIGURATION
@@ -159,7 +159,7 @@ export const MAINNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
     primaryToken: "USDT",
     paymaster: { enabled: true, pimlicoPaymaster: true },
   },
-}
+};
 
 /**
  * 3. TESTNET CONFIGURATION
@@ -246,7 +246,7 @@ export const TESTNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
     },
     usdcAddress: "0x64544969ed7EBf5f083679233325356EbE738930",
   },
-}
+};
 
 const CHAIN_LABELS: Record<string, string> = {
   stellar: "Stellar Network",
@@ -256,13 +256,13 @@ const CHAIN_LABELS: Record<string, string> = {
   celo: "Celo Network",
   arc: "Arc Network",
   polygon: "Polygon Network",
-}
+};
 
 /**
  * 4. UI HELPERS
  */
 export const getChainIcon = (symbol: string) =>
-  `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`
+  `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`;
 
 export const CHAIN_UI_DATA: Record<
   SupportedChainKeys,
@@ -287,16 +287,16 @@ export const CHAIN_UI_DATA: Record<
     color: "#9945FF",
     benefits: ["Fast finality", "Low fees"],
   },
-}
+};
 
 /**
  * 5. FUNCTIONAL HELPERS
  * Uses NEXT_PUBLIC_NETWORK_MODE environment variable to toggle between networks.
  */
-const IS_TESTNET = process.env.NEXT_PUBLIC_NETWORK_MODE === "testnet"
+const IS_TESTNET = process.env.NEXT_PUBLIC_NETWORK_MODE === "testnet";
 
 export const getActiveChains = () =>
-  IS_TESTNET ? TESTNET_CHAINS : MAINNET_CHAINS
+  IS_TESTNET ? TESTNET_CHAINS : MAINNET_CHAINS;
 
 /**
  * Resolves backend chain labels to one of the networks Kellon currently
@@ -310,7 +310,7 @@ export function getActiveChainKey(
     .trim()
     .toLowerCase()
     .replace(/[\s_-]+/g, "")
-    .replace(/testnet|mainnet|network/g, "")
+    .replace(/testnet|mainnet|network/g, "");
 
   const aliases: Record<string, SupportedChainKeys> = {
     bsc: "bnb",
@@ -318,10 +318,10 @@ export function getActiveChainKey(
     binance: "bnb",
     binancechain: "bnb",
     binancesmartchain: "bnb",
-  }
+  };
 
-  const candidate = aliases[normalized] || normalized
-  const chains = getActiveChains()
+  const candidate = aliases[normalized] || normalized;
+  const chains = getActiveChains();
   const match = Object.entries(chains).find(
     ([key, config]) =>
       key === candidate ||
@@ -329,32 +329,51 @@ export function getActiveChainKey(
         .toLowerCase()
         .replace(/[\s_-]+/g, "")
         .replace(/testnet|mainnet|network/g, "") === candidate,
-  )
+  );
 
-  return (match?.[0] as SupportedChainKeys | undefined) || null
+  return (match?.[0] as SupportedChainKeys | undefined) || null;
+}
+
+/** Builds an account link for the active network's configured explorer. */
+export function getExplorerAddressUrl(
+  chain: string | null | undefined,
+  address: string | null | undefined,
+): string | null {
+  const chainKey = getActiveChainKey(chain);
+  const normalizedAddress = address?.trim();
+  if (!chainKey || !normalizedAddress) return null;
+
+  const chainConfig = getActiveChains()[chainKey];
+  const explorerUrl = chainConfig.blockExplorers?.default.url.replace(
+    /\/$/,
+    "",
+  );
+  const addressPath = chainConfig.type === "evm" ? "address" : "account";
+
+  return `${explorerUrl}/${addressPath}/${encodeURIComponent(normalizedAddress)}`;
 }
 
 export const getChainById = (chainId: number | string) =>
   Object.values(getActiveChains()).find(
     (c) => c.id === chainId || c.id.toString() === chainId.toString(),
-  )
+  );
 
 // Helper to get networks that support a specific token
 export const getSupportedChainsForToken = (tokenSymbol: "USDC" | "USDT") => {
-  const chains = getActiveChains()
+  const chains = getActiveChains();
   const key =
-    tokenSymbol.toLowerCase() === "usdc" ? "usdcAddress" : "usdtAddress"
+    tokenSymbol.toLowerCase() === "usdc" ? "usdcAddress" : "usdtAddress";
 
-  return Object.values(chains).filter((chain) => !!chain[key])
-}
+  return Object.values(chains).filter((chain) => !!chain[key]);
+};
 
 export function getChainLabel(chain?: string | null): string {
-  if (!chain) return "Network"
+  if (!chain) return "Network";
 
-  return CHAIN_LABELS[chain.toLowerCase()] || chain
+  return CHAIN_LABELS[chain.toLowerCase()] || chain;
 }
 
 export const getEVMChains = () =>
-  Object.values(getActiveChains()).filter((c) => c.type === "evm")
+  Object.values(getActiveChains()).filter((c) => c.type === "evm");
 
-export default MAINNET_CHAINS
+export default MAINNET_CHAINS;

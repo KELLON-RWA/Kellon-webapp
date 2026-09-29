@@ -1,7 +1,7 @@
 "use client";
 
 import { FC, useState, useMemo, useEffect, useRef } from "react";
-import { ChevronDown, Copy, Check, ReceiptText } from "lucide-react";
+import { ChevronDown, Copy, Check, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import ChainIcon from "@/components/wallet/ChainIcon";
@@ -10,7 +10,7 @@ import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import SelectNetworkModal from "@/components/modals/SelectNetworkModal";
 import { Button } from "@/components/ui/button";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
-import { getActiveChainKey } from "@/lib/chains";
+import { getActiveChainKey, getExplorerAddressUrl } from "@/lib/chains";
 
 interface ReceiveCryptoProps {
   chainAccounts: ChainAccount[];
@@ -64,6 +64,15 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
   }, [selectedAccount]);
 
   const chainName = selectedAccount?.chain || "";
+  const explorerAddressUrl = useMemo(
+    () => getExplorerAddressUrl(chainName, address),
+    [address, chainName],
+  );
+
+  const handleViewOnExplorer = () => {
+    if (!explorerAddressUrl) return;
+    window.open(explorerAddressUrl, "_blank", "noopener,noreferrer");
+  };
 
   // Transform chainAccounts to the format expected by SelectNetworkModal
   const networks = useMemo(() => {
@@ -154,9 +163,10 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
         headingLevel="h2"
         onBack={goBack}
         rightAction={{
-          label: "View receive activity",
-          icon: <ReceiptText className="h-5 w-5" />,
-          onClick: () => undefined,
+          label: "View on network explorer",
+          icon: <ExternalLink className="h-5 w-5" />,
+          onClick: handleViewOnExplorer,
+          disabled: !explorerAddressUrl,
         }}
         className="mb-8 px-4 pt-4"
       />
