@@ -35,10 +35,12 @@ export function useProviders(
       setIsLoading(true);
       try {
         const [response, feesResponse] = await Promise.all([
+          // Discover enabled providers for the corridor, then apply the
+          // current network policy below. This avoids stale provider network
+          // records hiding a provider before its live quote is requested.
           providerService.listProviders({
             country,
             currency,
-            network: networkName,
             type,
           }),
           providerService.getProviderFees().catch(() => null),
