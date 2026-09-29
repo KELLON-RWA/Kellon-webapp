@@ -45,7 +45,7 @@ export function AssetSelectionStep({
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100dvh-200px)] md:min-h-[500px]">
-      <div className="flex-1 overflow-y-auto  md:px-0">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-32 md:px-0 md:pb-0">
         {/* Country Selector */}
         <div className="flex justify-center  mb-8">
           <button
