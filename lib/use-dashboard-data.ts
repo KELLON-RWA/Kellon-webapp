@@ -1,39 +1,39 @@
-"use client"
+"use client";
 
-import { useChainStatus } from "@/lib/chain-status"
-import { useEffect, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useDetectCountry } from "@/hooks/use-detect-country"
-import { useExchangeRate } from "@/hooks/use-exchange-rate"
-import { getActiveChainKey } from "@/lib/chains"
+import { useChainStatus } from "@/lib/chain-status";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useDetectCountry } from "@/hooks/use-detect-country";
+import { useExchangeRate } from "@/hooks/use-exchange-rate";
+import { getActiveChainKey } from "@/lib/chains";
 import {
   COUNTRY_CURRENCY_MAP,
   getCurrencySymbol,
-} from "@/lib/country-currency-map"
-import priceService from "@/services/price-service"
-import { transactionService } from "@/services/api/transactions"
-import type { Asset, Transaction, User } from "@/types/db"
-import type { DisplayCurrency, GroupedAssetSummary } from "./dashboard-types"
+} from "@/lib/country-currency-map";
+import priceService from "@/services/price-service";
+import { transactionService } from "@/services/api/transactions";
+import type { Asset, Transaction, User } from "@/types/db";
+import type { DisplayCurrency, GroupedAssetSummary } from "./dashboard-types";
 import {
   DEFAULT_TOKEN_PRICE,
   formatCurrencyAmount,
   getAssetName,
   parseAssetAmount,
-} from "./dashboard-utils"
+} from "./dashboard-utils";
 import {
   getActivityRefetchInterval,
   isTerminalTransactionStatus,
-} from "./transaction-polling"
+} from "./transaction-polling";
 
-const FIAT_CURRENCIES = new Set(Object.values(COUNTRY_CURRENCY_MAP))
+const FIAT_CURRENCIES = new Set(Object.values(COUNTRY_CURRENCY_MAP));
 
 export function useDashboardData(profile: User) {
-  const { countryCode, currencyCode, flag, isDetecting } = useDetectCountry()
-  const [isBalanceVisible, setIsBalanceVisible] = useState(true)
+  const { countryCode, currencyCode, flag, isDetecting } = useDetectCountry();
+  const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [displayCurrency, setDisplayCurrency] =
-    useState<DisplayCurrency>("LOCAL")
-  const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({})
-  const [isPricesLoading, setIsPricesLoading] = useState(false)
+    useState<DisplayCurrency>("LOCAL");
+  const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({});
+  const [isPricesLoading, setIsPricesLoading] = useState(false);
   // Must go through React Query: this is the most-viewed activity list, and a bare
   // useEffect fetch would never react to realtime invalidation of ["transactions"].
   const {
@@ -43,39 +43,40 @@ export function useDashboardData(profile: User) {
   } = useQuery<Transaction[]>({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const response = await transactionService.getTransactions()
-      return response.data || []
+      const response = await transactionService.getTransactions();
+      return response.data || [];
     },
     initialData: profile.transactions || [],
     staleTime: 5_000,
     refetchInterval: (query) => {
-      const transactions = query.state.data || []
+      const transactions = query.state.data || [];
       const hasPending = transactions.some(
         (transaction) => !isTerminalTransactionStatus(transaction.status),
-      )
+      );
 
       // Realtime is primary. Poll only while something can still change, and
       // progressively back off for old pending records.
-      return hasPending ? getActivityRefetchInterval(transactions) : false
+      return hasPending ? getActivityRefetchInterval(transactions) : false;
     },
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-  })
+  });
 
-  const localCurrency = currencyCode || "USD"
-  const { exchangeRate, isRateLoading } = useExchangeRate(localCurrency, null)
+  const localCurrency = currencyCode || "USD";
+  const { exchangeRate, isRateLoading } = useExchangeRate(localCurrency, null);
 
   // A STOPPED chain is hidden from every balance and picker built on these assets.
-  const chainStatus = useChainStatus()
+  const chainStatus = useChainStatus();
   const rawAssets = useMemo(
     () =>
       (profile?.assets || []).filter(
-        (asset): asset is Asset => !!asset && chainStatus.isVisible(asset.chain),
+        (asset): asset is Asset =>
+          !!asset && chainStatus.isVisible(asset.chain),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [profile?.assets, chainStatus.version],
-  )
+  );
 
   const cryptoAssets = useMemo(
     () =>
@@ -83,103 +84,111 @@ export function useDashboardData(profile: User) {
         (asset) => !FIAT_CURRENCIES.has(asset.symbol.toUpperCase()),
       ),
     [rawAssets],
-  )
+  );
 
   const assetSymbolsKey = useMemo(
     () =>
       Array.from(
-        new Set(cryptoAssets.map((asset) => asset.symbol.toUpperCase())),
+        new Set(
+          cryptoAssets
+            // USDC and USDT are pegged to USD, so their opening balance is
+            // already exact enough to render without waiting on CoinGecko.
+            .filter(
+              (asset) => !["USDC", "USDT"].includes(asset.symbol.toUpperCase()),
+            )
+            .map((asset) => asset.symbol.toUpperCase()),
+        ),
       ).join(","),
     [cryptoAssets],
-  )
+  );
 
   useEffect(() => {
-    let isCancelled = false
+    let isCancelled = false;
 
     const loadPrices = async () => {
       if (!assetSymbolsKey) {
-        setTokenPrices({})
-        setIsPricesLoading(false)
-        return
+        setTokenPrices({});
+        setIsPricesLoading(false);
+        return;
       }
 
-      const symbols = assetSymbolsKey.split(",").filter(Boolean)
-      setIsPricesLoading(true)
+      const symbols = assetSymbolsKey.split(",").filter(Boolean);
+      setIsPricesLoading(true);
 
       try {
-        const prices = await priceService.getMultipleTokenPrices(symbols)
-        if (isCancelled) return
+        const prices = await priceService.getMultipleTokenPrices(symbols);
+        if (isCancelled) return;
 
         const nextPrices = symbols.reduce<Record<string, number>>(
           (accumulator, symbol) => {
-            const normalizedSymbol = symbol.toUpperCase()
+            const normalizedSymbol = symbol.toUpperCase();
             accumulator[normalizedSymbol] =
-              prices[symbol] || prices[normalizedSymbol] || DEFAULT_TOKEN_PRICE
-            return accumulator
+              prices[symbol] || prices[normalizedSymbol] || DEFAULT_TOKEN_PRICE;
+            return accumulator;
           },
           {},
-        )
+        );
 
-        setTokenPrices(nextPrices)
+        setTokenPrices(nextPrices);
       } catch {
-        if (isCancelled) return
+        if (isCancelled) return;
 
         const fallbackPrices = symbols.reduce<Record<string, number>>(
           (accumulator, symbol) => {
-            accumulator[symbol.toUpperCase()] = DEFAULT_TOKEN_PRICE
-            return accumulator
+            accumulator[symbol.toUpperCase()] = DEFAULT_TOKEN_PRICE;
+            return accumulator;
           },
           {},
-        )
+        );
 
-        setTokenPrices(fallbackPrices)
+        setTokenPrices(fallbackPrices);
       } finally {
         if (!isCancelled) {
-          setIsPricesLoading(false)
+          setIsPricesLoading(false);
         }
       }
-    }
+    };
 
-    loadPrices()
+    loadPrices();
 
     return () => {
-      isCancelled = true
-    }
-  }, [assetSymbolsKey])
+      isCancelled = true;
+    };
+  }, [assetSymbolsKey]);
 
   const transactionsError = transactionsQueryError
     ? transactionsQueryError instanceof Error
       ? transactionsQueryError.message
       : "Failed to load activity"
-    : null
+    : null;
   const groupedAssets = useMemo<GroupedAssetSummary[]>(() => {
     const grouped = new Map<
       string,
       {
-        amount: number
-        chains: Set<string>
+        amount: number;
+        chains: Set<string>;
       }
-    >()
+    >();
 
     cryptoAssets.forEach((asset) => {
-      const symbol = asset.symbol.toUpperCase()
+      const symbol = asset.symbol.toUpperCase();
       const currentEntry = grouped.get(symbol) || {
         amount: 0,
         chains: new Set<string>(),
-      }
+      };
 
-      currentEntry.amount += parseAssetAmount(asset.amount)
+      currentEntry.amount += parseAssetAmount(asset.amount);
       if (asset.chain) {
-        currentEntry.chains.add(asset.chain)
+        currentEntry.chains.add(asset.chain);
       }
 
-      grouped.set(symbol, currentEntry)
-    })
+      grouped.set(symbol, currentEntry);
+    });
 
     return Array.from(grouped.entries())
       .map(([symbol, entry]) => {
-        const usdPrice = tokenPrices[symbol] || DEFAULT_TOKEN_PRICE
-        const usdValue = entry.amount * usdPrice
+        const usdPrice = tokenPrices[symbol] || DEFAULT_TOKEN_PRICE;
+        const usdValue = entry.amount * usdPrice;
 
         return {
           symbol,
@@ -189,10 +198,10 @@ export function useDashboardData(profile: User) {
           localValue: usdValue * exchangeRate,
           chainCount: entry.chains.size,
           primaryChain: entry.chains.values().next().value || null,
-        }
+        };
       })
-      .sort((left, right) => right.usdValue - left.usdValue)
-  }, [exchangeRate, cryptoAssets, tokenPrices])
+      .sort((left, right) => right.usdValue - left.usdValue);
+  }, [exchangeRate, cryptoAssets, tokenPrices]);
 
   const totalUsdBalance = useMemo(
     () =>
@@ -201,7 +210,7 @@ export function useDashboardData(profile: User) {
         0,
       ),
     [groupedAssets],
-  )
+  );
 
   const totalLocalBalance = useMemo(
     () =>
@@ -210,7 +219,7 @@ export function useDashboardData(profile: User) {
         0,
       ),
     [groupedAssets],
-  )
+  );
 
   // The live profile is refreshed by /users/me/sync. Chain accounts are the
   // backend's authoritative list of networks provisioned for this wallet; asset
@@ -223,7 +232,7 @@ export function useDashboardData(profile: User) {
           .filter((chain) => getActiveChainKey(chain) !== null),
       ).size,
     [profile.chainAccounts],
-  )
+  );
 
   const recentTransactions = useMemo(
     () =>
@@ -235,16 +244,19 @@ export function useDashboardData(profile: User) {
         )
         .slice(0, 5),
     [transactions],
-  )
+  );
 
-  const isLocalDisplay = displayCurrency === "LOCAL"
-  const activeCurrency = isLocalDisplay ? localCurrency : "USD"
-  const activeBalance = isLocalDisplay ? totalLocalBalance : totalUsdBalance
-  const secondaryBalance = isLocalDisplay ? totalUsdBalance : totalLocalBalance
-  const secondaryCurrency = isLocalDisplay ? "USD" : localCurrency
-  const canToggleCurrency = localCurrency !== "USD"
-  const isPortfolioLoading = isDetecting || isRateLoading || isPricesLoading
-  const isAssetValueLoading = isRateLoading || isPricesLoading
+  // The server-provided asset amounts and USD prices are ready at first paint.
+  // Hold the local-currency presentation until its exchange rate arrives, rather
+  // than hiding the available balance behind unrelated network requests.
+  const isLocalDisplay = displayCurrency === "LOCAL" && !isRateLoading;
+  const activeCurrency = isLocalDisplay ? localCurrency : "USD";
+  const activeBalance = isLocalDisplay ? totalLocalBalance : totalUsdBalance;
+  const secondaryBalance = isLocalDisplay ? totalUsdBalance : totalLocalBalance;
+  const secondaryCurrency = isLocalDisplay ? "USD" : localCurrency;
+  const canToggleCurrency = localCurrency !== "USD";
+  const isPortfolioLoading = false;
+  const isAssetValueLoading = isRateLoading || isPricesLoading;
 
   return {
     activeBalanceLabel: formatCurrencyAmount(activeBalance, activeCurrency),
@@ -275,5 +287,5 @@ export function useDashboardData(profile: User) {
     totalNetworks,
     isTransactionsLoading,
     transactionsError,
-  }
+  };
 }
