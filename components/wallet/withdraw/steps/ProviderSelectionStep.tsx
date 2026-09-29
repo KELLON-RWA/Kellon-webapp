@@ -1,53 +1,62 @@
-"use client"
+"use client";
 
-import { AlertCircle, ArrowRight, Check, Globe, Home, Loader2, MapPin } from "lucide-react"
-import Image from "next/image"
-import { useState } from "react"
-import { cn } from "@/lib/utils"
-import SummaryPill from "@/components/wallet/shared/FlowSummaryPill"
-import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter"
-import { Button } from "@/components/ui/button"
+import {
+  AlertCircle,
+  ArrowRight,
+  Check,
+  Globe,
+  Home,
+  Loader2,
+  MapPin,
+} from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
+import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import { Button } from "@/components/ui/button";
+import { getDisplayProviderRate } from "@/lib/provider-rate-display";
 
 interface Provider {
-  id: string
-  name: string
-  logo?: string
-  deliveryTime?: string
-  fee?: string
-  features: string[]
-  isRecommended?: boolean
+  id: string;
+  name: string;
+  logo?: string;
+  deliveryTime?: string;
+  fee?: string;
+  features: string[];
+  isRecommended?: boolean;
 }
 
 interface ProviderSelectionStepProps {
-  asset: string | null
-  amount: string
-  amountUnit: string | null
-  fiatCurrency: string
-  selectedChain?: { name: string } | null
-  providers: Provider[]
-  selectedProviderId: string | null
-  onSelectProvider: (id: string) => void
-  onContinue: () => void
+  asset: string | null;
+  amount: string;
+  amountUnit: string | null;
+  fiatCurrency: string;
+  selectedChain?: { name: string } | null;
+  providers: Provider[];
+  selectedProviderId: string | null;
+  onSelectProvider: (id: string) => void;
+  onContinue: () => void;
   providerRates: Record<
     string,
     {
-      cryptoAmount: number | null
-      fiatAmount: number | null
-      rawRate: number | null
+      cryptoAmount: number | null;
+      fiatAmount: number | null;
+      rawRate: number | null;
     } | null
-  >
-  isRatesLoading: boolean
-  country?: string | null
-  onGoHome: () => void
-  onChangeSelection: () => void
+  >;
+  isRatesLoading: boolean;
+  country?: string | null;
+  onGoHome: () => void;
+  onChangeSelection: () => void;
 }
 
 function hasUsableProviderRate(
   rateDetails:
     | {
-        cryptoAmount: number | null
-        fiatAmount: number | null
-        rawRate: number | null
+        cryptoAmount: number | null;
+        fiatAmount: number | null;
+        rawRate: number | null;
       }
     | null
     | undefined,
@@ -57,7 +66,7 @@ function hasUsableProviderRate(
       rateDetails.rawRate > 0 &&
       rateDetails.fiatAmount &&
       rateDetails.fiatAmount > 0,
-  )
+  );
 }
 
 export function WithdrawProviderSelectionStep({
@@ -76,33 +85,33 @@ export function WithdrawProviderSelectionStep({
   onGoHome,
   onChangeSelection,
 }: ProviderSelectionStepProps) {
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const visibleProviders = isRatesLoading
     ? providers
     : providers.filter((provider) =>
         hasUsableProviderRate(providerRates[provider.id]),
-      )
-  const visibleProviderCount = visibleProviders.length
+      );
+  const visibleProviderCount = visibleProviders.length;
   const selectedProvider =
     visibleProviders.find((provider) => provider.id === selectedProviderId) ||
-    null
+    null;
   const selectedProviderRate = selectedProviderId
     ? providerRates[selectedProviderId]
-    : null
-  const hasSelectedProviderRate = hasUsableProviderRate(selectedProviderRate)
+    : null;
+  const hasSelectedProviderRate = hasUsableProviderRate(selectedProviderRate);
   const isSelectedRatePending =
     Boolean(selectedProvider) &&
-    (isRatesLoading || selectedProviderRate === undefined)
+    (isRatesLoading || selectedProviderRate === undefined);
   const canContinue =
-    Boolean(selectedProvider) && hasSelectedProviderRate && !isRatesLoading
-  const hasNoProviders = !isRatesLoading && providers.length === 0
+    Boolean(selectedProvider) && hasSelectedProviderRate && !isRatesLoading;
+  const hasNoProviders = !isRatesLoading && providers.length === 0;
   const hasNoLiveRates =
-    !isRatesLoading && providers.length > 0 && visibleProviderCount === 0
+    !isRatesLoading && providers.length > 0 && visibleProviderCount === 0;
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value)
+    }).format(value);
 
   return (
     <div className="flex h-full min-h-[calc(100dvh-200px)] flex-col md:min-h-[500px]">
@@ -126,12 +135,18 @@ export function WithdrawProviderSelectionStep({
 
           <div className="space-y-3 md:space-y-4">
             {visibleProviders.map((provider) => {
-              const isSelected = provider.id === selectedProviderId
-              const showFallback = imageErrors[provider.id] || !provider.logo
-              const rateDetails = providerRates[provider.id]
-              const rawRate = rateDetails?.rawRate
-              const estimatedFiat = rateDetails?.fiatAmount
-              const isLoadingRate = isRatesLoading && rateDetails === undefined
+              const isSelected = provider.id === selectedProviderId;
+              const showFallback = imageErrors[provider.id] || !provider.logo;
+              const rateDetails = providerRates[provider.id];
+              const rawRate = rateDetails?.rawRate;
+              const estimatedFiat = rateDetails?.fiatAmount;
+              const displayRate = getDisplayProviderRate(
+                provider.name,
+                rawRate,
+                estimatedFiat,
+                rateDetails?.cryptoAmount,
+              );
+              const isLoadingRate = isRatesLoading && rateDetails === undefined;
 
               return (
                 <button
@@ -199,13 +214,14 @@ export function WithdrawProviderSelectionStep({
                             </span>
                           </div>
                         </div>
-                      ) : rawRate && estimatedFiat ? (
+                      ) : displayRate && estimatedFiat ? (
                         <>
                           <p className="text-sm font-bold text-primary-60 md:text-base">
                             {formatCurrency(estimatedFiat)} {fiatCurrency}
                           </p>
                           <p className="mt-0.5 text-[9px] text-gray-500 md:text-[10px]">
-                            1 {asset} ≈ {formatCurrency(rawRate)} {fiatCurrency}
+                            1 {asset} ≈ {formatCurrency(displayRate)}{" "}
+                            {fiatCurrency}
                           </p>
                           <p className="mt-0.5 text-[9px] text-gray-500 md:text-[10px]">
                             Fee: {provider.fee || "--"}
@@ -237,7 +253,7 @@ export function WithdrawProviderSelectionStep({
                     </div>
                   ) : null}
                 </button>
-              )
+              );
             })}
           </div>
 
@@ -289,25 +305,27 @@ export function WithdrawProviderSelectionStep({
         </div>
       </div>
 
-      {!hasNoProviders ? <FlowActionFooter
-        onClick={onContinue}
-        disabled={!canContinue}
-        buttonClassName={cn(!canContinue && "from-gray-400 to-gray-500")}
-        showShimmer={canContinue}
-      >
-        {!selectedProvider ? (
-          "Select a Provider to Continue"
-        ) : isSelectedRatePending ? (
-          "Fetching Rate..."
-        ) : !hasSelectedProviderRate ? (
-          "Rate Unavailable"
-        ) : (
-          <>
-            Select Bank
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </>
-        )}
-      </FlowActionFooter> : null}
+      {!hasNoProviders ? (
+        <FlowActionFooter
+          onClick={onContinue}
+          disabled={!canContinue}
+          buttonClassName={cn(!canContinue && "from-gray-400 to-gray-500")}
+          showShimmer={canContinue}
+        >
+          {!selectedProvider ? (
+            "Select a Provider to Continue"
+          ) : isSelectedRatePending ? (
+            "Fetching Rate..."
+          ) : !hasSelectedProviderRate ? (
+            "Rate Unavailable"
+          ) : (
+            <>
+              Select Bank
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </>
+          )}
+        </FlowActionFooter>
+      ) : null}
     </div>
-  )
+  );
 }

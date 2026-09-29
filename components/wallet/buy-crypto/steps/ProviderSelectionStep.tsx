@@ -1,9 +1,18 @@
 // components/BuyCryptoFlow/steps/ProviderSelectionStep.tsx
-import { Globe, ArrowRight, Loader2, Check, AlertCircle, Home, MapPin } from "lucide-react";
+import {
+  Globe,
+  ArrowRight,
+  Loader2,
+  Check,
+  AlertCircle,
+  Home,
+  MapPin,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import { Button } from "@/components/ui/button";
+import { getDisplayProviderRate } from "@/lib/provider-rate-display";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -19,6 +28,7 @@ interface Provider {
 
 interface ProviderRateDetails {
   cryptoAmount: number | null;
+  fiatAmount: number | null;
   rawRate: number | null;
 }
 
@@ -138,6 +148,12 @@ export function ProviderSelectionStep({
               const rateDetails = providerRates[provider.id];
               const estimatedAmount = rateDetails?.cryptoAmount;
               const rawRate = rateDetails?.rawRate;
+              const displayRate = getDisplayProviderRate(
+                provider.name,
+                rawRate,
+                rateDetails?.fiatAmount,
+                estimatedAmount,
+              );
               const isLoadingRate = isRatesLoading && rateDetails === undefined;
               const isSelected = selectedProviderId === provider.id;
               const showFallbackIcon = shouldShowIcon(provider);
@@ -212,9 +228,9 @@ export function ProviderSelectionStep({
                           <p className="font-bold text-sm md:text-base text-primary-60">
                             {estimatedAmount?.toFixed(6)} {asset}
                           </p>
-                          {rawRate && (
+                          {displayRate && (
                             <p className="text-[9px] md:text-[10px] text-gray-500 mt-0.5">
-                              1 {asset} ≈ {formatCurrency(rawRate)}{" "}
+                              1 {asset} ≈ {formatCurrency(displayRate)}{" "}
                               {fiatCurrency}
                             </p>
                           )}
@@ -309,59 +325,59 @@ export function ProviderSelectionStep({
 
       {/* Sticky Footer with Review Button */}
       {!hasNoProviders && (
-      <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t  pt-6 pb-4 px-4 md:px-0 mt-6 border-t border-black/5 dark:border-white/5">
-        <div className="max-w-md mx-auto md:max-w-full">
-          {/* Selection summary (only when provider selected) */}
-          {hasValidSelection && selectedProviderRate && (
-            <div className="mb-3 p-3 rounded-xl bg-primary-70/5 border border-primary-60/20">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Selected Provider
-                </span>
-                <span className="font-semibold text-primary-70">
-                  {selectedProvider.name}
-                </span>
+        <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t  pt-6 pb-4 px-4 md:px-0 mt-6 border-t border-black/5 dark:border-white/5">
+          <div className="max-w-md mx-auto md:max-w-full">
+            {/* Selection summary (only when provider selected) */}
+            {hasValidSelection && selectedProviderRate && (
+              <div className="mb-3 p-3 rounded-xl bg-primary-70/5 border border-primary-60/20">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Selected Provider
+                  </span>
+                  <span className="font-semibold text-primary-70">
+                    {selectedProvider.name}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Est. Receive
+                  </span>
+                  <span className="font-medium">
+                    {selectedProviderRate.cryptoAmount?.toFixed(6)} {asset}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs mt-1">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Est. Receive
-                </span>
-                <span className="font-medium">
-                  {selectedProviderRate.cryptoAmount?.toFixed(6)} {asset}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <FlowActionFooter
-            sticky={false}
-            onClick={onContinue}
-            disabled={!canContinue}
-            buttonClassName={cn(!canContinue && "from-gray-400 to-gray-500")}
-            showShimmer={canContinue}
-          >
-            {!hasValidSelection ? (
-              "Select a Provider to Continue"
-            ) : isSelectedRatePending ? (
-              "Fetching Rate..."
-            ) : !hasSelectedProviderRate ? (
-              "Rate Unavailable"
-            ) : (
-              <>
-                {requiresRefundAccount ? "Select Bank" : "Review Order"}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </>
             )}
-          </FlowActionFooter>
 
-          {/* Help text */}
-          <p className="text-center text-[10px] md:text-xs text-gray-400 mt-3">
-            Comparing live rates from{" "}
-            {isRatesLoading ? providers.length : visibleProviderCount} providers
-            • Best rate will be applied
-          </p>
+            <FlowActionFooter
+              sticky={false}
+              onClick={onContinue}
+              disabled={!canContinue}
+              buttonClassName={cn(!canContinue && "from-gray-400 to-gray-500")}
+              showShimmer={canContinue}
+            >
+              {!hasValidSelection ? (
+                "Select a Provider to Continue"
+              ) : isSelectedRatePending ? (
+                "Fetching Rate..."
+              ) : !hasSelectedProviderRate ? (
+                "Rate Unavailable"
+              ) : (
+                <>
+                  {requiresRefundAccount ? "Select Bank" : "Review Order"}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
+            </FlowActionFooter>
+
+            {/* Help text */}
+            <p className="text-center text-[10px] md:text-xs text-gray-400 mt-3">
+              Comparing live rates from{" "}
+              {isRatesLoading ? providers.length : visibleProviderCount}{" "}
+              providers • Best rate will be applied
+            </p>
+          </div>
         </div>
-      </div>
       )}
     </div>
   );
