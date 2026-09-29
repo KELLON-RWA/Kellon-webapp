@@ -1,80 +1,93 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
-import AddFundsModal from "@/components/modals/AddFundsModal"
-import WalletServicesModal from "@/components/modals/WalletServicesModal"
-import { getGreeting } from "@/lib/utils"
-import type { User } from "@/types/db"
-import ActivityPanel from "./ActivityPanel"
-import AssetsPanel from "./AssetsPanel"
-import DashboardHeader from "./DashboardHeader"
-import MobileFeaturedOpportunities from "./MobileFeaturedOpportunities"
-import PortfolioAllocationPanel from "./PortfolioAllocationPanel"
-import PortfolioBalanceCard from "./PortfolioBalanceCard"
-import QuickActionsPanel from "./QuickActionsPanel"
-import TopMoversPanel from "./TopMoversPanel"
-import { useDashboardData } from "@/lib/use-dashboard-data"
-import { isStablecoinSymbol } from "@/lib/dashboard-utils"
-import { useUser } from "@/hooks/use-user"
-import { isRwaStockListing, stocksService } from "@/services/api/stocks"
-import { yieldService } from "@/services/api/yield"
-import { PositionStatus } from "@/types/db"
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import AddFundsModal from "@/components/modals/AddFundsModal";
+import WalletServicesModal from "@/components/modals/WalletServicesModal";
+import { getGreeting } from "@/lib/utils";
+import type { User } from "@/types/db";
+import ActivityPanel from "./ActivityPanel";
+import AssetsPanel from "./AssetsPanel";
+import DashboardHeader from "./DashboardHeader";
+import MobileFeaturedOpportunities from "./MobileFeaturedOpportunities";
+import PortfolioAllocationPanel from "./PortfolioAllocationPanel";
+import PortfolioBalanceCard from "./PortfolioBalanceCard";
+import QuickActionsPanel from "./QuickActionsPanel";
+import TopMoversPanel from "./TopMoversPanel";
+import { useDashboardData } from "@/lib/use-dashboard-data";
+import { isStablecoinSymbol } from "@/lib/dashboard-utils";
+import { useUser } from "@/hooks/use-user";
+import { useRealtime } from "@/components/providers/RealtimeProvider";
+import { isRwaStockListing, stocksService } from "@/services/api/stocks";
+import { yieldService } from "@/services/api/yield";
+import { PositionStatus } from "@/types/db";
 
 function getStockTicker(symbol: string) {
-  const raw = symbol.trim()
-  const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw
+  const raw = symbol.trim();
+  const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
 
-  return (withoutProviderSuffix.startsWith("b")
-    ? withoutProviderSuffix.slice(1)
-    : withoutProviderSuffix
-  ).toUpperCase()
+  return (
+    withoutProviderSuffix.startsWith("b")
+      ? withoutProviderSuffix.slice(1)
+      : withoutProviderSuffix
+  ).toUpperCase();
 }
 
 function getStockLogo(symbol: string, logoUrl?: string) {
   return (
     logoUrl ||
     `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getStockTicker(symbol))}.png`
-  )
+  );
 }
 
 interface DashboardClientProps {
-  profile: User
+  profile: User;
 }
 
 export default function DashboardClient({ profile }: DashboardClientProps) {
-  const router = useRouter()
-  const [isAddFundsOpen, setIsAddFundsOpen] = useState(false)
-  const [isWalletServicesOpen, setIsWalletServicesOpen] = useState(false)
-  const [greeting, setGreeting] = useState("Welcome back")
-  const { data: liveProfile } = useUser(profile, { live: true })
-  const activeProfile = liveProfile || profile
-  const dashboard = useDashboardData(activeProfile)
-  const { data: stockPortfolio, isLoading: isStockPortfolioLoading } = useQuery({
-    queryKey: ["stock-portfolio"],
-    queryFn: async () => (await stocksService.getPortfolio()).data,
-    staleTime: 30_000,
-  })
+  const router = useRouter();
+  const [isAddFundsOpen, setIsAddFundsOpen] = useState(false);
+  const [isWalletServicesOpen, setIsWalletServicesOpen] = useState(false);
+  const [greeting, setGreeting] = useState("Welcome back");
+  const { isConnected: isRealtimeConnected } = useRealtime();
+  // Realtime events keep this query fresh while connected. The 15-second
+  // reconciliation only runs as a fallback when the socket is unavailable.
+  const { data: liveProfile } = useUser(profile, {
+    live: !isRealtimeConnected,
+  });
+  const activeProfile = liveProfile || profile;
+  const dashboard = useDashboardData(activeProfile);
+  const { data: stockPortfolio, isLoading: isStockPortfolioLoading } = useQuery(
+    {
+      queryKey: ["stock-portfolio"],
+      queryFn: async () => (await stocksService.getPortfolio()).data,
+      staleTime: 30_000,
+    },
+  );
   const { data: stockListings = [] } = useQuery({
     queryKey: ["available-stocks"],
     queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
     staleTime: 60_000,
-  })
-  const { data: yieldPositions = [], isLoading: isYieldPositionsLoading } = useQuery({
-    queryKey: ["yield-positions"],
-    queryFn: async () => (await yieldService.getPositions()).data,
-    staleTime: 30_000,
-  })
+  });
+  const { data: yieldPositions = [], isLoading: isYieldPositionsLoading } =
+    useQuery({
+      queryKey: ["yield-positions"],
+      queryFn: async () => (await yieldService.getPositions()).data,
+      staleTime: 30_000,
+    });
   const { data: yieldOpportunities = [] } = useQuery({
     queryKey: ["yield-opportunities"],
     queryFn: async () => (await yieldService.getOpportunities()).data,
     staleTime: 60_000,
-  })
+  });
   const activeYieldPositions = useMemo(
-    () => yieldPositions.filter((position) => position.status !== PositionStatus.CLOSED),
+    () =>
+      yieldPositions.filter(
+        (position) => position.status !== PositionStatus.CLOSED,
+      ),
     [yieldPositions],
-  )
+  );
   const investmentAssets = useMemo(
     () =>
       (stockPortfolio?.holdings || [])
@@ -84,11 +97,11 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             (stock) =>
               stock.symbol.toLowerCase() === holding.symbol.toLowerCase() &&
               stock.provider.toLowerCase() === holding.provider.toLowerCase(),
-          )
-          const ticker = getStockTicker(holding.symbol)
+          );
+          const ticker = getStockTicker(holding.symbol);
           const isRwa = listing
             ? isRwaStockListing(listing)
-            : Boolean(holding.rwaCategory)
+            : Boolean(holding.rwaCategory);
 
           return {
             id: `investment:${holding.provider}:${holding.symbol}`,
@@ -108,25 +121,25 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             kind: isRwa ? ("rwa" as const) : ("stock" as const),
             href: `/earn/stocks/${encodeURIComponent(ticker)}?provider=${encodeURIComponent(holding.provider)}`,
             logoUrl: getStockLogo(holding.symbol, listing?.logoUrl),
-          }
+          };
         }),
     [dashboard.exchangeRate, stockListings, stockPortfolio?.holdings],
-  )
+  );
   const holdingCount = useMemo(() => {
     const stablecoinCount = dashboard.groupedAssets.filter(
       (asset) => asset.amount > 0 && isStablecoinSymbol(asset.symbol),
-    ).length
+    ).length;
     const purchasedStockCount = investmentAssets.filter(
       (asset) => asset.kind === "stock" && asset.shares > 0,
-    ).length
-    const total = stablecoinCount + purchasedStockCount
+    ).length;
+    const total = stablecoinCount + purchasedStockCount;
 
-    return `${total} ${total === 1 ? "asset" : "assets"}`
-  }, [dashboard.groupedAssets, investmentAssets])
+    return `${total} ${total === 1 ? "asset" : "assets"}`;
+  }, [dashboard.groupedAssets, investmentAssets]);
 
   useEffect(() => {
-    setGreeting(getGreeting())
-  }, [])
+    setGreeting(getGreeting());
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-32 pt-4 md:space-y-6 md:px-6 md:pb-12 md:pt-28 min-[1024px]:max-w-none min-[1024px]:space-y-4 min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8">
@@ -212,5 +225,5 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
         onClose={setIsWalletServicesOpen}
       />
     </div>
-  )
+  );
 }
