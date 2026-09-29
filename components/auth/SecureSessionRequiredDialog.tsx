@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getIdentityToken,
+  useIdentityToken,
+  usePrivy,
+} from "@privy-io/react-auth";
 import { Loader2, ShieldAlert } from "lucide-react";
 
 import {
@@ -14,9 +18,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  clearSecureSessionLoginRequired,
   isSecureSessionLoginRequired,
   SECURE_SESSION_MISSING_EVENT,
 } from "@/lib/secure-session";
+import { loginWithPrivy } from "@/services/api/auth";
+import { queryClient } from "@/components/providers/ReactQueryProvider";
 import { signOutAndReturnToLogin } from "./Signout";
 
 /**
@@ -25,17 +32,60 @@ import { signOutAndReturnToLogin } from "./Signout";
  * request that the browser cannot securely sign.
  */
 export default function SecureSessionRequiredDialog() {
-  const { logout } = usePrivy();
+  const { authenticated, logout, ready } = usePrivy();
+  const { identityToken } = useIdentityToken();
   const [open, setOpen] = useState(isSecureSessionLoginRequired);
   const [isLeaving, setIsLeaving] = useState(false);
+  const isRecovering = useRef(false);
+
+  const recoverSigningSession = useCallback(async () => {
+    if (isRecovering.current) return;
+
+    // A Privy-authenticated user may have opened a new tab or restored the
+    // PWA after the tab-scoped signing credentials were discarded. Restore
+    // those credentials silently before treating it as a real logout.
+    // Privy restores its shared authentication state asynchronously in a new
+    // tab. A missing token while it is still initialising is not an expired
+    // session, so wait rather than showing a blocking sign-in dialog.
+    if (!ready) {
+      setOpen(false);
+      return;
+    }
+
+    if (!authenticated) {
+      setOpen(true);
+      return;
+    }
+
+    isRecovering.current = true;
+    try {
+      // The hook may briefly be null immediately after Privy marks the user
+      // authenticated. Read a fresh token as a fallback so opening a new tab
+      // restores this tab's signed API credentials without user interaction.
+      const token = identityToken || (await getIdentityToken());
+      if (!token) {
+        setOpen(true);
+        return;
+      }
+
+      await loginWithPrivy(token);
+      clearSecureSessionLoginRequired();
+      setOpen(false);
+      await queryClient.invalidateQueries();
+    } catch {
+      setOpen(true);
+    } finally {
+      isRecovering.current = false;
+    }
+  }, [authenticated, identityToken, ready]);
 
   useEffect(() => {
-    const show = () => setOpen(true);
+    const show = () => void recoverSigningSession();
     window.addEventListener(SECURE_SESSION_MISSING_EVENT, show);
-    if (isSecureSessionLoginRequired()) show();
+    if (isSecureSessionLoginRequired()) void recoverSigningSession();
 
     return () => window.removeEventListener(SECURE_SESSION_MISSING_EVENT, show);
-  }, []);
+  }, [recoverSigningSession]);
 
   const returnToLogin = async () => {
     setIsLeaving(true);
