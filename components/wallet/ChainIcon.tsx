@@ -1,27 +1,29 @@
-import React, { FC } from "react"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
+import React, { FC } from "react";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 interface ChainIconProps {
-  name: string
-  size?: number
-  className?: string
+  name: string;
+  size?: number;
+  className?: string;
 }
 
 /**
  * Provides original branding for supported blockchains using standard Web SVGs and CDN assets
  */
 const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
-  if (!name || typeof name !== "string") return null
+  if (!name || typeof name !== "string") return null;
 
   // Normalize: Lowercase and remove ALL spaces
   // "BNB Chain" -> "bnbchain"
-  const normalizedName = name.toLowerCase().replace(/\s+/g, "")
+  const normalizedName = name.toLowerCase().replace(/\s+/g, "");
 
   const iconUrl = (symbol: string) =>
-    `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol}.png`
+    `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol}.png`;
   const solanaLogomarkUrl =
-    "https://raw.githubusercontent.com/solana-foundation/solana-com/main/apps/docs/public/img/logomark-color.svg"
+    "https://raw.githubusercontent.com/solana-foundation/solana-com/main/apps/docs/public/img/logomark-color.svg";
+  const arcLogomarkUrl =
+    "https://cdn.prod.website-files.com/685311a976e7c248b5dfde95/68926aad995d4eae931403a4_arc-favicon-256x256.png";
 
   switch (normalizedName) {
     case "base":
@@ -36,7 +38,7 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
           <circle cx="50" cy="50" r="50" fill="#0052FF" />
           <circle cx="50" cy="50" r="25" stroke="white" strokeWidth="15" />
         </svg>
-      )
+      );
 
     case "celo":
       return (
@@ -50,7 +52,7 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
           <circle cx="38" cy="50" r="32" stroke="#35D07F" strokeWidth="8" />
           <circle cx="62" cy="50" r="32" stroke="#FBCC5C" strokeWidth="8" />
         </svg>
-      )
+      );
 
     case "solana":
       return (
@@ -67,21 +69,36 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
             className="object-contain"
           />
         </div>
-      )
+      );
+
+    case "arc":
+      return (
+        <div
+          className={cn("relative shrink-0", className)}
+          style={{ width: size, height: size }}
+        >
+          <Image
+            src={arcLogomarkUrl}
+            alt="Arc"
+            fill
+            sizes={`${size}px`}
+            unoptimized
+            className="object-contain"
+          />
+        </div>
+      );
 
     // Now these will catch "BNB Chain", "bnbchain", or "BNB"
-    case "arc":
     case "polygon":
     case "bnb":
     case "bnbchain":
     case "stellar":
       const symbolMap: Record<string, string> = {
-        arc: "usdc",
         polygon: "matic",
         bnb: "bnb",
         bnbchain: "bnb",
         stellar: "xlm",
-      }
+      };
 
       return (
         <div
@@ -95,7 +112,7 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
             className="object-contain"
           />
         </div>
-      )
+      );
 
     default:
       return (
@@ -103,8 +120,8 @@ const ChainIcon: FC<ChainIconProps> = ({ name, size = 32, className }) => {
           className={cn("bg-gray-200 rounded-full", className)}
           style={{ width: size, height: size }}
         />
-      )
+      );
   }
-}
+};
 
-export default ChainIcon
+export default ChainIcon;
