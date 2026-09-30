@@ -10,6 +10,10 @@ import { useWithdrawState, WITHDRAW_STEPS } from "@/hooks/use-withdraw-state";
 import { useCountryDetection } from "@/hooks/use-country-detection";
 import { getCurrencyForCountry } from "@/lib/country-currency-map";
 import { getChainById } from "@/lib/chains";
+import {
+  isStablecoinAmountWithinBalance,
+  MIN_STABLECOIN_AMOUNT,
+} from "@/lib/stablecoin-amounts";
 import { ACTIVE_PAYMENT_RAIL } from "@/lib/payment-rails";
 import { useProviders } from "@/hooks/use-provider";
 import { useProviderRates } from "@/hooks/use-provider-rates";
@@ -48,10 +52,7 @@ import {
   type VerificationType,
 } from "@/services/api/transfers";
 import { transactionService } from "@/services/api/transactions";
-import {
-  beginOperation,
-  endOperation,
-} from "@/services/api";
+import { beginOperation, endOperation } from "@/services/api";
 import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
 import {
   useOfframpFunding,
@@ -234,8 +235,8 @@ export default function WithdrawFlow({
   const amountValue = Number(amount);
   const isAmountValid =
     Number.isFinite(amountValue) &&
-    amountValue > 0 &&
-    amountValue <= selectedAssetBalance;
+    amountValue >= MIN_STABLECOIN_AMOUNT &&
+    isStablecoinAmountWithinBalance(amountValue, selectedAssetBalance);
   const { rates: providerRates, isLoadingRates } = useProviderRates({
     providers,
     asset,
@@ -322,7 +323,9 @@ export default function WithdrawFlow({
       selectedBank.id,
     ]);
     const pendingOrder =
-      pendingOrderRef.current?.identity === identity ? pendingOrderRef.current : null;
+      pendingOrderRef.current?.identity === identity
+        ? pendingOrderRef.current
+        : null;
     if (!pendingOrder) pendingOrderRef.current = null;
 
     // Resume only the MFA round trip or a retry of the same pending order.
@@ -440,8 +443,11 @@ export default function WithdrawFlow({
               .getTransaction(transactionId)
               .then((res) =>
                 Boolean(
-                  (res.data as { metadata?: Record<string, unknown> } | undefined)
-                    ?.metadata?.fundingTxHash,
+                  (
+                    res.data as
+                      | { metadata?: Record<string, unknown> }
+                      | undefined
+                  )?.metadata?.fundingTxHash,
                 ),
               )
               .catch(() => false)
@@ -839,6 +845,7 @@ export default function WithdrawFlow({
         onLeave={() => onAttemptClose(true)}
         title="Cancel this withdrawal?"
         description="Your withdrawal details have not been submitted and will be discarded."
+        stayLabel="Continue withdrawal"
         leaveLabel="Cancel withdrawal"
       />
 

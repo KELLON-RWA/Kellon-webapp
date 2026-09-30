@@ -13,6 +13,7 @@ interface ExitConfirmationProps {
   onLeave: () => void;
   title?: string;
   description?: string;
+  stayLabel?: string;
   leaveLabel?: string;
 }
 
@@ -22,11 +23,12 @@ export function ExitConfirmation({
   onLeave,
   title = "Leave this flow?",
   description = "Your progress will be discarded. You can start again whenever you're ready.",
+  stayLabel = "Continue purchase",
   leaveLabel = "Cancel",
 }: ExitConfirmationProps) {
   return (
     <AlertDialog open={isOpen}>
-      <AlertDialogContent className="w-[92vw] max-w-[400px] rounded-[32px] border-none bg-gray-70 outline-none dark:bg-black2">
+      <AlertDialogContent className="w-[92vw] max-w-[400px] rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
             {title}
@@ -35,13 +37,13 @@ export function ExitConfirmation({
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="mt-6 !grid grid-cols-2 gap-3 sm:!grid sm:grid-cols-2">
+        <AlertDialogFooter className="mt-6 !grid grid-cols-1 gap-3 md:grid-cols-2">
           <button
             type="button"
             onClick={onStay}
             className="h-11 min-w-0 cursor-pointer rounded-xl border border-black/5 bg-white px-2 text-xs font-bold text-black transition-all hover:bg-gray-50 active:scale-[0.98] dark:border-white/10 dark:bg-secondary-50 dark:text-white dark:hover:bg-secondary-60/50 sm:h-12 sm:rounded-2xl sm:px-4 sm:text-sm"
           >
-            Continue purchase
+            {stayLabel}
           </button>
           <button
             type="button"

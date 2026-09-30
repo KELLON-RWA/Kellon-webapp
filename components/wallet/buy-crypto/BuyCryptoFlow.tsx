@@ -1,33 +1,31 @@
-"use client"
+"use client";
 
-import { chainStatus } from "@/lib/chain-status"
+import { chainStatus } from "@/lib/chain-status";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-import { useBuyCryptoState, STEPS } from "@/hooks/use-buy-cypto-state"
-import type { Step } from "@/hooks/use-buy-cypto-state"
-import type { BankDetail, Transaction } from "@/types/db"
-import { useCountryDetection } from "@/hooks/use-country-detection"
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useBuyCryptoState, STEPS } from "@/hooks/use-buy-cypto-state";
+import type { Step } from "@/hooks/use-buy-cypto-state";
+import type { BankDetail, Transaction } from "@/types/db";
+import { useCountryDetection } from "@/hooks/use-country-detection";
 import {
   getCurrencyForCountry,
   getCurrencySymbol,
   getCurrencyDecimals,
-} from "@/lib/country-currency-map"
-import { getChainById } from "@/lib/chains"
-import { getTransactionDetailsPath } from "@/lib/transaction-navigation"
-import {
-  ACTIVE_PAYMENT_RAIL,
-  getPaymentRailConfig,
-} from "@/lib/payment-rails"
-import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal"
-import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries"
-import { useExchangeRate } from "@/hooks/use-exchange-rate"
-import { useProviders } from "@/hooks/use-provider"
-import { useProviderRates } from "@/hooks/use-provider-rates"
-import { bankService } from "@/services/api/bank"
-import { transactionService } from "@/services/api/transactions"
-import FlowHeader from "@/components/wallet/shared/FlowHeader"
+} from "@/lib/country-currency-map";
+import { getChainById } from "@/lib/chains";
+import { MIN_STABLECOIN_AMOUNT } from "@/lib/stablecoin-amounts";
+import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
+import { ACTIVE_PAYMENT_RAIL, getPaymentRailConfig } from "@/lib/payment-rails";
+import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal";
+import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries";
+import { useExchangeRate } from "@/hooks/use-exchange-rate";
+import { useProviders } from "@/hooks/use-provider";
+import { useProviderRates } from "@/hooks/use-provider-rates";
+import { bankService } from "@/services/api/bank";
+import { transactionService } from "@/services/api/transactions";
+import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import {
   extractOnrampTransferInstructions,
   getCentiivPollingReferences,
@@ -35,27 +33,26 @@ import {
   onrampService,
   type OnrampInitRequest,
   type OnrampResponse,
-} from "@/services/api/on-ramp"
+} from "@/services/api/on-ramp";
 import SelectBankModal, {
   type SelectableBank,
-} from "@/components/modals/SelectBankModal"
-import StepIndicator from "@/components/wallet/shared/FlowStepIndicator"
-import { AssetSelectionStep } from "./steps/AssetSelectionStep"
-import { AmountEntryStep } from "./steps/AmountEntryStep"
-import { ProviderSelectionStep } from "./steps/ProviderSelectionStep"
-import { BuyBankSelectionStep } from "./steps/BankSelectionStep"
-import { ReviewStep } from "./steps/ReviewStep"
+} from "@/components/modals/SelectBankModal";
+import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
+import { AssetSelectionStep } from "./steps/AssetSelectionStep";
+import { AmountEntryStep } from "./steps/AmountEntryStep";
+import { ProviderSelectionStep } from "./steps/ProviderSelectionStep";
+import { BuyBankSelectionStep } from "./steps/BankSelectionStep";
+import { ReviewStep } from "./steps/ReviewStep";
 
-const MIN_CRYPTO_THRESHOLD = 0.01
-const CENTIIV_POLL_INTERVAL_MS = 3_000
-const CENTIIV_MAX_POLL_ATTEMPTS = 20
-const DEFAULT_FLOW_STEPS = ["asset", "amount", "provider", "review"] as const
-type VisibleFlowStep = (typeof DEFAULT_FLOW_STEPS)[number] | Step
+const CENTIIV_POLL_INTERVAL_MS = 3_000;
+const CENTIIV_MAX_POLL_ATTEMPTS = 20;
+const DEFAULT_FLOW_STEPS = ["asset", "amount", "provider", "review"] as const;
+type VisibleFlowStep = (typeof DEFAULT_FLOW_STEPS)[number] | Step;
 type ProviderRateSnapshot = {
-  cryptoAmount: number | null
-  fiatAmount: number | null
-  rawRate: number | null
-}
+  cryptoAmount: number | null;
+  fiatAmount: number | null;
+  rawRate: number | null;
+};
 
 function getOnrampReferenceCandidates(
   order: OnrampResponse | null,
@@ -74,23 +71,23 @@ function getOnrampReferenceCandidates(
     "order.id": order?.order?.id,
     "order.reference": order?.order?.reference,
     "paymentDetails.reference": order?.paymentDetails?.reference,
-  }
+  };
 }
 
 function getReferenceValues(value: unknown, depth = 0): string[] {
-  if (depth > 4 || value === null || value === undefined) return []
-  if (typeof value === "string") return value.trim() ? [value.trim()] : []
+  if (depth > 4 || value === null || value === undefined) return [];
+  if (typeof value === "string") return value.trim() ? [value.trim()] : [];
   if (typeof value === "number" && Number.isFinite(value)) {
-    return [String(value)]
+    return [String(value)];
   }
   if (Array.isArray(value)) {
-    return value.flatMap((item) => getReferenceValues(item, depth + 1))
+    return value.flatMap((item) => getReferenceValues(item, depth + 1));
   }
-  if (typeof value !== "object") return []
+  if (typeof value !== "object") return [];
 
   return Object.values(value as Record<string, unknown>).flatMap((item) =>
     getReferenceValues(item, depth + 1),
-  )
+  );
 }
 
 function transactionMatchesOnrampReferences(
@@ -102,11 +99,11 @@ function transactionMatchesOnrampReferences(
     transaction.providerReference || "",
     transaction.userOpHash || "",
     ...getReferenceValues(transaction.metadata),
-  ])
+  ]);
 
   return [...references].some((reference) =>
     transactionReferences.has(reference),
-  )
+  );
 }
 
 async function resolveOnrampTransactionId(
@@ -116,18 +113,18 @@ async function resolveOnrampTransactionId(
     Object.values(getOnrampReferenceCandidates(order)).filter(
       (value): value is string => Boolean(value?.trim()),
     ),
-  )
+  );
 
-  if (references.size === 0) return null
+  if (references.size === 0) return null;
 
   // The nested transaction ID is the only response value guaranteed to be a
   // Kellon transaction ID. Validate it before using it in the detail route.
-  const directTransactionId = order?.transaction?.id
+  const directTransactionId = order?.transaction?.id;
   if (directTransactionId) {
     try {
       const response =
-        await transactionService.getTransaction(directTransactionId)
-      if (response.data?.id) return response.data.id
+        await transactionService.getTransaction(directTransactionId);
+      if (response.data?.id) return response.data.id;
     } catch {
       // The transaction can take a moment to appear in the read API.
     }
@@ -135,32 +132,32 @@ async function resolveOnrampTransactionId(
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const response = await transactionService.getTransactions()
+      const response = await transactionService.getTransactions();
       const match = response.data
         ?.filter((transaction) => transaction.type === "BUY")
         .find((transaction) =>
           transactionMatchesOnrampReferences(transaction, references),
-        )
+        );
 
-      if (match?.id) return match.id
+      if (match?.id) return match.id;
     } catch {
       // Retry briefly before falling back to transaction history.
     }
 
     if (attempt < 2) {
-      await new Promise((resolve) => window.setTimeout(resolve, 750))
+      await new Promise((resolve) => window.setTimeout(resolve, 750));
     }
   }
 
-  return null
+  return null;
 }
 
 export default function BuyCryptoFlow({
   onAttemptClose,
 }: {
-  onAttemptClose: (hasStarted: boolean) => void
+  onAttemptClose: (hasStarted: boolean) => void;
 }) {
-  const router = useRouter()
+  const router = useRouter();
   const {
     step,
     asset,
@@ -176,65 +173,67 @@ export default function BuyCryptoFlow({
     setCountryAndCurrency,
     setBankId,
     setStep,
-  } = useBuyCryptoState()
+  } = useBuyCryptoState();
 
   // Local UI state
-  const [isCountryModalOpen, setIsCountryModalOpen] = useState(false)
-  const [isBankModalOpen, setIsBankModalOpen] = useState(false)
-  const paymentRail = ACTIVE_PAYMENT_RAIL
-  const paymentRailConfig = getPaymentRailConfig(paymentRail)
-  const paymentMethod = paymentRailConfig.apiValue
-  const [savedBanks, setSavedBanks] = useState<BankDetail[]>([])
+  const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const paymentRail = ACTIVE_PAYMENT_RAIL;
+  const paymentRailConfig = getPaymentRailConfig(paymentRail);
+  const paymentMethod = paymentRailConfig.apiValue;
+  const [savedBanks, setSavedBanks] = useState<BankDetail[]>([]);
   const [selectedProviderBank, setSelectedProviderBank] =
-    useState<SelectableBank | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+    useState<SelectableBank | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [initializedOrder, setInitializedOrder] =
-    useState<OnrampResponse | null>(null)
-  const [isCompletingOrder, setIsCompletingOrder] = useState(false)
-  const [isFetchingInstructions, setIsFetchingInstructions] = useState(false)
-  const [instructionsError, setInstructionsError] = useState<string | null>(null)
+    useState<OnrampResponse | null>(null);
+  const [isCompletingOrder, setIsCompletingOrder] = useState(false);
+  const [isFetchingInstructions, setIsFetchingInstructions] = useState(false);
+  const [instructionsError, setInstructionsError] = useState<string | null>(
+    null,
+  );
   const [providerRateSnapshots, setProviderRateSnapshots] = useState<
     Record<string, ProviderRateSnapshot>
-  >({})
+  >({});
 
   // Track if amount was set via input (desktop) or keypad (mobile)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isDesktopAmountValid, setIsDesktopAmountValid] = useState(false)
+  const [isDesktopAmountValid, setIsDesktopAmountValid] = useState(false);
 
   // Country detection (stable callback)
   const handleCountryDetected = useCallback(
     (detectedCountry: string, detectedCurrency: string) => {
-      setCountryAndCurrency(detectedCountry, detectedCurrency, "auto")
+      setCountryAndCurrency(detectedCountry, detectedCurrency, "auto");
     },
     [setCountryAndCurrency],
-  )
+  );
 
   const { isDetecting: isDetectingCountry } = useCountryDetection(
     country,
     countrySource,
     handleCountryDetected,
-  )
+  );
 
   // Derived values
   const fiatCurrency = useMemo(
     () => getCurrencyForCountry(country || "US"),
     [country],
-  )
+  );
   const fiatSymbol = useMemo(
     () => getCurrencySymbol(fiatCurrency),
     [fiatCurrency],
-  )
+  );
   const decimals = useMemo(
     () => getCurrencyDecimals(fiatCurrency),
     [fiatCurrency],
-  )
+  );
   const selectedChain = useMemo(
     () => (networkId ? getChainById(networkId) : null),
     [networkId],
-  )
+  );
 
   // Exchange rate
-  const { exchangeRate, isRateLoading } = useExchangeRate(fiatCurrency, asset)
+  const { exchangeRate, isRateLoading } = useExchangeRate(fiatCurrency, asset);
 
   // Providers
   const {
@@ -242,24 +241,24 @@ export default function BuyCryptoFlow({
     selectedProviderId,
     setSelectedProviderId,
     isLoadingProviders,
-  } = useProviders(country, asset, networkName, fiatCurrency)
+  } = useProviders(country, asset, networkName, fiatCurrency);
 
   // Derived amount values
   const cryptoAmountValue = useMemo(() => {
-    if (!amount || exchangeRate === 0) return 0
-    return Number(amount) / exchangeRate
-  }, [amount, exchangeRate])
+    if (!amount || exchangeRate === 0) return 0;
+    return Number(amount) / exchangeRate;
+  }, [amount, exchangeRate]);
 
   const isAmountValid = useMemo(() => {
-    const numAmount = parseFloat(amount)
-    if (isNaN(numAmount) || numAmount <= 0) return false
-    return cryptoAmountValue >= MIN_CRYPTO_THRESHOLD
-  }, [cryptoAmountValue, amount])
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0) return false;
+    return cryptoAmountValue >= MIN_STABLECOIN_AMOUNT;
+  }, [cryptoAmountValue, amount]);
 
-  const fiatAmountNum = useMemo(() => parseFloat(amount) || 0, [amount])
+  const fiatAmountNum = useMemo(() => parseFloat(amount) || 0, [amount]);
 
   // Provider-specific rates (only when step is "provider" and inputs are valid)
-  const showRates = step === "provider" && isAmountValid && fiatAmountNum > 0
+  const showRates = step === "provider" && isAmountValid && fiatAmountNum > 0;
   const { rates: providerRates, isLoadingRates } = useProviderRates({
     providers: showRates ? providers : [],
     asset,
@@ -268,66 +267,66 @@ export default function BuyCryptoFlow({
     networkName,
     isAmountValid: showRates,
     isLoadingProviders,
-  })
+  });
   const selectedProvider =
-    providers.find((provider) => provider.id === selectedProviderId) || null
+    providers.find((provider) => provider.id === selectedProviderId) || null;
   const selectedProviderRate = selectedProviderId
     ? providerRates[selectedProviderId] ||
       providerRateSnapshots[selectedProviderId] ||
       null
-    : null
+    : null;
   const selectedProviderRawRate =
     selectedProviderRate?.rawRate && selectedProviderRate.rawRate > 0
       ? selectedProviderRate.rawRate
-      : undefined
-  const hasSelectedProviderRate = Boolean(selectedProviderRawRate)
-  const selectedBank = savedBanks.find((bank) => bank.id === bankId) || null
+      : undefined;
+  const hasSelectedProviderRate = Boolean(selectedProviderRawRate);
+  const selectedBank = savedBanks.find((bank) => bank.id === bankId) || null;
 
   useEffect(() => {
-    setProviderRateSnapshots({})
-  }, [asset, fiatAmountNum, fiatCurrency, networkName])
+    setProviderRateSnapshots({});
+  }, [asset, fiatAmountNum, fiatCurrency, networkName]);
 
   useEffect(() => {
     setProviderRateSnapshots((currentSnapshots) => {
-      let hasChanges = false
-      const nextSnapshots = { ...currentSnapshots }
+      let hasChanges = false;
+      const nextSnapshots = { ...currentSnapshots };
 
       Object.entries(providerRates).forEach(([providerId, rateDetails]) => {
-        if (!rateDetails?.rawRate || rateDetails.rawRate <= 0) return
+        if (!rateDetails?.rawRate || rateDetails.rawRate <= 0) return;
 
-        const currentRate = currentSnapshots[providerId]
+        const currentRate = currentSnapshots[providerId];
         if (
           currentRate?.rawRate === rateDetails.rawRate &&
           currentRate?.cryptoAmount === rateDetails.cryptoAmount &&
           currentRate?.fiatAmount === rateDetails.fiatAmount
         ) {
-          return
+          return;
         }
 
         nextSnapshots[providerId] = {
           cryptoAmount: rateDetails.cryptoAmount,
           fiatAmount: rateDetails.fiatAmount,
           rawRate: rateDetails.rawRate,
-        }
-        hasChanges = true
-      })
+        };
+        hasChanges = true;
+      });
 
-      return hasChanges ? nextSnapshots : currentSnapshots
-    })
-  }, [providerRates])
+      return hasChanges ? nextSnapshots : currentSnapshots;
+    });
+  }, [providerRates]);
 
   const requiresRefundBank =
-    selectedProvider?.name?.toLowerCase() === "paycrest"
+    selectedProvider?.name?.toLowerCase() === "paycrest";
   const flowSteps = useMemo(
     (): readonly VisibleFlowStep[] =>
       requiresRefundBank ? STEPS : DEFAULT_FLOW_STEPS,
     [requiresRefundBank],
-  )
-  const currentStepIndex = Math.max(0, flowSteps.indexOf(step))
-  const hasTransferInstructions = Boolean(initializedOrder?.providerAccount)
+  );
+  const currentStepIndex = Math.max(0, flowSteps.indexOf(step));
+  const hasTransferInstructions = Boolean(initializedOrder?.providerAccount);
   const isCentiivOrderInitialized = Boolean(
     initializedOrder && selectedProvider?.name?.toLowerCase() === "centiiv",
-  )
+  );
   const stepTitle =
     step === "provider"
       ? "Choose Provider"
@@ -339,59 +338,59 @@ export default function BuyCryptoFlow({
             ? hasTransferInstructions || isCentiivOrderInitialized
               ? "Transfer Instructions"
               : "Review Order"
-            : "Buy Crypto"
+            : "Buy Crypto";
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     const loadBanks = async () => {
       try {
-        const response = await bankService.getBanks()
+        const response = await bankService.getBanks();
         if (!cancelled) {
-          setSavedBanks(response.data || [])
+          setSavedBanks(response.data || []);
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("Failed to load banks", error)
+          console.error("Failed to load banks", error);
         }
       }
-    }
+    };
 
-    loadBanks()
+    loadBanks();
 
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   // Handlers
   const handleKeypadPress = (val: string) => {
-    let nextAmount = amount
+    let nextAmount = amount;
     if (val === "clear") {
-      nextAmount = ""
+      nextAmount = "";
     } else if (val === "delete") {
-      nextAmount = amount.slice(0, -1)
+      nextAmount = amount.slice(0, -1);
     } else if (val === "." && (amount.includes(".") || decimals === 0)) {
-      return
+      return;
     } else if (amount === "0" && val !== ".") {
-      nextAmount = val
+      nextAmount = val;
     } else {
-      nextAmount = amount + val
+      nextAmount = amount + val;
     }
-    setAmount(nextAmount)
-  }
+    setAmount(nextAmount);
+  };
 
   const handleAmountChange = (value: string) => {
     // Validate amount format (allow numbers with up to 2 decimals)
-    const regex = /^\d*\.?\d{0,2}$/
+    const regex = /^\d*\.?\d{0,2}$/;
     if (regex.test(value) || value === "") {
-      setAmount(value)
+      setAmount(value);
       // Validate if amount is valid
-      const numValue = parseFloat(value)
-      const isValid = !isNaN(numValue) && numValue > 0
-      setIsDesktopAmountValid(isValid)
+      const numValue = parseFloat(value);
+      const isValid = !isNaN(numValue) && numValue > 0;
+      setIsDesktopAmountValid(isValid);
     }
-  }
+  };
 
   const confirmPurchase = async () => {
     if (
@@ -406,16 +405,16 @@ export default function BuyCryptoFlow({
         !hasSelectedProviderRate
           ? "Rate unavailable. Please select a provider with an active rate."
           : "Complete the order details before initializing payment",
-      )
-      return
+      );
+      return;
     }
 
-    setIsSubmitting(true)
-    setInitializedOrder(null)
-    setInstructionsError(null)
+    setIsSubmitting(true);
+    setInitializedOrder(null);
+    setInstructionsError(null);
     try {
-      const chainBlocked = chainStatus.blockedMessage(networkName, "in")
-      if (chainBlocked) throw new Error(chainBlocked)
+      const chainBlocked = chainStatus.blockedMessage(networkName, "in");
+      if (chainBlocked) throw new Error(chainBlocked);
       const payload: OnrampInitRequest = {
         fiatAmount: fiatAmountNum,
         fiatCurrency,
@@ -429,51 +428,51 @@ export default function BuyCryptoFlow({
         paymentMethod,
         providerId: selectedProvider.id,
         source: "web",
-      }
+      };
 
       if (selectedBank) {
-        payload.bankId = selectedBank.id
-        payload.bankAccountId = selectedBank.id
-        payload.refundBankId = selectedBank.id
+        payload.bankId = selectedBank.id;
+        payload.bankAccountId = selectedBank.id;
+        payload.refundBankId = selectedBank.id;
         payload.refundAccount = {
           bankName: selectedBank.bankName,
           bankCode: selectedBank.bankCode,
           accountNumber: selectedBank.accountNumber,
           accountName: selectedBank.accountName,
-        }
+        };
       }
 
-      const providerName = selectedProvider.name.toLowerCase()
-      let response
+      const providerName = selectedProvider.name.toLowerCase();
+      let response;
 
       if (providerName === "paycrest") {
-        response = await onrampService.initiatePaycrest(payload)
+        response = await onrampService.initiatePaycrest(payload);
       } else if (providerName === "centiiv") {
-        response = await onrampService.initiateCentiiv(payload)
+        response = await onrampService.initiateCentiiv(payload);
       } else if (providerName === "transak") {
-        response = await onrampService.initiateTransak(payload)
+        response = await onrampService.initiateTransak(payload);
       } else if (providerName === "moonpay") {
-        response = await onrampService.initiateMoonpay(payload)
+        response = await onrampService.initiateMoonpay(payload);
       } else if (providerName === "quidax") {
-        response = await onrampService.initiateQuidax(payload)
+        response = await onrampService.initiateQuidax(payload);
       } else if (providerName === "paychant") {
-        response = await onrampService.initiatePaychant(payload)
+        response = await onrampService.initiatePaychant(payload);
       } else if (providerName === "paybis") {
-        response = await onrampService.initiatePaybis(payload)
+        response = await onrampService.initiatePaybis(payload);
       } else {
-        response = await onrampService.initiateRamp(payload)
+        response = await onrampService.initiateRamp(payload);
       }
 
       const redirectUrl =
         response.data?.checkoutUrl ||
         response.data?.paymentUrl ||
         response.data?.redirectUrl ||
-        response.data?.url
+        response.data?.url;
 
       if (redirectUrl) {
-        toast.success("Payment initialized. Redirecting...")
-        window.location.assign(redirectUrl)
-        return
+        toast.success("Payment initialized. Redirecting...");
+        window.location.assign(redirectUrl);
+        return;
       }
 
       const initializedResponse = response.data
@@ -482,71 +481,70 @@ export default function BuyCryptoFlow({
             fiatCurrency,
             fiatAmountNum,
           )
-        : null
+        : null;
 
       if (initializedResponse?.providerAccount) {
-        setInitializedOrder(initializedResponse)
+        setInitializedOrder(initializedResponse);
         toast.success(
           initializedResponse.message ||
             "Payment details ready. Send the exact amount.",
-        )
-        return
+        );
+        return;
       }
 
       if (providerName === "centiiv" && initializedResponse) {
-        setInitializedOrder(initializedResponse)
-        toast.success("Payment initialized. Fetching account details...")
-        await pollCentiivTransferInstructions(initializedResponse)
-        return
+        setInitializedOrder(initializedResponse);
+        toast.success("Payment initialized. Fetching account details...");
+        await pollCentiivTransferInstructions(initializedResponse);
+        return;
       }
 
       const successMessage =
         response.data?.message ||
         (response.data?.paymentDetails
           ? "Payment initialized. Use the payment details to complete your order."
-          : "Payment initialized")
+          : "Payment initialized");
 
-      toast.success(successMessage)
+      toast.success(successMessage);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to initialize payment",
-      )
+      );
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const pollCentiivTransferInstructions = useCallback(
     async (order: OnrampResponse): Promise<boolean> => {
-      const { orderId, transactionId } = getCentiivPollingReferences(order)
-      setIsFetchingInstructions(true)
-      setInstructionsError(null)
+      const { orderId, transactionId } = getCentiivPollingReferences(order);
+      setIsFetchingInstructions(true);
+      setInstructionsError(null);
 
       if (!orderId && !transactionId) {
-        setIsFetchingInstructions(false)
+        setIsFetchingInstructions(false);
         setInstructionsError(
           "The payment was initialized, but no tracking reference was returned.",
-        )
-        return false
+        );
+        return false;
       }
 
       for (let attempt = 0; attempt < CENTIIV_MAX_POLL_ATTEMPTS; attempt++) {
         await new Promise((resolve) =>
           window.setTimeout(resolve, CENTIIV_POLL_INTERVAL_MS),
-        )
+        );
 
-        let providerAccount = null
+        let providerAccount = null;
 
         if (orderId) {
           try {
-            const orderResponse = await onrampService.getCentiivOrderStatus(
-              orderId,
-            )
+            const orderResponse =
+              await onrampService.getCentiivOrderStatus(orderId);
             providerAccount = extractOnrampTransferInstructions(
               orderResponse.data,
               fiatCurrency,
               fiatAmountNum,
-            )
+            );
           } catch {
             // The transaction record below is the fallback when order polling
             // is temporarily unavailable or the webhook has already landed.
@@ -556,12 +554,12 @@ export default function BuyCryptoFlow({
         if (!providerAccount && transactionId) {
           try {
             const transactionResponse =
-              await transactionService.getTransaction(transactionId)
+              await transactionService.getTransaction(transactionId);
             providerAccount = extractOnrampTransferInstructions(
               transactionResponse.data,
               fiatCurrency,
               fiatAmountNum,
-            )
+            );
           } catch {
             // Keep polling: Centiiv may still be assigning the virtual account.
           }
@@ -571,71 +569,75 @@ export default function BuyCryptoFlow({
           setInitializedOrder((currentOrder) => ({
             ...(currentOrder || order),
             providerAccount,
-          }))
-          setIsFetchingInstructions(false)
-          toast.success("Transfer account ready")
-          return true
+          }));
+          setIsFetchingInstructions(false);
+          toast.success("Transfer account ready");
+          return true;
         }
       }
 
-      setIsFetchingInstructions(false)
+      setIsFetchingInstructions(false);
       setInstructionsError(
         "Bank details are taking longer than expected. Retry without creating another payment.",
-      )
-      return false
+      );
+      return false;
     },
     [fiatAmountNum, fiatCurrency],
-  )
+  );
 
   const retryCentiivInstructions = useCallback(() => {
-    if (!initializedOrder || isFetchingInstructions) return
-    void pollCentiivTransferInstructions(initializedOrder)
-  }, [initializedOrder, isFetchingInstructions, pollCentiivTransferInstructions])
+    if (!initializedOrder || isFetchingInstructions) return;
+    void pollCentiivTransferInstructions(initializedOrder);
+  }, [
+    initializedOrder,
+    isFetchingInstructions,
+    pollCentiivTransferInstructions,
+  ]);
 
   const confirmMoneySent = async () => {
-    setIsCompletingOrder(true)
+    setIsCompletingOrder(true);
     try {
-      const transactionId = await resolveOnrampTransactionId(initializedOrder)
+      const transactionId = await resolveOnrampTransactionId(initializedOrder);
 
       if (transactionId) {
-        toast.success("Payment marked as sent")
-        router.replace(getTransactionDetailsPath(transactionId, "flow"))
-        return
+        toast.success("Payment marked as sent");
+        router.replace(getTransactionDetailsPath(transactionId, "flow"));
+        return;
       }
 
       toast.success(
         "Payment marked as sent. Your transaction is still syncing.",
-      )
-      router.push("/transactions")
+      );
+      router.push("/transactions");
     } catch {
       toast.error(
         "Payment was submitted, but we could not open its details. Check your transaction history shortly.",
-      )
-      router.push("/transactions")
+      );
+      router.push("/transactions");
     } finally {
-      setIsCompletingOrder(false)
+      setIsCompletingOrder(false);
     }
-  }
+  };
 
   // Step navigation
   const goBack = () => {
-    if (step === "amount") setStep("asset")
-    else if (step === "provider") setStep("amount")
-    else if (step === "bank") setStep("provider")
+    if (step === "amount") setStep("asset");
+    else if (step === "provider") setStep("amount");
+    else if (step === "bank") setStep("provider");
     else if (step === "review")
-      setStep(requiresRefundBank ? "bank" : "provider")
-    else onAttemptClose(false)
-  }
+      setStep(requiresRefundBank ? "bank" : "provider");
+    else onAttemptClose(false);
+  };
 
   // Sync amount validity for desktop
   useEffect(() => {
     if (step === "amount") {
       // Ensure amount validity is in sync
       const isValid =
-        parseFloat(amount) > 0 && cryptoAmountValue >= MIN_CRYPTO_THRESHOLD
-      setIsDesktopAmountValid(isValid)
+        parseFloat(amount) > 0 && cryptoAmountValue >= MIN_STABLECOIN_AMOUNT;
+      setIsDesktopAmountValid(isValid);
     }
-  }, [amount, cryptoAmountValue, step])
+  }, [amount, cryptoAmountValue, step]);
 
   return (
     <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] md:pt-20">
@@ -689,7 +691,7 @@ export default function BuyCryptoFlow({
             onKeypadPress={handleKeypadPress}
             onContinue={() => {
               if (isAmountValid) {
-                setStep("provider")
+                setStep("provider");
               }
             }}
             onAmountChange={handleAmountChange}
@@ -710,10 +712,10 @@ export default function BuyCryptoFlow({
               if (!hasSelectedProviderRate) {
                 toast.error(
                   "Rate unavailable. Please select another provider or try again.",
-                )
-                return
+                );
+                return;
               }
-              setStep(requiresRefundBank ? "bank" : "review")
+              setStep(requiresRefundBank ? "bank" : "review");
             }}
             providerRates={providerRates}
             isRatesLoading={isLoadingRates}
@@ -739,20 +741,20 @@ export default function BuyCryptoFlow({
             selectedProviderName={selectedProvider?.name || null}
             selectedProviderBank={selectedProviderBank}
             onSelectProviderBank={(bank) => {
-              setSelectedProviderBank(bank)
-              if (bank) setBankId(null)
+              setSelectedProviderBank(bank);
+              if (bank) setBankId(null);
             }}
             onSelectSavedBank={(bank) => {
-              setSelectedProviderBank(null)
-              setBankId(bank.id)
+              setSelectedProviderBank(null);
+              setBankId(bank.id);
             }}
             onOpenBankModal={() => setIsBankModalOpen(true)}
             onAddVerifiedBank={(bank) => {
               setSavedBanks((current) => {
-                const exists = current.some((item) => item.id === bank.id)
-                return exists ? current : [bank, ...current]
-              })
-              setBankId(bank.id)
+                const exists = current.some((item) => item.id === bank.id);
+                return exists ? current : [bank, ...current];
+              });
+              setBankId(bank.id);
             }}
             onContinue={() => selectedBank && setStep("review")}
           />
@@ -789,7 +791,7 @@ export default function BuyCryptoFlow({
         selectedCountry={country || "NG"}
         countries={SUPPORTED_RAMP_COUNTRIES}
         onSelect={(code) => {
-          setCountryAndCurrency(code, getCurrencyForCountry(code), "manual")
+          setCountryAndCurrency(code, getCurrencyForCountry(code), "manual");
         }}
       />
 
@@ -800,10 +802,10 @@ export default function BuyCryptoFlow({
         providerName={selectedProvider?.name || null}
         selectedBankCode={selectedProviderBank?.value || null}
         onSelectBank={(bank) => {
-          setSelectedProviderBank(bank)
-          setBankId(null)
+          setSelectedProviderBank(bank);
+          setBankId(null);
         }}
       />
     </div>
-  )
+  );
 }

@@ -7,6 +7,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { cn } from "@/lib/utils";
 import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
+import {
+  isStablecoinAmountWithinBalance,
+  MIN_STABLECOIN_AMOUNT,
+} from "@/lib/stablecoin-amounts";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import BridgeDeficitButton from "@/components/wallet/bridge/BridgeDeficitButton";
@@ -60,9 +64,13 @@ export function WithdrawAmountEntryStep({
             /^\d+(\.\d{0,6})?$/,
             "Invalid amount format (max 6 decimal places)",
           )
-          .refine((value) => Number(value) > 0, "Amount must be greater than 0")
           .refine(
-            (value) => Number(value) <= assetBalance,
+            (value) => Number(value) >= MIN_STABLECOIN_AMOUNT,
+            `Minimum withdrawal is ${MIN_STABLECOIN_AMOUNT} ${asset || "stablecoin"}`,
+          )
+          .refine(
+            (value) =>
+              isStablecoinAmountWithinBalance(Number(value), assetBalance),
             `Amount cannot exceed your ${formatAssetAmount(assetBalance)} ${asset || "asset"} balance`,
           ),
       }),
@@ -90,7 +98,7 @@ export function WithdrawAmountEntryStep({
   const isAmountValid = form.formState.isValid;
   const isOverBalance =
     Number.isFinite(Number(currentAmount)) &&
-    Number(currentAmount) > assetBalance;
+    !isStablecoinAmountWithinBalance(Number(currentAmount), assetBalance);
   const hasAmount = currentAmount.length > 0;
   const quickAmounts = useMemo(
     () => [
@@ -136,7 +144,7 @@ export function WithdrawAmountEntryStep({
   };
 
   const handleFormSubmit = ({ amount: enteredAmount }: AmountFormValues) => {
-    if (Number(enteredAmount) <= assetBalance) {
+    if (isStablecoinAmountWithinBalance(Number(enteredAmount), assetBalance)) {
       onContinue();
     }
   };
@@ -177,9 +185,7 @@ export function WithdrawAmountEntryStep({
           />
 
           <div className="block w-full lg:hidden">
-            <div
-              className="mb-0 mt-8 flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5"
-            >
+            <div className="mb-0 mt-8 flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5">
               <span className="text-xl font-bold text-gray-400">{asset}</span>
               <span className="inline-flex items-center gap-2">
                 <span className="text-2xl font-bold text-black dark:text-white">
@@ -212,7 +218,6 @@ export function WithdrawAmountEntryStep({
                 </p>
               ) : null}
             </div>
-
           </div>
 
           <div className="hidden w-full lg:block">
@@ -288,7 +293,9 @@ export function WithdrawAmountEntryStep({
               sticky={false}
               onClick={form.handleSubmit(handleFormSubmit)}
               disabled={!isAmountValid}
-              buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
+              buttonClassName={cn(
+                !isAmountValid && "from-gray-400 to-gray-500",
+              )}
               textClassName="text-sm"
               showShimmer={isAmountValid}
             >
