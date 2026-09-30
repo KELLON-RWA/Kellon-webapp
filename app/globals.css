@@ -199,6 +199,13 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Keep the translucent violet gradient on modal shells over an opaque surface. */
+:root:not(.dark) [data-slot="dialog-content"],
+:root:not(.dark) [data-slot="alert-dialog-content"],
+:root:not(.dark) [data-slot="drawer-content"] {
+  background-color: var(--color-gray-90);
+}
+
 @custom-variant vh-xs (@media (min-height: 640px));
 @custom-variant vh-sm (@media (min-height: 720px));
 @custom-variant vh-md (@media (min-height: 820px));

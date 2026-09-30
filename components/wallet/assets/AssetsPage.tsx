@@ -104,7 +104,7 @@ export default function AssetsPage({ profile }: AssetsPageProps) {
       </main>
 
       <Drawer open={isManageOpen} onOpenChange={setIsManageOpen}>
-        <DrawerContent className="rounded-t-[32px] border-none bg-gray-70 outline-none dark:bg-black2 [&>button]:hidden">
+        <DrawerContent className="rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Manage assets</DrawerTitle>
           </DrawerHeader>

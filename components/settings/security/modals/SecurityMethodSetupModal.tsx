@@ -59,7 +59,7 @@ export default function SecurityMethodSetupModal({
 
   return (
     <Dialog open={Boolean(setup)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-none bg-gray-70 dark:bg-black2">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-[28px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2">
         <DialogHeader>
           <DialogTitle>
             {setup?.kind === "totp"

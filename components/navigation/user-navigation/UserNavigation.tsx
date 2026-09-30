@@ -109,7 +109,7 @@ const UserNavigation: FC<{ profile: User }> = ({ profile }) => {
               </div>
             </div>
           </DrawerTrigger>
-          <DrawerContent className="max-h-[96vh] rounded-t-[32px] border-none bg-gray-70 outline-none dark:bg-black2 [&>button]:hidden">
+          <DrawerContent className="max-h-[96vh] rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
             <DrawerHeader className="grid grid-cols-3 items-center border-b border-black/5 dark:border-white/10 pb-4 px-4">
               <div className="flex justify-start">
                 <button

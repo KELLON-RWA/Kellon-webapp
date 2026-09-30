@@ -469,8 +469,8 @@ export default function StockActionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={closeDialog}>
-        <DialogContent className="fixed inset-x-0 bottom-0 top-auto max-h-[90dvh] w-full max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-t-[32px] border-none bg-gray-70 p-0 shadow-2xl outline-none data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom dark:bg-black2 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[calc(100dvh-4rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[32px]">
-          <div className="border-b border-gray-80 bg-gray-70 px-5 py-5 dark:border-white/10 dark:bg-black2">
+        <DialogContent className="fixed inset-x-0 bottom-0 top-auto max-h-[90dvh] w-full max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-0 shadow-2xl outline-none data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom dark:bg-none dark:bg-black2 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[calc(100dvh-4rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[32px]">
+          <div className="border-b border-gray-80 bg-transparent px-5 py-5 dark:border-white/10">
             <DialogHeader>
               <DialogTitle className="text-left text-lg text-cryptoNight dark:text-white">
                 {title}

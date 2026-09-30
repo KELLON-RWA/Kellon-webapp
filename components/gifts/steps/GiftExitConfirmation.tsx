@@ -22,7 +22,7 @@ export default function GiftExitConfirmation({
 }: GiftExitConfirmationProps) {
   return (
     <AlertDialog open={open}>
-      <AlertDialogContent className="w-[92vw] max-w-[340px] rounded-[32px] border-none bg-gray-70 outline-none dark:bg-black2">
+      <AlertDialogContent className="w-[92vw] max-w-[340px] rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-xl font-bold text-black dark:text-white">
             Leave gift flow?

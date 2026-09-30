@@ -556,7 +556,7 @@ export default function EarnActionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={closeDialog}>
-        <DialogContent className="gap-0 overflow-hidden rounded-[32px] border-none bg-gray-70 p-0 outline-none dark:bg-black2 [&>button]:hidden sm:max-w-[425px]">
+        <DialogContent className="gap-0 overflow-hidden rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-0 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden sm:max-w-[425px]">
           <div className="px-5 pt-5">
             <div className="mb-5 flex justify-end">
               <button

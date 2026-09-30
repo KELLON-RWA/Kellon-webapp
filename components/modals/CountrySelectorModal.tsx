@@ -164,7 +164,7 @@ export const CountrySelectorModal: React.FC<CountrySelectorModalProps> = ({
   if (isDesktop) {
     return (
       <Dialog open={isVisible} onOpenChange={onClose}>
-        <DialogContent className="rounded-[32px] border-none bg-gray-70 outline-none dark:bg-black2 sm:max-w-[425px] [&>button]:hidden">
+        <DialogContent className="rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 sm:max-w-[425px] [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>Select Country</DialogTitle>
           </DialogHeader>
@@ -176,7 +176,7 @@ export const CountrySelectorModal: React.FC<CountrySelectorModalProps> = ({
 
   return (
     <Drawer open={isVisible} onOpenChange={onClose}>
-      <DrawerContent className="rounded-t-[32px] border-none bg-gray-70 outline-none focus:outline-none dark:bg-black2 [&>button]:hidden">
+      <DrawerContent className="rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none focus:outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Select Country</DrawerTitle>
         </DrawerHeader>

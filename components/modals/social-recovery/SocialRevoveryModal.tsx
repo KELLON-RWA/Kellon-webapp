@@ -91,7 +91,7 @@ const SocialRecoveryModal: FC<SocialRecoveryModalProps> = ({
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="rounded-t-[32px] border-none bg-gray-70 outline-none dark:bg-black2 [&>button]:hidden">
+        <DrawerContent className="rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
           {srContent}
         </DrawerContent>
       </Drawer>
@@ -100,7 +100,7 @@ const SocialRecoveryModal: FC<SocialRecoveryModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="overflow-hidden rounded-[32px] border-none bg-gray-70 p-0 outline-none dark:bg-black2 sm:max-w-md [&>button]:hidden">
+      <DialogContent className="overflow-hidden rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-0 outline-none dark:bg-none dark:bg-black2 sm:max-w-md [&>button]:hidden">
         {srContent}
       </DialogContent>
     </Dialog>

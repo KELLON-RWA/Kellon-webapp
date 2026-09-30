@@ -26,7 +26,7 @@ export default function BridgeSuccessModal({
 }: BridgeSuccessModalProps) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onDone()}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-[32px] border border-black/5 bg-gray-70 p-6 outline-none dark:border-white/10 dark:bg-black2 [&>button]:hidden">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-[32px] border border-black/5 bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-6 outline-none dark:border-white/10 dark:bg-none dark:bg-black2 [&>button]:hidden">
         <DialogHeader className="sr-only">
           <DialogTitle>Bridge submitted</DialogTitle>
         </DialogHeader>

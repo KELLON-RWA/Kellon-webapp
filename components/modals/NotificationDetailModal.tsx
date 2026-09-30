@@ -200,7 +200,7 @@ export default function NotificationDetailModal({
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] max-w-[460px] overflow-y-auto rounded-[32px] border-none bg-gray-70 p-6 outline-none dark:bg-black2 [&>button]:hidden">
+        <DialogContent className="max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] max-w-[460px] overflow-y-auto rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-6 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>{display.title}</DialogTitle>
           </DialogHeader>
@@ -212,7 +212,7 @@ export default function NotificationDetailModal({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[82dvh] overflow-y-auto rounded-t-[32px] border-none bg-gray-70 outline-none dark:bg-black2 [&>button]:hidden">
+      <DrawerContent className="max-h-[82dvh] overflow-y-auto rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>{display.title}</DrawerTitle>
         </DrawerHeader>

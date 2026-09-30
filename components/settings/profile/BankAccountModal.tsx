@@ -120,7 +120,7 @@ const BankAccountModal: FC<BankAccountModalProps> = ({
         </button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md bg-gray-70 dark:bg-black2 border-none p-0 overflow-hidden rounded-[32px] outline-none [&>button]:hidden">
+      <DialogContent className="sm:max-w-md bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2 border-none p-0 overflow-hidden rounded-[32px] outline-none [&>button]:hidden">
         <div className="relative h-[85vh] sm:h-[700px] flex flex-col">
           <div className="flex items-center justify-between px-6 py-5">
             <button

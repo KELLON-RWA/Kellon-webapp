@@ -748,7 +748,7 @@ export default function BridgeFundingOverlay({
         <Dialog open={Boolean(request)} onOpenChange={onOpenChange}>
           <DialogContent
             showCloseButton={false}
-            className="w-full overflow-hidden rounded-[28px] border-black/10 bg-white p-0 sm:max-w-2xl dark:border-white/10 dark:bg-cryptoNight"
+            className="w-full overflow-hidden rounded-[28px] border-black/10 bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-0 sm:max-w-2xl dark:border-white/10 dark:bg-none dark:bg-cryptoNight"
           >
             <DialogTitle className="sr-only">Bridge and fund wallet</DialogTitle>
             <DialogDescription className="sr-only">
@@ -765,7 +765,7 @@ export default function BridgeFundingOverlay({
   return (
     <>
       <Drawer open={Boolean(request)} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[92dvh] rounded-t-[28px] border-white/10 bg-white dark:bg-cryptoNight">
+        <DrawerContent className="max-h-[92dvh] rounded-t-[28px] border-white/10 bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-cryptoNight">
           <DrawerTitle className="sr-only">Bridge and fund wallet</DrawerTitle>
           <DrawerDescription className="sr-only">
             Combine balances from other networks to fund this transaction.

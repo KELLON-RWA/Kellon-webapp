@@ -297,7 +297,7 @@ export function AmountEntryStep({
       ) : null}
 
       <Drawer open={isAmountEditorOpen} onOpenChange={setIsAmountEditorOpen}>
-        <DrawerContent className="lg:hidden rounded-t-[28px] border-black/5 bg-gray-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 dark:border-white/10 dark:bg-secondary-50 [&>div:first-child]:hidden">
+        <DrawerContent className="lg:hidden rounded-t-[28px] border-black/5 bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 dark:border-white/10 dark:bg-none dark:bg-secondary-50 [&>div:first-child]:hidden">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Enter amount</DrawerTitle>
           </DrawerHeader>

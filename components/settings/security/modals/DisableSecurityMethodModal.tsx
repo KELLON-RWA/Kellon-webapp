@@ -49,7 +49,7 @@ export default function DisableSecurityMethodModal({
       open={action !== null}
       onOpenChange={(open) => !open && onClose()}
     >
-      <AlertDialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[28px] border border-black/5 bg-white p-6 outline-none dark:border-white/10 dark:bg-black2">
+      <AlertDialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[28px] border border-black/5 bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-6 outline-none dark:border-white/10 dark:bg-none dark:bg-black2">
         <AlertDialogHeader className="!place-items-center !text-center sm:!place-items-center sm:!text-center">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400">
             <TriangleAlert className="h-6 w-6" aria-hidden="true" />

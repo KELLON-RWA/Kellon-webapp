@@ -138,7 +138,7 @@ export default function NetworkPicker({
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <DialogContent className="rounded-[28px] border-none bg-gray-70 p-6 outline-none dark:bg-black2 sm:max-w-[420px] [&>button]:hidden">
+        <DialogContent className="rounded-[28px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-6 outline-none dark:bg-none dark:bg-black2 sm:max-w-[420px] [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>Select network</DialogTitle>
           </DialogHeader>
@@ -151,7 +151,7 @@ export default function NetworkPicker({
   return (
     <Drawer open={isOpen} onOpenChange={setIsOpen}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      <DrawerContent className="max-h-[90dvh] rounded-t-[28px] border-none bg-gray-70 outline-none dark:bg-black2 [&>button]:hidden">
+      <DrawerContent className="max-h-[90dvh] rounded-t-[28px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Select network</DrawerTitle>
         </DrawerHeader>

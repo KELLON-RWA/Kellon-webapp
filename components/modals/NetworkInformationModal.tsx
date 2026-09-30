@@ -132,7 +132,7 @@ const NetworkInformationModal: FC<NetworkInformationModalProps> = ({
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="rounded-t-[32px] border-none bg-gray-70 outline-none dark:bg-black2 [&>button]:hidden">
+        <DrawerContent className="rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Network Information</DrawerTitle>
             <DrawerDescription>
@@ -147,7 +147,7 @@ const NetworkInformationModal: FC<NetworkInformationModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="rounded-[32px] border-none bg-gray-70 outline-none dark:bg-black2 sm:max-w-md [&>button]:hidden">
+      <DialogContent className="rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 sm:max-w-md [&>button]:hidden">
         <DialogHeader className="sr-only">
           <DialogTitle>Network Information</DialogTitle>
           <DialogDescription>

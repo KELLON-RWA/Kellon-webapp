@@ -84,7 +84,7 @@ const AddFundsModal: FC<AddFundsModalProps> = ({
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[425px] bg-gray-70 dark:bg-black2 border-none rounded-[32px] outline-none [&>button]:hidden">
+        <DialogContent className="sm:max-w-[425px] bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2 border-none rounded-[32px] outline-none [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>Add Funds</DialogTitle>
           </DialogHeader>
@@ -96,7 +96,7 @@ const AddFundsModal: FC<AddFundsModalProps> = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="bg-gray-70 dark:bg-black2 border-none rounded-t-[32px] outline-none [&>button]:hidden">
+      <DrawerContent className="bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2 border-none rounded-t-[32px] outline-none [&>button]:hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Add Funds</DrawerTitle>
         </DrawerHeader>

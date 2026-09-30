@@ -120,7 +120,7 @@ export default function PaymentMethodModal({
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[400px] bg-gray-70 dark:bg-black2 border-none rounded-[32px] outline-none [&>button]:hidden">
+        <DialogContent className="sm:max-w-[400px] bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2 border-none rounded-[32px] outline-none [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>Select Payment Method</DialogTitle>
           </DialogHeader>
@@ -132,7 +132,7 @@ export default function PaymentMethodModal({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="bg-gray-70 dark:bg-black2  border-none rounded-t-[32px] outline-none [&>button]:hidden">
+      <DrawerContent className="bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2 border-none rounded-t-[32px] outline-none [&>button]:hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Select Payment Method</DrawerTitle>
         </DrawerHeader>

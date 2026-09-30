@@ -96,7 +96,7 @@ export default function SecureSessionRequiredDialog() {
     <AlertDialog open={open}>
       <AlertDialogContent
         aria-describedby="secure-session-description"
-        className="w-[calc(100%-2rem)] max-w-sm rounded-[32px] border-none bg-gray-70 p-6 outline-none dark:bg-black2"
+        className="w-[calc(100%-2rem)] max-w-sm rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-6 outline-none dark:bg-none dark:bg-black2"
         onEscapeKeyDown={(event) => event.preventDefault()}
       >
         <AlertDialogHeader className="!place-items-center !text-center sm:!place-items-center sm:!text-center">

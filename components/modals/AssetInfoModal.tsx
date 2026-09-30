@@ -93,7 +93,7 @@ export default function AssetInfoModal({
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-[32px] border-none bg-gray-70 outline-none dark:bg-black2 sm:max-w-[425px] [&>button]:hidden">
+        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 sm:max-w-[425px] [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>About {assetInfo.name}</DialogTitle>
           </DialogHeader>
@@ -105,7 +105,7 @@ export default function AssetInfoModal({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="rounded-t-[32px] border-none bg-gray-70 outline-none dark:bg-black2 [&>button]:hidden">
+      <DrawerContent className="rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>About {assetInfo.name}</DrawerTitle>
         </DrawerHeader>
