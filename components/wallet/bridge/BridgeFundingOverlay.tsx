@@ -29,6 +29,8 @@ import {
   type BridgeProvider,
   type FundingPlan,
 } from "@/services/api/bridge"
+import { bridgeOutbox } from "@/services/api/bridge-outbox"
+import { yieldService } from "@/services/api/yield"
 import {
   findTransferVerificationRequiredError,
   getAvailableVerificationMethods,
@@ -81,6 +83,7 @@ type SubmittedBridge = {
   provider: BridgeProvider
   txHash: string
   sourceChain: string
+  groupId?: string
 }
 
 type FundingSourceStatus =
@@ -114,6 +117,7 @@ async function waitForBridge(bridge: SubmittedBridge, setup: FundingSetup) {
         fromChain: bridge.sourceChain,
         toChain: setup.targetChain,
         symbol: setup.symbol,
+        groupId: bridge.groupId,
       })
       const status = (result.status || "").toLowerCase()
       if (TERMINAL_STATUSES.has(status)) return COMPLETE_STATUSES.has(status)
@@ -163,7 +167,7 @@ export default function BridgeFundingOverlay({
     () =>
       (setup?.sources || []).filter(
         (source) =>
-          source.chainType === "evm" &&
+          source.chainType !== "solana" &&
           source.chainKey !== setup?.targetChain,
       ),
     [setup?.sources, setup?.targetChain],
@@ -338,24 +342,15 @@ export default function BridgeFundingOverlay({
     let activeSourceChain: string | null = null
 
     try {
-      if (!walletsReady) {
-        throw new Error("Wallet is still loading. Please try again.")
-      }
-      const embeddedWallet = wallets.find(
-        (wallet) =>
-          wallet.walletClientType === "privy" && wallet.address.startsWith("0x"),
-      )
-      if (!embeddedWallet) {
-        throw new Error("Your embedded wallet is unavailable. Please log in again.")
-      }
-
       if (code && verification) {
         setStickyVerificationCode({ type: verification.selectedMethod, code })
       } else {
         setStickyVerificationCode(null)
       }
 
-      const execution = await bridgeService.executePlan(plan, setup.targetChain)
+      const execution = await bridgeService.executePlan(plan, setup.targetChain, {
+        targetToken: setup.symbol,
+      })
       if (execution.steps.length === 0) {
         toast.success("The required funds are already on the destination network")
         await reconcileBalances([])
@@ -383,26 +378,6 @@ export default function BridgeFundingOverlay({
 
         updateSourceExecution(normalizedSourceChain, { status: "signing" })
 
-        const transactions = [step.approveTx, step.bridgeTx].filter(Boolean)
-        if (transactions.some((transaction) => transaction?.serializedTx)) {
-          throw new Error(
-            "A selected source requires a signer that is not available on web yet.",
-          )
-        }
-        if (transactions.some((transaction) => !transaction?.to)) {
-          throw new Error("The backend returned incomplete bridge instructions.")
-        }
-
-        const smartAccount = await getSmartAccountClient(
-          embeddedWallet,
-          normalizedSourceChain,
-        )
-        if (!smartAccount) {
-          throw new Error(
-            `Could not initialize your ${getChainLabel(step.sourceChain)} account.`,
-          )
-        }
-
         const sourceAmount = Number(
           plan.sources.find(
             (source) =>
@@ -410,29 +385,86 @@ export default function BridgeFundingOverlay({
               normalizeBridgeChain(step.sourceChain),
           )?.amount || 0,
         )
-        setStickyTransferMeta({
-          amount: sourceAmount,
-          symbol: setup.symbol,
-          toAddress: step.bridgeTx.to || "",
-        })
+        const transactions = [step.approveTx, step.bridgeTx].filter(Boolean)
+        let hash: string
+        if (normalizedSourceChain === "stellar") {
+          const stellarTransactions = transactions.filter(
+            (transaction) => transaction?.serializedTx || transaction?.data,
+          )
+          if (stellarTransactions.length !== transactions.length) {
+            throw new Error("The backend returned a non-Stellar bridge payload.")
+          }
+          if (stellarTransactions.length === 0) {
+            throw new Error("The backend returned no Stellar bridge payload.")
+          }
+          hash = ""
+          for (const transaction of stellarTransactions) {
+            const result = await yieldService.executeStellar(
+              "bridge",
+              String(sourceAmount),
+              transaction?.serializedTx || transaction?.data || "",
+              "supply",
+            )
+            hash = result.data?.txHash || ""
+            if (!hash) throw new Error("The Stellar bridge transaction failed.")
+          }
+        } else {
+          if (!walletsReady) {
+            throw new Error("Wallet is still loading. Please try again.")
+          }
+          const embeddedWallet = wallets.find(
+            (wallet) =>
+              wallet.walletClientType === "privy" &&
+              wallet.address.startsWith("0x"),
+          )
+          if (!embeddedWallet) {
+            throw new Error(
+              "Your embedded wallet is unavailable. Please log in again.",
+            )
+          }
+          if (transactions.some((transaction) => transaction?.serializedTx)) {
+            throw new Error("The backend returned a non-EVM bridge payload.")
+          }
+          if (transactions.some((transaction) => !transaction?.to)) {
+            throw new Error("The backend returned incomplete bridge instructions.")
+          }
+          const smartAccount = await getSmartAccountClient(
+            embeddedWallet,
+            normalizedSourceChain,
+          )
+          if (!smartAccount) {
+            throw new Error(
+              `Could not initialize your ${getChainLabel(step.sourceChain)} account.`,
+            )
+          }
+          setStickyTransferMeta({
+            amount: sourceAmount,
+            symbol: setup.symbol,
+            toAddress: step.bridgeTx.to || "",
+          })
+          hash = await (
+            smartAccount as unknown as EvmSmartAccountClient
+          ).sendTransaction({
+            account: smartAccount.account,
+            chain: smartAccount.chain,
+            calls: transactions.map((transaction) => ({
+              to: transaction!.to as `0x${string}`,
+              data: transaction!.data as `0x${string}` | undefined,
+              value: BigInt(transaction!.value || 0),
+            })),
+          })
+        }
 
-        const hash = await (
-          smartAccount as unknown as EvmSmartAccountClient
-        ).sendTransaction({
-          account: smartAccount.account,
-          chain: smartAccount.chain,
-          calls: transactions.map((transaction) => ({
-            to: transaction!.to as `0x${string}`,
-            data: transaction!.data as `0x${string}` | undefined,
-            value: BigInt(transaction!.value || 0),
-          })),
-        })
-
-        if (step.bridgeProvider === "lifi" || step.bridgeProvider === "allbridge") {
+        if (
+          step.bridgeProvider === "lifi" ||
+          step.bridgeProvider === "allbridge" ||
+          step.bridgeProvider === "cctp"
+        ) {
           const submittedBridge = {
             provider: step.bridgeProvider,
             txHash: hash,
             sourceChain: normalizedSourceChain,
+            groupId: execution.groupId,
           }
           submittedSourcesRef.current.set(
             normalizedSourceChain,
@@ -443,6 +475,16 @@ export default function BridgeFundingOverlay({
             txHash: hash,
           })
           submitted.push(submittedBridge)
+          bridgeOutbox.save(profile.id, {
+            txHash: hash,
+            provider: step.bridgeProvider,
+            fromChain: normalizedSourceChain,
+            toChain: setup.targetChain,
+            amount: String(sourceAmount),
+            symbol: setup.symbol,
+            groupId: execution.groupId,
+          })
+          void bridgeOutbox.flush(profile.id)
         }
         activeSourceChain = null
       }

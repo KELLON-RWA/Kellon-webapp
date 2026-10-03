@@ -25,7 +25,7 @@ describe("bridge assets", () => {
     });
   });
 
-  it("only executes cross-chain EVM pairs", () => {
+  it("allows EVM and Stellar sources to bridge between supported chains", () => {
     const sources = getBridgeSources([
       { symbol: "USDC", chain: "Base", amount: 1 },
     ]);
@@ -47,6 +47,15 @@ describe("bridge assets", () => {
         chainId: 42220,
       }),
     ).toBe(false);
+
+    const stellarSource = {
+      ...source,
+      chainKey: "stellar" as const,
+      chainName: "Stellar",
+      chainId: 1,
+      chainType: "stellar" as const,
+    };
+    expect(isExecutableBridgePair(stellarSource, source)).toBe(true);
     expect(isExecutableBridgePair(source, source)).toBe(false);
     expect(
       isExecutableBridgePair(source, {
@@ -56,6 +65,6 @@ describe("bridge assets", () => {
         chainId: 1,
         chainType: "stellar",
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

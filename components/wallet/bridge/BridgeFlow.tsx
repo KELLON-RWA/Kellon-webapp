@@ -29,7 +29,15 @@ import {
   type VerificationMethod,
 } from "@/services/api/transfers"
 import type { User } from "@/types/db"
-import { bridgeService, type BridgeRateOption } from "@/services/api/bridge"
+import {
+  bridgeService,
+  type BridgeRateOption,
+} from "@/services/api/bridge"
+import {
+  bridgeOutbox,
+  type BridgeOutboxJob,
+} from "@/services/api/bridge-outbox"
+import { yieldService } from "@/services/api/yield"
 import { BridgeComposeStep } from "./steps/ComposeStep"
 import { BridgeReviewStep } from "./steps/ReviewStep"
 import BridgeSuccessModal from "./BridgeSuccessModal"
@@ -51,24 +59,6 @@ export interface BridgeFlowProps {
   onSubmitted?: () => void
 }
 
-async function monitorBridgeStatus(
-  params: Parameters<typeof bridgeService.getStatus>[0],
-): Promise<void> {
-  const completedStatuses = new Set(["done", "success", "completed"])
-  const failedStatuses = new Set(["failed", "expired", "refunded"])
-
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    await new Promise((resolve) => window.setTimeout(resolve, 8_000))
-    try {
-      const result = await bridgeService.getStatus(params)
-      const status = (result.status || "").toLowerCase()
-      if (completedStatuses.has(status) || failedStatuses.has(status)) return
-    } catch {
-      // Status polling is best-effort; the next attempt may succeed.
-    }
-  }
-}
-
 export default function BridgeFlow({
   profile,
   embedded = false,
@@ -86,22 +76,23 @@ export default function BridgeFlow({
     () => getBridgeSources(profile.assets || []),
     [profile.assets],
   )
+  const bridgeSources = useMemo(
+    () => sources.filter((source) => source.chainType !== "solana"),
+    [sources],
+  )
   const destinations = useMemo(() => getBridgeDestinations(), [])
   const [sourceKey, setSourceKey] = useState(
-    sources.find(
+    bridgeSources.find(
       (item) =>
-        item.chainType === "evm" &&
         (!initialSymbol || item.symbol === initialSymbol) &&
         (!initialSourceChain || item.chainKey === initialSourceChain),
     )?.key ||
-      sources.find(
+      bridgeSources.find(
         (item) =>
-          item.chainType === "evm" &&
           (!initialSymbol || item.symbol === initialSymbol) &&
           item.chainKey !== initialDestinationChain,
       )?.key ||
-      sources.find((item) => item.chainType === "evm")?.key ||
-      sources[0]?.key ||
+      bridgeSources[0]?.key ||
       "",
   )
   const [destinationKey, setDestinationKey] = useState(
@@ -124,9 +115,13 @@ export default function BridgeFlow({
     symbol: BridgeAssetOption["symbol"]
     amount: string
     destination: BridgeAssetOption
+    tracking?: Pick<
+      BridgeOutboxJob,
+      "txHash" | "provider" | "fromChain" | "toChain" | "amount" | "symbol" | "groupId"
+    >
   } | null>(null)
 
-  const source = sources.find((item) => item.key === sourceKey) || null
+  const source = bridgeSources.find((item) => item.key === sourceKey) || null
   const selectedSymbol = source?.symbol || null
   const destination =
     destinations.find((item) => item.key === destinationKey) || null
@@ -187,7 +182,7 @@ export default function BridgeFlow({
 
   const swapNetworks = () => {
     if (!source || !destination) return
-    const reverseSource = sources.find(
+    const reverseSource = bridgeSources.find(
       (item) =>
         item.symbol === source.symbol && item.chainKey === destination.chainKey,
     )
@@ -211,7 +206,7 @@ export default function BridgeFlow({
   const canSwapNetworks = Boolean(
     source &&
       destination &&
-      sources.some(
+      bridgeSources.some(
         (item) =>
           item.symbol === source.symbol &&
           item.chainKey === destination.chainKey,
@@ -307,27 +302,6 @@ export default function BridgeFlow({
     setIsSubmitting(true)
 
     try {
-      if (!walletsReady)
-        throw new Error("Wallet is still loading. Please try again.")
-      const embeddedWallet = wallets.find(
-        (wallet) =>
-          wallet.walletClientType === "privy" &&
-          wallet.address.startsWith("0x"),
-      )
-      if (!embeddedWallet)
-        throw new Error(
-          "Your embedded wallet is unavailable. Please log in again.",
-        )
-
-      const smartAccount = await getSmartAccountClient(
-        embeddedWallet,
-        source.chainKey,
-      )
-      if (!smartAccount)
-        throw new Error(
-          `Could not initialize your ${source.chainName} account.`,
-        )
-
       if (code && verification) {
         setStickyVerificationCode({ type: verification.selectedMethod, code })
       } else {
@@ -338,6 +312,7 @@ export default function BridgeFlow({
         amount,
         selectedChains: [source.chainKey],
         targetChain: destination.chainKey,
+        targetToken: destination.symbol,
       })
       if (plan.insufficientBalances || Number(plan.shortfall || 0) > 0) {
         throw new Error("Your available balance cannot fund this bridge.")
@@ -346,9 +321,12 @@ export default function BridgeFlow({
       const execution = await bridgeService.executePlan(
         plan,
         destination.chainKey,
-        selectedRoute.messenger,
-        code && verification
-          ? {
+        {
+          messenger: selectedRoute.messenger,
+          targetToken: destination.symbol,
+          provider: selectedRoute.provider,
+          verification: code && verification
+            ? {
               verificationCode: code,
               verificationType: getVerificationTypeForMethod(
                 verification.selectedMethod,
@@ -361,8 +339,9 @@ export default function BridgeFlow({
                   code,
                 },
               ],
-            }
-          : undefined,
+              }
+            : undefined,
+        },
       )
       if (execution.transactions.length === 0) {
         setVerification(null)
@@ -375,55 +354,106 @@ export default function BridgeFlow({
       }
 
       const transactions = execution.transactions
-      if (transactions.some((transaction) => transaction.serializedTx)) {
-        throw new Error(
-          "This bridge route requires a non-EVM signer that is not available on web yet.",
+      let hash: string
+      if (source.chainType === "stellar") {
+        const stellarTransactions = transactions.filter(
+          (transaction) => transaction.serializedTx || transaction.data,
         )
-      }
-      if (
-        transactions.length === 0 ||
-        transactions.some((transaction) => !transaction.to)
-      ) {
-        throw new Error(
-          "The backend returned incomplete bridge transaction instructions.",
+        if (stellarTransactions.length !== transactions.length) {
+          throw new Error("The backend returned a non-Stellar bridge payload.")
+        }
+        if (stellarTransactions.length === 0) {
+          throw new Error("The backend returned no Stellar bridge payload.")
+        }
+        hash = ""
+        for (const transaction of stellarTransactions) {
+          const result = await yieldService.executeStellar(
+            "bridge",
+            amount,
+            transaction.serializedTx || transaction.data || "",
+            "supply",
+          )
+          hash = result.data?.txHash || ""
+          if (!hash) throw new Error("The Stellar bridge transaction failed.")
+        }
+      } else {
+        if (!walletsReady) {
+          throw new Error("Wallet is still loading. Please try again.")
+        }
+        const embeddedWallet = wallets.find(
+          (wallet) =>
+            wallet.walletClientType === "privy" &&
+            wallet.address.startsWith("0x"),
         )
+        if (!embeddedWallet) {
+          throw new Error(
+            "Your embedded wallet is unavailable. Please log in again.",
+          )
+        }
+        const smartAccount = await getSmartAccountClient(
+          embeddedWallet,
+          source.chainKey,
+        )
+        if (!smartAccount) {
+          throw new Error(
+            `Could not initialize your ${source.chainName} account.`,
+          )
+        }
+        if (transactions.some((transaction) => transaction.serializedTx)) {
+          throw new Error("The backend returned a non-EVM bridge payload.")
+        }
+        if (transactions.some((transaction) => !transaction.to)) {
+          throw new Error(
+            "The backend returned incomplete bridge transaction instructions.",
+          )
+        }
+        setStickyTransferMeta({
+          amount: amountValue,
+          symbol: source.symbol,
+          toAddress: transactions.at(-1)?.to || "",
+        })
+        hash = await (
+          smartAccount as unknown as EvmSmartAccountClient
+        ).sendTransaction({
+          account: smartAccount.account,
+          chain: smartAccount.chain,
+          calls: transactions.map((transaction) => ({
+            to: transaction.to as `0x${string}`,
+            data: transaction.data as `0x${string}` | undefined,
+            value: BigInt(transaction.value || 0),
+          })),
+        })
       }
 
-      setStickyTransferMeta({
-        amount: amountValue,
+      const sourceProvider = execution.steps[0]?.bridgeProvider
+      const provider =
+        sourceProvider && sourceProvider !== "manual"
+          ? sourceProvider
+          : selectedRoute.provider
+      const tracking = {
+        txHash: hash,
+        provider,
+        fromChain: source.chainKey,
+        toChain: destination.chainKey,
+        amount,
         symbol: source.symbol,
-        toAddress: transactions.at(-1)?.to || "",
-      })
-
-      const calls = transactions.map((transaction) => ({
-        to: transaction.to as `0x${string}`,
-        data: transaction.data as `0x${string}` | undefined,
-        value: BigInt(transaction.value || 0),
-      }))
-
-      const hash = await (
-        smartAccount as unknown as EvmSmartAccountClient
-      ).sendTransaction({
-        account: smartAccount.account,
-        chain: smartAccount.chain,
-        calls,
-      })
+        groupId: execution.groupId,
+      }
 
       setVerification(null)
       setBridgeSuccess({
         symbol: source.symbol,
         amount: receiveAmount || amount,
         destination,
+        tracking,
       })
-      void monitorBridgeStatus({
-        provider: selectedRoute.provider,
-        txHash: hash,
-        chainId: Number(source.chainId),
-        fromChain: source.chainKey,
-        toChain: destination.chainKey,
-        amount,
-        symbol: source.symbol,
-      })
+      if (
+        profile.id &&
+        (provider === "lifi" || provider === "allbridge" || provider === "cctp")
+      ) {
+        bridgeOutbox.save(profile.id, tracking)
+        void bridgeOutbox.flush(profile.id)
+      }
     } catch (error) {
       const verificationError = findTransferVerificationRequiredError(error)
       if (verificationError) {
@@ -535,7 +565,7 @@ export default function BridgeFlow({
         />
       ) : (
         <BridgeComposeStep
-          sources={sources}
+          sources={bridgeSources}
           availableDestinations={availableDestinations}
           source={source}
           destination={destination}
@@ -595,7 +625,9 @@ export default function BridgeFlow({
           amount={bridgeSuccess.amount}
           symbol={bridgeSuccess.symbol}
           destination={bridgeSuccess.destination.chainName}
+          tracking={bridgeSuccess.tracking}
           onDone={finishBridge}
+          onDismiss={() => setBridgeSuccess(null)}
         />
       ) : null}
     </section>

@@ -111,8 +111,7 @@ export function isExecutableBridgePair(
 ): boolean {
   return (
     source.symbol === destination.symbol &&
-    source.chainType === "evm" &&
-    destination.chainType === "evm" &&
+    (source.chainType === "evm" || source.chainType === "stellar") &&
     source.chainKey !== destination.chainKey
   );
 }

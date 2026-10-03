@@ -59,6 +59,8 @@ export interface FundingPlan {
   shortfall: string;
   insufficientBalances: boolean;
   targetChain?: string;
+  targetToken?: string;
+  provider?: BridgeProvider;
 }
 
 export interface CalculateFundingPlanRequest {
@@ -66,6 +68,7 @@ export interface CalculateFundingPlanRequest {
   amount: string;
   selectedChains: string[];
   targetChain: string;
+  targetToken?: "USDC" | "USDT";
 }
 
 export interface BuiltBridgeTransaction {
@@ -86,7 +89,15 @@ export interface ExecutedFundingStep {
 export interface ExecuteFundingPlanResult {
   steps: ExecutedFundingStep[];
   transactions: BuiltBridgeTransaction[];
-  alreadyOnTarget: string;
+  alreadyOnTarget: string | boolean;
+  groupId?: string;
+}
+
+export interface ExecuteFundingPlanOptions {
+  messenger?: BridgeMessenger;
+  targetToken?: "USDC" | "USDT";
+  provider?: BridgeProvider;
+  verification?: BridgeVerificationPayload;
 }
 
 export type UnifiedBridgeBalances = Record<string, unknown>;
@@ -129,12 +140,47 @@ export interface TrackBridgeRequest {
   groupId?: string;
 }
 
+/** CCTP only accepts positive values with at most six decimal places. */
+export function normalizeBridgeAmount(value: string | number): string {
+  const raw = String(value).trim();
+  const match = raw.match(/^(\d+)(?:\.(\d+))?$/);
+
+  if (match) {
+    const integer = match[1];
+    const fraction = (match[2] || "").slice(0, 6).replace(/0+$/, "");
+    return fraction ? `${integer}.${fraction}` : integer;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return raw;
+
+  // Avoid rounding a Max amount above the user balance.
+  return (Math.floor(parsed * 1_000_000) / 1_000_000)
+    .toFixed(6)
+    .replace(/\.0+$/, "")
+    .replace(/(\.\d*?)0+$/, "$1");
+}
+
+function normalizeFundingPlan(plan: FundingPlan): FundingPlan {
+  return {
+    ...plan,
+    totalRequested: plan.totalRequested
+      ? normalizeBridgeAmount(plan.totalRequested)
+      : plan.totalRequested,
+    shortfall: normalizeBridgeAmount(plan.shortfall),
+    sources: plan.sources.map((source) => ({
+      ...source,
+      amount: normalizeBridgeAmount(source.amount),
+    })),
+  };
+}
+
 export const bridgeService = {
   getUnifiedBalances: async (
     symbol: CalculateFundingPlanRequest["symbol"] = "USDC",
   ): Promise<UnifiedBridgeBalances> => {
     const response = await bridgeRequest<UnifiedBridgeBalances>(
-      `/api/funding/unified-balances?symbol=${encodeURIComponent(symbol)}`,
+      `/api/bridge/unified-balances?symbol=${encodeURIComponent(symbol)}`,
       { method: "GET", cache: "no-store" },
       { authenticated: "required", signed: true },
     );
@@ -143,7 +189,7 @@ export const bridgeService = {
 
   getMinThresholds: async (): Promise<BridgeMinimumThresholds> => {
     const response = await bridgeRequest<BridgeMinimumThresholds>(
-      "/api/funding/min-thresholds",
+      "/api/bridge/min-thresholds",
       { method: "GET", cache: "no-store" },
     );
     return response.data;
@@ -153,11 +199,14 @@ export const bridgeService = {
     request: CompareBridgeRatesRequest,
   ): Promise<CompareBridgeRatesResult> => {
     const response = await bridgeRequest<CompareBridgeRatesResult>(
-      "/api/funding/compare-rates",
+      "/api/bridge/compare-rates",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
+        body: JSON.stringify({
+          ...request,
+          amount: normalizeBridgeAmount(request.amount),
+        }),
       },
     );
     return response.data;
@@ -167,11 +216,14 @@ export const bridgeService = {
     request: CalculateFundingPlanRequest,
   ): Promise<FundingPlan> => {
     const response = await bridgeRequest<FundingPlan>(
-      "/api/funding/calculate-plan",
+      "/api/bridge/calculate-plan",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
+        body: JSON.stringify({
+          ...request,
+          amount: normalizeBridgeAmount(request.amount),
+        }),
       },
       { authenticated: "required", signed: true },
     );
@@ -181,15 +233,21 @@ export const bridgeService = {
   executePlan: async (
     plan: FundingPlan,
     targetChain: string,
-    messenger?: BridgeMessenger,
-    verification?: BridgeVerificationPayload,
+    options: ExecuteFundingPlanOptions = {},
   ): Promise<ExecuteFundingPlanResult> => {
     const response = await bridgeRequest<ExecuteFundingPlanResult>(
-      "/api/funding/execute",
+      "/api/bridge/execute",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, targetChain, messenger, ...verification }),
+        body: JSON.stringify({
+          plan: normalizeFundingPlan(plan),
+          targetChain,
+          messenger: options.messenger,
+          targetToken: options.targetToken,
+          provider: options.provider,
+          ...options.verification,
+        }),
       },
       { authenticated: "required", signed: true },
     );
@@ -202,7 +260,10 @@ export const bridgeService = {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
+        body: JSON.stringify({
+          ...request,
+          amount: normalizeBridgeAmount(request.amount),
+        }),
       },
       { authenticated: "required", signed: true },
     ),
@@ -229,7 +290,7 @@ export const bridgeService = {
     if (params.groupId) search.set("groupId", params.groupId);
 
     const response = await bridgeRequest<BridgeStatus>(
-      `/api/funding/bridge-status?${search.toString()}`,
+      `/api/bridge/status?${search.toString()}`,
       { method: "GET", cache: "no-store" },
       { authenticated: "optional" },
     );

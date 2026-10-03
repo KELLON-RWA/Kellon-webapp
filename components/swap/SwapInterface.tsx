@@ -315,6 +315,7 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
         amount: fromAmount,
         selectedChains: [fromChainKey],
         targetChain: toChainKey,
+        targetToken: toToken.symbol.toUpperCase() as "USDC" | "USDT",
       });
       if (planRes.insufficientBalances) {
         throw new Error(
@@ -325,9 +326,10 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
       const execRes = await bridgeService.executePlan(
         planRes,
         toChainKey,
-        undefined,
-        verification?.context === "bridge"
-          ? {
+        {
+          targetToken: toToken.symbol.toUpperCase() as "USDC" | "USDT",
+          verification: verification?.context === "bridge"
+            ? {
               verificationCode: verification.verificationCode,
               verificationType: verification.verificationType,
               verificationCodes: [
@@ -336,8 +338,9 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
                   code: verification.verificationCode,
                 },
               ],
-            }
-          : undefined,
+              }
+            : undefined,
+        },
       );
       const calls = execRes.transactions || [];
       if (!calls.length)
