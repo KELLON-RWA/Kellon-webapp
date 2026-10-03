@@ -19,6 +19,7 @@ import {
   getTransactionStatusLabel,
   getTransactionTitle,
   isPositiveTransaction,
+  isYieldTransaction,
 } from "@/lib/dashboard-utils";
 import { transactionService } from "@/services/api/transactions";
 import { getActivityRefetchInterval } from "@/lib/transaction-polling";
@@ -46,11 +47,20 @@ function matchesActivityFilter(
     case "received":
       return ["TRANSFER_IN"].includes(transaction.type);
     case "withdraw":
-      return transaction.type === "WITHDRAW";
+      return (
+        transaction.type === "WITHDRAW" && !isYieldTransaction(transaction)
+      );
     case "deposit":
-      return ["BUY", "DEPOSIT"].includes(transaction.type);
+      return (
+        ["BUY", "DEPOSIT"].includes(transaction.type) &&
+        !isYieldTransaction(transaction)
+      );
     case "bridge":
-      return transaction.type === "BRIDGE" || method.includes("bridge") || metadata.includes("bridge");
+      return (
+        transaction.type === "BRIDGE" ||
+        method.includes("bridge") ||
+        metadata.includes("bridge")
+      );
     case "invoices":
       return method.includes("invoice") || metadata.includes("invoice");
     case "gifts":
@@ -59,6 +69,7 @@ function matchesActivityFilter(
       return method.includes("card") || metadata.includes("card");
     case "earn":
       return (
+        isYieldTransaction(transaction) ||
         method.includes("earn") ||
         method.includes("yield") ||
         metadata.includes("earn") ||
@@ -125,8 +136,7 @@ export default function TransactionsPage() {
       return response.data || [];
     },
     staleTime: 5_000,
-    refetchInterval: (query) =>
-      getActivityRefetchInterval(query.state.data),
+    refetchInterval: (query) => getActivityRefetchInterval(query.state.data),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,

@@ -28,19 +28,45 @@ const items = [
   { href: "/settings/profile", label: "Settings", icon: Settings },
 ];
 
-export default function DashboardDesktopNavigation({ profile }: { profile: User }) {
+export default function DashboardDesktopNavigation({
+  profile,
+}: {
+  profile: User;
+}) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(() =>
-    typeof window !== "undefined" && window.localStorage.getItem("kellon-desktop-sidebar-collapsed") === "true",
-  );
+  const [collapsed, setCollapsed] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
+    let savedCollapsed = false;
+    try {
+      savedCollapsed =
+        window.localStorage.getItem("kellon-desktop-sidebar-collapsed") ===
+        "true";
+    } catch {
+      // Storage can be unavailable in privacy-restricted browser contexts.
+    }
+
+    setCollapsed(savedCollapsed);
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+
     document.documentElement.style.setProperty(
       "--desktop-sidebar-width",
       collapsed ? "4.75rem" : "14rem",
     );
-    window.localStorage.setItem("kellon-desktop-sidebar-collapsed", String(collapsed));
-  }, [collapsed]);
+    try {
+      window.localStorage.setItem(
+        "kellon-desktop-sidebar-collapsed",
+        String(collapsed),
+      );
+    } catch {
+      // The sidebar remains usable even when its preference cannot be persisted.
+    }
+  }, [collapsed, hasHydrated]);
 
   return (
     <>
@@ -50,8 +76,19 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
           collapsed ? "w-[4.75rem] px-2" : "w-56 px-3",
         )}
       >
-        <div className={cn("mb-8 flex", collapsed ? "flex-col items-center gap-3" : "items-center justify-between gap-2 px-2")}>
-          <Link href="/" className="flex items-center gap-2" aria-label="Kellon home">
+        <div
+          className={cn(
+            "mb-8 flex",
+            collapsed
+              ? "flex-col items-center gap-3"
+              : "items-center justify-between gap-2 px-2",
+          )}
+        >
+          <Link
+            href="/"
+            className="flex items-center gap-2"
+            aria-label="Kellon home"
+          >
             <Image
               src="/logo.png"
               alt=""
@@ -61,7 +98,9 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
               priority
             />
             {!collapsed && (
-              <span className="text-xl font-semibold tracking-tight text-cryptoNight dark:text-white">Kellon</span>
+              <span className="text-xl font-semibold tracking-tight text-cryptoNight dark:text-white">
+                Kellon
+              </span>
             )}
           </Link>
           <ActionToolTip
@@ -74,7 +113,11 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
               className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-primary-99 hover:text-cryptoNight dark:text-gray-40 dark:hover:bg-white/5 dark:hover:text-white"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              {collapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
+              {collapsed ? (
+                <PanelLeftOpen className="h-[18px] w-[18px]" />
+              ) : (
+                <PanelLeftClose className="h-[18px] w-[18px]" />
+              )}
             </button>
           </ActionToolTip>
         </div>
@@ -82,7 +125,9 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
         <nav aria-label="Dashboard navigation" className="space-y-1">
           {items.map(({ href, icon: Icon, label }) => {
             const active =
-              href === "/" ? pathname === "/" : pathname.startsWith(href.split("?")[0]);
+              href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(href.split("?")[0]);
             const link = (
               <Link
                 key={label}
@@ -96,7 +141,9 @@ export default function DashboardDesktopNavigation({ profile }: { profile: User 
                 )}
               >
                 <Icon className="h-[18px] w-[18px]" />
-                <span className={collapsed ? "sr-only" : undefined}>{label}</span>
+                <span className={collapsed ? "sr-only" : undefined}>
+                  {label}
+                </span>
               </Link>
             );
             return collapsed ? (

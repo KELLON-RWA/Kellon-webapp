@@ -65,7 +65,7 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
       staleTime: 30_000,
     },
   );
-  const { data: stockListings = [] } = useQuery({
+  const { data: stockListings = [], isLoading: isStockListingsLoading } = useQuery({
     queryKey: ["available-stocks"],
     queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
     staleTime: 60_000,
@@ -209,7 +209,10 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             activeCurrency={dashboard.activeCurrency}
             isBalanceVisible={dashboard.isBalanceVisible}
           />
-          <TopMoversPanel listings={stockListings} />
+          <TopMoversPanel
+            listings={stockListings}
+            isListingsLoading={isStockListingsLoading}
+          />
           <ActivityPanel
             isBalanceVisible={dashboard.isBalanceVisible}
             isTransactionsLoading={dashboard.isTransactionsLoading}

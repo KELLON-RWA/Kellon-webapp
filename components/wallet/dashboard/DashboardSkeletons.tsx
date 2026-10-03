@@ -28,6 +28,25 @@ export function ActivityListSkeleton() {
   );
 }
 
+export function TopMoversListSkeleton() {
+  return (
+    <div className="mt-2 overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex animate-pulse items-center justify-between gap-3 border-b border-black/10 px-3 py-1.5 last:border-b-0 dark:border-white/10"
+        >
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="h-6 w-6 shrink-0 rounded-full bg-gray-100 dark:bg-secondary-60" />
+            <div className="h-3 w-12 rounded-full bg-gray-100 dark:bg-secondary-60 min-[1024px]:h-2.5 min-[1024px]:w-10 lg:h-3 lg:w-12" />
+          </div>
+          <div className="h-3 w-14 shrink-0 rounded-full bg-gray-100 dark:bg-secondary-60 min-[1024px]:h-2.5 min-[1024px]:w-12 lg:h-3 lg:w-14" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SkeletonLine({ className }: { className: string }) {
   return (
     <span

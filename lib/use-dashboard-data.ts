@@ -38,7 +38,8 @@ export function useDashboardData(profile: User) {
   // useEffect fetch would never react to realtime invalidation of ["transactions"].
   const {
     data: transactions = profile.transactions || [],
-    isLoading: isTransactionsLoading,
+    isFetching: isTransactionsFetching,
+    isPlaceholderData: isTransactionsPlaceholderData,
     error: transactionsQueryError,
   } = useQuery<Transaction[]>({
     queryKey: ["transactions"],
@@ -46,7 +47,10 @@ export function useDashboardData(profile: User) {
       const response = await transactionService.getTransactions();
       return response.data || [];
     },
-    initialData: profile.transactions || [],
+    // Paint the server snapshot immediately without marking it as fresh cache data.
+    // Placeholder data still starts the live request on mount; initialData delayed it
+    // until the stale window elapsed and briefly rendered an incorrect empty state.
+    placeholderData: profile.transactions || [],
     staleTime: 5_000,
     refetchInterval: (query) => {
       const transactions = query.state.data || [];
@@ -161,6 +165,10 @@ export function useDashboardData(profile: User) {
       ? transactionsQueryError.message
       : "Failed to load activity"
     : null;
+  const isTransactionsLoading =
+    isTransactionsFetching &&
+    isTransactionsPlaceholderData &&
+    transactions.length === 0;
   const groupedAssets = useMemo<GroupedAssetSummary[]>(() => {
     const grouped = new Map<
       string,

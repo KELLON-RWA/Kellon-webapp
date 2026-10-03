@@ -74,8 +74,9 @@ export function formatRelativeDate(value: Date | string): string {
 export function getTransactionAction(type: Transaction["type"]): string {
   switch (type) {
     case "BUY":
-    case "DEPOSIT":
       return "Buy";
+    case "DEPOSIT":
+      return "Deposit";
     case "TRANSFER_IN":
       return "Received";
     case "TRANSFER_OUT":
@@ -142,9 +143,78 @@ function getMetadataNumberValue(
   return null;
 }
 
+function getNestedMetadataNumberValue(
+  metadata: Transaction["metadata"],
+  parentKeys: string[],
+  keys: string[],
+): number | null {
+  if (!metadata || typeof metadata !== "object") return null;
+
+  for (const parentKey of parentKeys) {
+    const parent = metadata[parentKey];
+    if (!parent || typeof parent !== "object" || Array.isArray(parent)) continue;
+
+    const amount = getMetadataNumberValue(
+      parent as Transaction["metadata"],
+      keys,
+    );
+    if (amount !== null) return amount;
+  }
+
+  return null;
+}
+
+function getDeepMetadataValue(
+  metadata: Transaction["metadata"],
+  keys: string[],
+  maxDepth = 4,
+): unknown {
+  if (!metadata || typeof metadata !== "object" || maxDepth < 0) return null;
+
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(metadata, key)) {
+      const value = metadata[key];
+      if (value !== null && value !== undefined && value !== "") return value;
+    }
+  }
+
+  for (const value of Object.values(metadata)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const nestedValue = getDeepMetadataValue(
+      value as Transaction["metadata"],
+      keys,
+      maxDepth - 1,
+    );
+    if (nestedValue !== null) return nestedValue;
+  }
+
+  return null;
+}
+
+function getDeepMetadataNumberValue(
+  metadata: Transaction["metadata"],
+  keys: string[],
+  maxDepth = 4,
+): number | null {
+  return parseNumberValue(getDeepMetadataValue(metadata, keys, maxDepth));
+}
+
+function getProviderName(transaction: Transaction): string | null {
+  const provider = getDeepMetadataValue(transaction.metadata, [
+    "provider",
+    "providerName",
+    "paymentProvider",
+    "onrampProvider",
+  ]);
+
+  return typeof provider === "string" && provider.trim()
+    ? provider.trim().toLowerCase()
+    : null;
+}
+
 export function getTransactionSymbol(transaction: Transaction): string {
   const metadata = transaction.metadata;
-  const provider = metadata?.provider?.toLowerCase();
+  const provider = getProviderName(transaction);
 
   if (transaction.type === "BUY") {
     return getMetadataSymbol(metadata) || transaction.symbol;
@@ -162,19 +232,35 @@ export function getTransactionSymbol(transaction: Transaction): string {
 
 export function getProviderAmount(transaction: Transaction): number | null {
   const metadata = transaction.metadata;
-  const provider = metadata?.provider?.toLowerCase();
+  const provider = getProviderName(transaction);
+  const providerAmountKeys = [
+    "cryptoAmount",
+    "estimatedCryptoAmount",
+    "estimatedReceivableAmount",
+    "receivableCryptoAmount",
+    "deliveredAmount",
+    "creditedAmount",
+    "providerAmount",
+    "tokenAmount",
+    "receivableAmount",
+  ];
 
   switch (provider) {
     case "paycrest": {
-      const paycrestAmount = metadata?.paycrestResponse?.amount;
-      const parsedAmount = parseNumberValue(paycrestAmount);
-      if (parsedAmount !== null) return parsedAmount;
+      const amount = getDeepMetadataNumberValue(metadata, providerAmountKeys);
+      if (amount !== null) return amount;
+
+      const legacyAmount = getNestedMetadataNumberValue(
+        metadata,
+        ["paycrestResponse"],
+        ["amount"],
+      );
+      if (legacyAmount !== null) return legacyAmount;
       break;
     }
     case "centiiv": {
-      const centiivAmount = metadata?.centiivResponse?.receivableAmount;
-      const parsedAmount = parseNumberValue(centiivAmount);
-      if (parsedAmount !== null) return parsedAmount;
+      const amount = getDeepMetadataNumberValue(metadata, providerAmountKeys);
+      if (amount !== null) return amount;
       break;
     }
     default:
@@ -188,21 +274,134 @@ function parseTransactionAmount(amount: Transaction["amount"]): number | null {
   return parseNumberValue(amount);
 }
 
-function getTransactionMetadataAmount(transaction: Transaction): number | null {
-  return getMetadataNumberValue(transaction.metadata, [
+function getExplicitCryptoAmount(transaction: Transaction): number | null {
+  const amountKeys = [
     "cryptoAmount",
+    "estimatedCryptoAmount",
+    "estimatedReceivableAmount",
+    "receivableCryptoAmount",
+    "receivableAmount",
+    "receiveAmount",
+    "amountReceived",
+    "amount_received",
+    "deliveredAmount",
+    "creditedAmount",
+    "providerAmount",
+    "outputAmount",
+    "amountOut",
+    "toAmount",
+    "quoteCurrencyAmount",
+    "quotedAmount",
     "sendAmount",
     "assetAmount",
     "tokenAmount",
+  ];
+  const directAmount = getMetadataNumberValue(transaction.metadata, amountKeys);
+  if (directAmount !== null) return directAmount;
+
+  const nestedAmount = getNestedMetadataNumberValue(
+    transaction.metadata,
+    [
+      "quote",
+      "rateDetails",
+      "providerQuote",
+      "centiivResponse",
+      "paycrestResponse",
+      "order",
+    ],
+    amountKeys,
+  );
+  if (nestedAmount !== null) return nestedAmount;
+
+  const deepAmount = getDeepMetadataNumberValue(
+    transaction.metadata,
+    amountKeys,
+  );
+  if (deepAmount !== null) return deepAmount;
+
+  if (isStablecoinSymbol(getTransactionSymbol(transaction))) {
+    return getDeepMetadataNumberValue(transaction.metadata, ["usdValue"]);
+  }
+
+  return null;
+}
+
+function getOnrampDerivedCryptoAmount(
+  transaction: Transaction,
+): number | null {
+  if (!["BUY", "DEPOSIT"].includes(transaction.type)) return null;
+
+  const fiatAmount = getTransactionFiatAmount(transaction);
+  const rate = getDeepMetadataNumberValue(transaction.metadata, [
+    "rate",
+    "rawRate",
+    "exchangeRate",
+  ]);
+
+  if (fiatAmount === null || fiatAmount <= 0 || rate === null || rate <= 0) {
+    return null;
+  }
+
+  // Providers expose either fiat per token (for example 1,380 NGN/USDC)
+  // or token per fiat (for example 0.000724 USDC/NGN).
+  const amount = rate < 1 ? fiatAmount * rate : fiatAmount / rate;
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+export function getTransactionFiatAmount(
+  transaction: Transaction,
+): number | null {
+  return getDeepMetadataNumberValue(transaction.metadata, [
+    "fiatAmount",
+    "paidAmount",
+    "amountPaid",
+    "purchaseAmount",
+    "amountToTransfer",
   ]);
 }
 
-function getTransactionDisplayAmount(transaction: Transaction): number | null {
-  const metadataAmount = getTransactionMetadataAmount(transaction);
+function hasOnrampMetadata(transaction: Transaction): boolean {
+  if (getProviderName(transaction)) return true;
+
+  return (
+    getDeepMetadataValue(transaction.metadata, [
+      "fiatAmount",
+      "paidAmount",
+      "amountPaid",
+      "purchaseAmount",
+      "amountToTransfer",
+      "fiatCurrency",
+      "paymentReference",
+      "onrampProvider",
+    ]) !== null
+  );
+}
+
+export function getTransactionDisplayAmount(
+  transaction: Transaction,
+): number | null {
+  const metadataAmount = getExplicitCryptoAmount(transaction);
   if (metadataAmount !== null) return metadataAmount;
 
   const providerAmount = getProviderAmount(transaction);
   if (providerAmount !== null) return providerAmount;
+
+  const derivedOnrampAmount = getOnrampDerivedCryptoAmount(transaction);
+  if (derivedOnrampAmount !== null) return derivedOnrampAmount;
+
+  const transactionAmount = parseTransactionAmount(transaction.amount);
+  const fiatAmount = getTransactionFiatAmount(transaction);
+
+  // Older on-ramp records store the fiat payment in `amount`. Do not label it
+  // as crypto when the delivered amount cannot be recovered safely.
+  if (
+    ["BUY", "DEPOSIT"].includes(transaction.type) &&
+    !isYieldTransaction(transaction) &&
+    hasOnrampMetadata(transaction) &&
+    (fiatAmount === null || transactionAmount === fiatAmount)
+  ) {
+    return null;
+  }
 
   if (
     [
@@ -215,7 +414,7 @@ function getTransactionDisplayAmount(transaction: Transaction): number | null {
       "BRIDGE",
     ].includes(transaction.type)
   ) {
-    return parseTransactionAmount(transaction.amount);
+    return transactionAmount;
   }
 
   return null;
@@ -229,9 +428,98 @@ function getTransactionFiatCurrency(transaction: Transaction): string | null {
   ])?.toUpperCase() || null;
 }
 
+export type TransactionOperation =
+  | "buy"
+  | "deposit"
+  | "sell"
+  | "withdraw"
+  | "send"
+  | "receive"
+  | "bridge"
+  | "swap"
+  | "stake"
+  | "unstake";
+
+const YIELD_PROVIDERS = [
+  "aave",
+  "beefy",
+  "blend",
+  "jupiterlend",
+  "kamino",
+  "mento",
+  "moonwell",
+  "morpho",
+  "venus",
+];
+
+function normalizeOperationHint(value: unknown): string {
+  return typeof value === "string"
+    ? value.toLowerCase().replace(/[^a-z]/g, "")
+    : "";
+}
+
+export function isYieldTransaction(transaction: Transaction): boolean {
+  const hint = normalizeOperationHint(
+    getDeepMetadataValue(transaction.metadata, [
+      "action",
+      "actionType",
+      "operation",
+      "stepType",
+      "transactionType",
+      "yieldAction",
+    ]),
+  );
+  const executionMethod = normalizeOperationHint(transaction.executionMethod);
+  const provider = getProviderName(transaction) || "";
+
+  return (
+    ["stake", "unstake", "supply", "deposityield", "withdrawyield", "redeem"].includes(hint) ||
+    executionMethod.includes("yield") ||
+    YIELD_PROVIDERS.some((name) => provider.includes(name)) ||
+    getDeepMetadataValue(transaction.metadata, [
+      "opportunityId",
+      "yieldOpportunityId",
+      "protocol",
+    ]) !== null
+  );
+}
+
+export function getTransactionOperation(
+  transaction: Transaction,
+): TransactionOperation {
+  if (isYieldTransaction(transaction)) {
+    return transaction.type === "WITHDRAW" ? "unstake" : "stake";
+  }
+
+  switch (transaction.type) {
+    case "BUY":
+      return "buy";
+    case "DEPOSIT":
+      return "deposit";
+    case "SELL":
+      return "sell";
+    case "WITHDRAW":
+      return "withdraw";
+    case "TRANSFER_IN":
+      return "receive";
+    case "TRANSFER_OUT":
+      return "send";
+    case "BRIDGE":
+      return "bridge";
+    case "SWAP":
+      return "swap";
+    default:
+      return "deposit";
+  }
+}
+
 export function getTransactionTitle(transaction: Transaction): string {
+  const operation = getTransactionOperation(transaction);
   const action = getTransactionAction(transaction.type);
   const symbol = getTransactionSymbol(transaction);
+
+  if (operation === "stake") return `Stake ${symbol}`;
+  if (operation === "unstake") return `Unstake ${symbol}`;
 
   if (transaction.type === "WITHDRAW") {
     const fiatCurrency = getTransactionFiatCurrency(transaction);

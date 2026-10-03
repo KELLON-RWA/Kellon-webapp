@@ -5,9 +5,11 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getStockCharts } from "@/components/earn/StockSparkline";
 import type { StockListing } from "@/services/api/stocks";
+import { TopMoversListSkeleton } from "./DashboardSkeletons";
 
 interface TopMoversPanelProps {
   listings: StockListing[];
+  isListingsLoading: boolean;
 }
 
 function ticker(symbol: string) {
@@ -21,7 +23,10 @@ function assetLogo(listing: StockListing) {
   );
 }
 
-export default function TopMoversPanel({ listings }: TopMoversPanelProps) {
+export default function TopMoversPanel({
+  listings,
+  isListingsLoading,
+}: TopMoversPanelProps) {
   const marketSymbols = useMemo(
     () =>
       Array.from(
@@ -52,7 +57,9 @@ export default function TopMoversPanel({ listings }: TopMoversPanelProps) {
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-semibold text-cryptoNight dark:text-white">Top movers (24h)</h3>
       </div>
-      {movers.length > 0 ? (
+      {isListingsLoading || isLoading ? (
+        <TopMoversListSkeleton />
+      ) : movers.length > 0 ? (
         <div className="mt-2 overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
           {movers.map(({ listing, change }) => {
             const positive = change >= 0;
@@ -95,7 +102,7 @@ export default function TopMoversPanel({ listings }: TopMoversPanelProps) {
         </div>
       ) : (
         <p className="mt-4 text-sm text-gray-40">
-          {isLoading ? "Loading live market movement…" : "Live market data is unavailable."}
+          Live market data is unavailable.
         </p>
       )}
     </section>
