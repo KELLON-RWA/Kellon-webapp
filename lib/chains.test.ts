@@ -3,6 +3,7 @@ import {
   getChainById,
   getEVMChains,
   getExplorerAddressUrl,
+  getExplorerTransactionUrl,
   getSupportedChainsForToken,
   MAINNET_CHAINS,
 } from "./chains";
@@ -38,6 +39,15 @@ describe("chain configuration", () => {
     );
     expect(getExplorerAddressUrl("Solana", "wallet-key")).toBe(
       "https://solscan.io/account/wallet-key",
+    );
+  });
+
+  it("builds an explorer transaction link for each chain type", () => {
+    expect(getExplorerTransactionUrl("Base", "0xabc")).toBe(
+      "https://basescan.org/tx/0xabc",
+    );
+    expect(getExplorerTransactionUrl("Stellar Network", "stellar-hash")).toBe(
+      "https://stellar.expert/explorer/public/tx/stellar-hash",
     );
   });
 });

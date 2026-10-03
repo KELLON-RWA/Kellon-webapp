@@ -353,6 +353,25 @@ export function getExplorerAddressUrl(
   return `${explorerUrl}/${addressPath}/${encodeURIComponent(normalizedAddress)}`;
 }
 
+/** Builds a transaction link for the active network's configured explorer. */
+export function getExplorerTransactionUrl(
+  chain: string | null | undefined,
+  transactionHash: string | null | undefined,
+): string | null {
+  const chainKey = getActiveChainKey(chain);
+  const normalizedHash = transactionHash?.trim();
+  if (!chainKey || !normalizedHash) return null;
+
+  const chainConfig = getActiveChains()[chainKey];
+  const explorerUrl = chainConfig.blockExplorers?.default.url.replace(
+    /\/$/,
+    "",
+  );
+  if (!explorerUrl) return null;
+
+  return `${explorerUrl}/tx/${encodeURIComponent(normalizedHash)}`;
+}
+
 export const getChainById = (chainId: number | string) =>
   Object.values(getActiveChains()).find(
     (c) => c.id === chainId || c.id.toString() === chainId.toString(),

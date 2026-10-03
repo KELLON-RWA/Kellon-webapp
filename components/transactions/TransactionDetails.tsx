@@ -7,16 +7,27 @@ import {
   CheckCircle2,
   Circle,
   Copy,
+  ExternalLink,
+  FileText,
+  Image as ImageIcon,
   Loader2,
   RotateCcw,
+  Share2,
   Wallet,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
-import { getChainLabel } from "@/lib/chains";
+import { getChainLabel, getExplorerTransactionUrl } from "@/lib/chains";
 import {
   getCurrencyDecimals,
   getCurrencySymbol,
@@ -26,6 +37,13 @@ import { providerService } from "@/services/api/payment-providers";
 import type { Transaction } from "@/types/db";
 import { getTransactionRefetchInterval } from "@/lib/transaction-polling";
 import { shouldReturnHomeFromTransaction } from "@/lib/transaction-navigation";
+import {
+  getTransactionDisplayAmount,
+  getTransactionFiatAmount,
+  getTransactionOperation,
+  getTransactionSymbol,
+  getTransactionTitle,
+} from "@/lib/dashboard-utils";
 import {
   extractTransactionBankDetails,
   getNestedProviderNumber,
@@ -68,17 +86,6 @@ function formatDateTime(value: Date | string): string {
     minute: "2-digit",
     hour12: true,
   }).format(date);
-}
-
-function getTransactionLabel(type: Transaction["type"]): string {
-  switch (type) {
-    case "TRANSFER_IN":
-      return "Received";
-    case "TRANSFER_OUT":
-      return "Sent";
-    default:
-      return type.charAt(0) + type.slice(1).toLowerCase();
-  }
 }
 
 function getTransactionStatusLabel(
@@ -193,101 +200,11 @@ function isPositiveTransaction(type: Transaction["type"]): boolean {
 }
 
 function formatPaidAmount(transaction: Transaction): string | null {
-  const metadata = getTransactionMetadata(transaction);
-  const fiatAmount = getNumericMetadataValue(metadata, [
-    "fiatAmount",
-    "paidAmount",
-    "amountPaid",
-    "purchaseAmount",
-  ]);
+  const fiatAmount = getTransactionFiatAmount(transaction);
 
   if (fiatAmount === null) return null;
 
   return formatFiatAmount(fiatAmount, getFiatCurrency(transaction));
-}
-
-function getPreferredCryptoSymbol(
-  metadata: Record<string, unknown>,
-): string | null {
-  const value =
-    getStringMetadataValue(metadata, ["cryptoCurrencyCode"]) ||
-    getStringMetadataValue(metadata, ["cryptoCurrency"]) ||
-    getStringMetadataValue(metadata, ["token"]) ||
-    getStringMetadataValue(metadata, ["asset"]) ||
-    getStringMetadataValue(metadata, ["toAsset"]) ||
-    getStringMetadataValue(metadata, ["targetAsset"]);
-
-  return value ? value.toUpperCase() : null;
-}
-
-function getTransactionSymbol(transaction: Transaction): string {
-  const metadata = getTransactionMetadata(transaction);
-  const provider =
-    typeof metadata.provider === "string"
-      ? metadata.provider.toLowerCase()
-      : null;
-
-  if (transaction.type === "BUY") {
-    return getPreferredCryptoSymbol(metadata) || transaction.symbol;
-  }
-
-  switch (provider) {
-    case "paycrest":
-      return getPreferredCryptoSymbol(metadata) || transaction.symbol;
-    case "centiiv":
-      return getPreferredCryptoSymbol(metadata) || transaction.symbol;
-    default:
-      return transaction.symbol;
-  }
-}
-
-function getProviderAmount(transaction: Transaction): number | null {
-  const metadata = getTransactionMetadata(transaction);
-  const provider =
-    typeof metadata.provider === "string"
-      ? metadata.provider.toLowerCase()
-      : null;
-
-  switch (provider) {
-    case "paycrest": {
-      const paycrestAmount = getNestedMetadataValue(
-        metadata,
-        "paycrestResponse",
-        "amount",
-      );
-      if (paycrestAmount) {
-        return parseFloat(String(paycrestAmount));
-      }
-      break;
-    }
-    case "centiiv": {
-      const centiivAmount = getNestedMetadataValue(
-        metadata,
-        "centiivResponse",
-        "receivableAmount",
-      );
-      if (centiivAmount) {
-        return parseFloat(String(centiivAmount));
-      }
-      break;
-    }
-    default:
-      return null;
-  }
-
-  return null;
-}
-
-function getMetadataCryptoAmount(transaction: Transaction): number | null {
-  const metadata = getTransactionMetadata(transaction);
-
-  return getNumericMetadataValue(metadata, [
-    "cryptoAmount",
-    "sendAmount",
-    "assetAmount",
-    "tokenAmount",
-    "amount",
-  ]);
 }
 
 function getFiatCurrency(transaction: Transaction): string {
@@ -347,63 +264,6 @@ function getTransactionFee(transaction: Transaction): number | null {
   );
 }
 
-function parseTransactionAmount(amount: Transaction["amount"]): number | null {
-  const parsed = typeof amount === "string" ? Number(amount) : amount;
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function getTransactionDisplayAmount(transaction: Transaction): number | null {
-  const metadataAmount = getMetadataCryptoAmount(transaction);
-  if (metadataAmount !== null) return metadataAmount;
-
-  const providerAmount = getProviderAmount(transaction);
-  if (providerAmount !== null) return providerAmount;
-
-  if (
-    [
-      "TRANSFER_IN",
-      "TRANSFER_OUT",
-      "WITHDRAW",
-      "SELL",
-      "BUY",
-      "DEPOSIT",
-      "BRIDGE",
-    ].includes(transaction.type)
-  ) {
-    return parseTransactionAmount(transaction.amount);
-  }
-
-  return null;
-}
-
-function getTransactionTitle(transaction: Transaction): string {
-  const type = getTransactionLabel(transaction.type);
-  const symbol = getTransactionSymbol(transaction);
-  const fiatCurrency = getFiatCurrency(transaction);
-
-  if (transaction.type === "WITHDRAW") {
-    return `${fiatCurrency} Withdrawal`;
-  }
-
-  if (transaction.type === "BRIDGE") {
-    const metadata = getTransactionMetadata(transaction);
-    const fromChain =
-      typeof metadata.fromChain === "string"
-        ? metadata.fromChain.toUpperCase()
-        : typeof metadata.chain === "string"
-          ? metadata.chain.toUpperCase()
-          : "";
-    const toChain =
-      typeof metadata.toChain === "string" ? metadata.toChain.toUpperCase() : "";
-    if (fromChain && toChain) {
-      return `Bridge (${fromChain} → ${toChain})`;
-    }
-    return `Bridge ${symbol}`;
-  }
-
-  return `${symbol} ${type}`;
-}
-
 function getTransactionNetwork(transaction: Transaction): string {
   const transactionWithChain = transaction as Transaction & {
     chain?: string | null;
@@ -436,6 +296,21 @@ function getTransactionNetwork(transaction: Transaction): string {
     default:
       return chain ? getChainLabel(chain) : "Unknown";
   }
+}
+
+function getTransactionHash(transaction: Transaction): string | null {
+  const metadata = getTransactionMetadata(transaction);
+
+  return (
+    getStringMetadataValue(metadata, [
+      "txHash",
+      "transactionHash",
+      "bridgeTxHash",
+      "sourceTxHash",
+      "onChainTxHash",
+      "hash",
+    ]) || transaction.userOpHash || null
+  );
 }
 
 function getTransactionMetadata(
@@ -565,22 +440,20 @@ function buildTransactionDetailSections(
     amountValue === null
       ? `-- ${symbol}`
       : `${formatAssetAmount(amountValue)} ${symbol}`;
-  const methodLabel =
-    transaction.type === "WITHDRAW"
-      ? `${fiatCurrency} Withdrawal`
-      : getTransactionTitle(transaction);
+  const operation = getTransactionOperation(transaction);
+  const methodLabel = getTransactionTitle(transaction);
 
   const baseRows: DetailRow[] = [
     { label: "Method", value: methodLabel },
     { label: "Amount", value: amountText },
   ];
 
-  if (transaction.type === "WITHDRAW" && fiatReceived !== null) {
+  if (operation === "withdraw" && fiatReceived !== null) {
     baseRows.push({
       label: "Amount Received",
       value: formatFiatAmount(fiatReceived, fiatCurrency),
     });
-  } else if (transaction.type === "BUY") {
+  } else if (["buy", "deposit"].includes(operation)) {
     const paidAmount = formatPaidAmount(transaction);
     if (paidAmount) {
       baseRows.push({ label: "Amount Paid", value: paidAmount });
@@ -639,20 +512,6 @@ function buildTransactionDetailSections(
   return sections;
 }
 
-function getNestedMetadataValue(
-  metadata: Record<string, unknown>,
-  parentKey: string,
-  childKey: string,
-): unknown {
-  const parent = metadata[parentKey];
-
-  if (!parent || typeof parent !== "object") {
-    return null;
-  }
-
-  return (parent as Record<string, unknown>)[childKey] ?? null;
-}
-
 export default function TransactionDetails({
   id,
   origin,
@@ -660,6 +519,7 @@ export default function TransactionDetails({
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
 
   const { isConnected } = useRealtime();
 
@@ -723,7 +583,11 @@ export default function TransactionDetails({
   const resolvedCentiivBankName = useMemo(() => {
     return resolveBankNameByCode(centiivBankCode, centiivBanks);
   }, [centiivBankCode, centiivBanks]);
-  const isOnramp = transaction?.type === "BUY";
+  const isOnramp = Boolean(
+    transaction &&
+      ["buy", "deposit"].includes(getTransactionOperation(transaction)) &&
+      formatPaidAmount(transaction),
+  );
   const isOnrampTracking = Boolean(
     isOnramp &&
       transaction &&
@@ -759,6 +623,9 @@ export default function TransactionDetails({
   const transactionNetwork = transaction
     ? getTransactionNetwork(transaction)
     : "";
+  const explorerUrl = transaction
+    ? getExplorerTransactionUrl(transactionNetwork, getTransactionHash(transaction))
+    : null;
   const detailSections = useMemo(() => {
     if (!transaction) return [];
     return buildTransactionDetailSections(
@@ -780,7 +647,9 @@ export default function TransactionDetails({
     : null;
   const fiatCurrency = transaction ? getFiatCurrency(transaction) : "NGN";
   const secondaryAmountLabel =
-    transaction?.type === "WITHDRAW" && fiatReceivedAmount !== null
+    transaction &&
+    getTransactionOperation(transaction) === "withdraw" &&
+    fiatReceivedAmount !== null
       ? formatFiatAmount(fiatReceivedAmount, fiatCurrency)
       : paidAmountLabel;
 
@@ -983,7 +852,7 @@ export default function TransactionDetails({
               <div class="date">${formatDateTime(transaction!.createdAt)}</div>
               <div class="amount-section">
                 <div class="amount">${amountLabel}</div>
-                <div class="transaction-type">${getTransactionLabel(transaction!.type)}</div>
+                <div class="transaction-type">${transactionTitle}</div>
               </div>
               <div class="details">
                 ${receiptRows}
@@ -1287,12 +1156,13 @@ export default function TransactionDetails({
             type="button"
             variant="flowSecondary"
             size="action"
-            onClick={downloadAsPDF}
-            disabled={isGenerating || !canGenerateReceipt}
+            onClick={() => setIsReceiptDialogOpen(true)}
+            disabled={!canGenerateReceipt}
             className="flex-1"
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
-              Save as PDF
+              <Share2 className="h-4 w-4" />
+              Share receipt
             </span>
           </Button>
 
@@ -1300,17 +1170,58 @@ export default function TransactionDetails({
             type="button"
             variant="flow"
             size="action"
-            onClick={shareReceipt}
-            disabled={isGenerating || !canGenerateReceipt}
+            onClick={() => explorerUrl && window.open(explorerUrl, "_blank", "noopener,noreferrer")}
+            disabled={!explorerUrl}
             className="flex-1"
+            title={explorerUrl ? "View on network explorer" : "A network transaction hash is not available yet"}
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
-              Share
+              <ExternalLink className="h-4 w-4" />
+              View on explorer
             </span>
 
             <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
           </Button>
         </div>
+
+        <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+          <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[24px] border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-black2">
+            <DialogHeader>
+              <DialogTitle>Share receipt</DialogTitle>
+              <DialogDescription>
+                Choose the receipt format to export.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 pt-2">
+              <Button
+                type="button"
+                variant="flowSecondary"
+                size="action"
+                disabled={isGenerating}
+                onClick={() => {
+                  setIsReceiptDialogOpen(false);
+                  void downloadAsPDF();
+                }}
+              >
+                <FileText className="h-4 w-4" />
+                PDF receipt
+              </Button>
+              <Button
+                type="button"
+                variant="flow"
+                size="action"
+                disabled={isGenerating}
+                onClick={() => {
+                  setIsReceiptDialogOpen(false);
+                  void shareReceipt();
+                }}
+              >
+                <ImageIcon className="h-4 w-4" />
+                Image receipt
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {isOnramp && transaction.status === "COMPLETED" ? (
           <div className="mt-3 flex gap-3">
