@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Asset, User } from "@/types/db";
 import {
   getMaxUsableBalanceForChain,
+  getStockProviderLabel,
   getStockSettlementChain,
 } from "./earn-utils";
 
@@ -43,5 +44,17 @@ describe("getStockSettlementChain", () => {
     expect(getStockSettlementChain("xstocks", "solana")).toBe("solana");
     expect(getStockSettlementChain("provider", "BSC")).toBe("bnb");
     expect(getStockSettlementChain("provider", "Polygon Amoy")).toBe("polygon");
+  });
+});
+
+describe("getStockProviderLabel", () => {
+  it("keeps Bstock labels separate from the PancakeSwap execution provider", () => {
+    expect(getStockProviderLabel("PancakeSwap")).toBe("Bstock");
+    expect(getStockProviderLabel("pancake_swap")).toBe("Bstock");
+    expect(getStockProviderLabel("bstock")).toBe("Bstock");
+  });
+
+  it("preserves other provider-facing stock labels", () => {
+    expect(getStockProviderLabel("Solana Xstocks")).toBe("Solana Xstocks");
   });
 });

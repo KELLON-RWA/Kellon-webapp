@@ -51,6 +51,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   getMaxUsableBalanceForChain,
+  getStockProviderLabel,
   getStockSettlementChain,
 } from "./earn-utils";
 
@@ -504,10 +505,7 @@ export default function StockActionDialog({
                         {symbol}
                       </p>
                       <p className="mt-0.5 text-xs capitalize text-gray-30 dark:text-gray-40">
-                        {(stock?.provider || holding?.provider || "").replace(
-                          "_",
-                          " ",
-                        )}
+                        {getStockProviderLabel(stockProvider)}
                       </p>
                     </div>
                   </div>

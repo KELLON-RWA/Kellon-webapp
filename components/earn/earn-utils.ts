@@ -142,6 +142,24 @@ export function getStockSettlementChain(
   return provider.toLowerCase().includes("pancake") ? "bnb" : "base";
 }
 
+/**
+ * The execution provider is not always the stock product shown to customers.
+ * Bstock listings settle through PancakeSwap, but should retain their Bstock identity in the UI.
+ */
+export function getStockProviderLabel(provider: string): string {
+  const normalized = provider.trim().toLowerCase().replace(/[\s_-]+/g, "");
+
+  if (
+    normalized.includes("pancake") ||
+    normalized === "bstock" ||
+    normalized === "bstocks"
+  ) {
+    return "Bstock";
+  }
+
+  return provider.replace(/[_-]+/g, " ").trim();
+}
+
 export function getPositionOpportunity(
   position: YieldPosition,
   opportunities: YieldOpportunity[],

@@ -4,6 +4,58 @@ import { cn } from "@/lib/utils";
 
 export type StockChartRange = "1D" | "1W" | "1M" | "1Y" | "ALL";
 
+export interface StockChartSeries {
+  values: number[];
+  timestamps: number[];
+}
+
+/** Adds the latest quoted price without mutating the provider's historical candles. */
+export function mergeLiveStockQuote(
+  values: number[] | undefined,
+  timestamps: number[] | undefined,
+  currentPrice: number,
+  quoteTimestampMs: number,
+): StockChartSeries {
+  if (!timestamps?.length) {
+    return { values: [...(values || [])], timestamps: [] };
+  }
+
+  const pointCount = Math.min(values?.length || 0, timestamps.length);
+  const nextValues = (values || []).slice(0, pointCount);
+  const nextTimestamps = timestamps.slice(0, pointCount);
+
+  if (
+    !Number.isFinite(currentPrice) ||
+    currentPrice <= 0 ||
+    !Number.isFinite(quoteTimestampMs) ||
+    quoteTimestampMs <= 0
+  ) {
+    return { values: nextValues, timestamps: nextTimestamps };
+  }
+
+  const quoteTimestamp = Math.floor(quoteTimestampMs / 1000);
+  const lastTimestamp = nextTimestamps.at(-1) || 0;
+
+  if (quoteTimestamp < lastTimestamp - 60) {
+    return { values: nextValues, timestamps: nextTimestamps };
+  }
+
+  if (lastTimestamp >= quoteTimestamp - 60) {
+    if (nextValues.length > 0) {
+      nextValues[nextValues.length - 1] = currentPrice;
+      nextTimestamps[nextTimestamps.length - 1] = Math.max(
+        lastTimestamp,
+        quoteTimestamp,
+      );
+    }
+  } else {
+    nextValues.push(currentPrice);
+    nextTimestamps.push(quoteTimestamp);
+  }
+
+  return { values: nextValues, timestamps: nextTimestamps };
+}
+
 export function StockSparkline({
   values,
   className,

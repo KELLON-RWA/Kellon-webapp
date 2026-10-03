@@ -62,7 +62,7 @@ interface EarnPageProps {
 
 type EarnCategory = "yield" | "stocks" | "rwa";
 type StockSortKey = "name" | "price" | "change";
-type StockNetworkOption = { id: string; label: string; count: number };
+type NetworkFilterOption = { id: string; label: string; count: number };
 
 const STOCKS_PER_DESKTOP_PAGE = 15;
 
@@ -179,6 +179,52 @@ export function getUnderlyingTicker(symbol: string, provider?: string): string {
   ).toUpperCase();
 }
 
+export function getDisplayStockSymbolParts(
+  symbol: string,
+  provider?: string,
+): { base: string; suffix?: string } {
+  const raw = symbol.trim();
+  const normalizedProvider = provider?.toLowerCase() || "";
+  const isXstock = normalizedProvider.includes("xstock");
+  const suffix = raw.at(-1)?.toLowerCase();
+
+  if (
+    raw.length > 1 &&
+    ((suffix === "b" || suffix === "c") || (isXstock && suffix === "x"))
+  ) {
+    return { base: raw.slice(0, -1).toUpperCase(), suffix };
+  }
+
+  return { base: raw.toUpperCase() };
+}
+
+/** Keep the provider-issued symbol visible while lookups use the underlying ticker. */
+export function getDisplayStockSymbol(symbol: string, provider?: string): string {
+  const { base, suffix } = getDisplayStockSymbolParts(symbol, provider);
+  return `${base}${suffix || ""}`;
+}
+
+export function StockSymbol({
+  symbol,
+  provider,
+}: {
+  symbol: string;
+  provider?: string;
+}) {
+  const { base, suffix } = getDisplayStockSymbolParts(symbol, provider);
+
+  return (
+    <span className="inline-flex items-baseline whitespace-nowrap">
+      {base}
+      {suffix ? (
+        <span className="relative -top-[0.12em] ml-px text-[0.75em] leading-none lowercase">
+          {suffix}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function getStockLogoUrl(symbol: string, logoUrl?: string): string {
   // Prefer a known company mark to an inconsistent provider-supplied image.
   if (STOCK_DOMAINS[getUnderlyingTicker(symbol)]) {
@@ -190,13 +236,13 @@ export function getStockLogoUrl(symbol: string, logoUrl?: string): string {
   return `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getUnderlyingTicker(symbol))}.png`;
 }
 
-function StockNetworkFilterMenu({
+function NetworkFilterMenu({
   networks,
   value,
   onValueChange,
   iconOnly = false,
 }: {
-  networks: StockNetworkOption[];
+  networks: NetworkFilterOption[];
   value: string;
   onValueChange: (value: string) => void;
   iconOnly?: boolean;
@@ -209,10 +255,13 @@ function StockNetworkFilterMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Filter stocks by network"
+          aria-label="Filter opportunities by network"
           className={cn(
             "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-80 bg-white/70 px-2 text-xs font-semibold text-gray-30 transition hover:border-primary-60 hover:text-primary-60 dark:border-white/10 dark:bg-secondary-50/65 dark:text-gray-40 dark:hover:border-primary-60 dark:hover:text-primary-60",
-            iconOnly && "w-8 px-0",
+            iconOnly &&
+              "w-8 rounded-full border-transparent bg-transparent px-0 hover:border-transparent dark:border-transparent dark:bg-transparent",
+            value !== "all" &&
+              "border-primary-60/50 bg-primary-70/10 text-primary-60 dark:border-primary-60/50 dark:bg-primary-70/10 dark:text-primary-60",
           )}
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
@@ -923,6 +972,19 @@ export default function EarnPage({ profile }: EarnPageProps) {
       })),
     [],
   );
+  const yieldNetworks = useMemo(
+    () =>
+      yieldChains
+        .map((chain) => ({
+          ...chain,
+          count: opportunities.filter(
+            (opportunity) =>
+              getSupportedYieldChainKey(opportunity.chain) === chain.id,
+          ).length,
+        }))
+        .filter((chain) => chain.count > 0),
+    [opportunities, yieldChains],
+  );
   const filteredOpportunities = useMemo(() => {
     const query = yieldSearchQuery.trim().toLowerCase();
     const matchingChain = opportunities.filter((opportunity) => {
@@ -1028,9 +1090,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
     if (!query) return unifiedStocks;
 
     return unifiedStocks.filter((stock) =>
-      [getUnderlyingTicker(stock.symbol), getDisplayStockName(stock.name)].some(
-        (value) => value.toLowerCase().includes(query),
-      ),
+      [
+        getDisplayStockSymbol(stock.symbol, stock.provider),
+        getUnderlyingTicker(stock.symbol, stock.provider),
+        getDisplayStockName(stock.name),
+      ].some((value) => value.toLowerCase().includes(query)),
     );
   }, [stockSearchQuery, unifiedStocks]);
   const sortedStocks = useMemo(() => {
@@ -1155,7 +1219,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
       .filter((stock) => /\b(etf|trust|s&p 500|nasdaq 100)\b/i.test(stock.name))
       .slice(0, 6)
       .map((stock) => ({
-        symbol: getUnderlyingTicker(stock.symbol),
+        symbol: getDisplayStockSymbol(stock.symbol, stock.provider),
         name: getDisplayStockName(stock.name),
         price: Number(stock.price) || 0,
         currency: stock.currency,
@@ -1441,39 +1505,26 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   <h2 className="text-base font-bold text-cryptoNight dark:text-white">
                     Yield opportunities
                   </h2>
-                  <button
-                    type="button"
-                    onClick={() => setIsYieldSearchOpen(true)}
-                    aria-label="Search yield opportunities"
-                    aria-expanded={isYieldSearchOpen}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
-                  >
-                    <Search className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="mb-3 flex w-full items-center gap-1 md:hidden">
-              {[{ id: "all", label: "All chains" }, ...yieldChains].map(
-                (chain) => {
-                  const isSelected = yieldChainFilter === chain.id;
-                  return (
+                  <div className="flex items-center gap-1">
+                    {yieldNetworks.length > 1 ? (
+                      <NetworkFilterMenu
+                        networks={yieldNetworks}
+                        value={yieldChainFilter}
+                        onValueChange={setYieldChainFilter}
+                        iconOnly
+                      />
+                    ) : null}
                     <button
-                      key={chain.id}
                       type="button"
-                      onClick={() => setYieldChainFilter(chain.id)}
-                      aria-pressed={isSelected}
-                      className={cn(
-                        "min-w-0 flex-1 truncate rounded-sm px-0.5 py-1 text-center text-[8px] font-semibold capitalize leading-none transition",
-                        isSelected
-                          ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none"
-                          : "bg-gray-90 text-gray-30 dark:bg-white/5 dark:text-gray-40",
-                      )}
+                      onClick={() => setIsYieldSearchOpen(true)}
+                      aria-label="Search yield opportunities"
+                      aria-expanded={isYieldSearchOpen}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
                     >
-                      {chain.label}
+                      <Search className="h-4 w-4" />
                     </button>
-                  );
-                },
+                  </div>
+                </div>
               )}
             </div>
             {opportunitiesLoading ? (
@@ -1866,7 +1917,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   <div className="flex items-center gap-1">
                     {stockNetworks.length > 1 ? (
                       <span className="md:hidden">
-                        <StockNetworkFilterMenu
+                        <NetworkFilterMenu
                           networks={stockNetworks}
                           value={stockNetworkFilter}
                           onValueChange={selectStockNetwork}
@@ -1885,7 +1936,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     </button>
                     {stockNetworks.length > 1 ? (
                       <span className="hidden md:inline-flex">
-                        <StockNetworkFilterMenu
+                        <NetworkFilterMenu
                           networks={stockNetworks}
                           value={stockNetworkFilter}
                           onValueChange={selectStockNetwork}
@@ -1910,7 +1961,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         onPointerEnter={() => prefetchStockDetails(stock)}
                         onFocus={() => prefetchStockDetails(stock)}
                         onClick={() => openStockDetails(stock)}
-                        aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
+                        aria-label={`View ${getDisplayStockSymbol(stock.symbol, stock.provider)}`}
                         className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                       >
                         <div className="flex min-w-0 items-center gap-3">
@@ -1921,7 +1972,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-cryptoNight dark:text-white">
-                              {getUnderlyingTicker(stock.symbol)}
+                              <StockSymbol
+                                symbol={stock.symbol}
+                                provider={stock.provider}
+                              />
                             </p>
                             <p className="mt-0.5 truncate text-[11px] text-gray-30 dark:text-gray-40">
                               {getDisplayStockName(stock.name)}
@@ -2035,7 +2089,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             }}
                             tabIndex={0}
                             role="link"
-                            aria-label={`View ${getUnderlyingTicker(stock.symbol)}`}
+                            aria-label={`View ${getDisplayStockSymbol(stock.symbol, stock.provider)}`}
                             className="cursor-pointer transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
                           >
                             <td className="px-5 py-3.5">
@@ -2050,7 +2104,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 />
                                 <div className="min-w-0">
                                   <p className="font-bold text-cryptoNight dark:text-white">
-                                    {getUnderlyingTicker(stock.symbol)}
+                                    <StockSymbol
+                                      symbol={stock.symbol}
+                                      provider={stock.provider}
+                                    />
                                   </p>
                                   <p className="max-w-48 truncate text-xs text-gray-30 dark:text-gray-40">
                                     {getDisplayStockName(stock.name)}

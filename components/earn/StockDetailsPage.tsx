@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowLeft,
-  BadgeCheck,
   Building2,
   ExternalLink,
   Landmark,
@@ -29,16 +28,23 @@ import type { User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import {
   formatUsd,
+  getStockProviderLabel,
   getStockSettlementChain,
 } from "./earn-utils";
 import {
   getDisplayStockName,
+  getDisplayStockSymbol,
   getListingChange,
   getStockLogoUrl,
+  StockSymbol,
   getUnderlyingTicker,
   StockLogo,
 } from "./EarnPage";
-import { getStockCharts, type StockChartRange } from "./StockSparkline";
+import {
+  getStockCharts,
+  mergeLiveStockQuote,
+  type StockChartRange,
+} from "./StockSparkline";
 
 const TIME_RANGES = ["1D", "1W", "1M", "1Y", "ALL"] as const;
 
@@ -261,10 +267,25 @@ export default function StockDetailsPage({
   const [activeTab, setActiveTab] = useState<StockPageTab>("Charts");
   const [activeStockholderTab, setActiveStockholderTab] = useState<StockholderTab>("Tokenholder rights");
   const normalizedSymbol = getUnderlyingTicker(symbol, requestedProvider);
-  const { data: stocks = [], isLoading, refetch } = useQuery({
+  const {
+    data: stocks = [],
+    dataUpdatedAt: stocksUpdatedAt,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["available-stocks"],
-    queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
+    queryFn: async () => {
+      const response = await stocksService.getAvailableStocks("all");
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Stock details] Available stocks response:", response.data);
+      }
+
+      return response.data;
+    },
     staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
   const stock = useMemo(
     () =>
@@ -307,7 +328,7 @@ export default function StockDetailsPage({
     [normalizedSymbol, requestedNetwork, requestedProvider, stockPortfolio?.holdings],
   );
   const canSell = Number(holding?.shares || 0) > 0;
-  const { data: chartData } = useQuery({
+  const { data: chartData, refetch: refetchChart } = useQuery({
     queryKey: ["stock-charts", stock?.symbol, stock?.provider, activeRange],
     queryFn: () =>
       getStockCharts(
@@ -316,8 +337,10 @@ export default function StockDetailsPage({
       ),
     enabled: Boolean(stock),
     staleTime: 60_000,
+    refetchInterval: activeRange === "1D" ? 60_000 : 5 * 60_000,
+    refetchIntervalInBackground: false,
   });
-  const { data: dayChartData } = useQuery({
+  const { data: dayChartData, refetch: refetchDayChart } = useQuery({
     queryKey: ["stock-charts", stock?.symbol, stock?.provider, "1D"],
     queryFn: () =>
       getStockCharts(
@@ -326,6 +349,8 @@ export default function StockDetailsPage({
       ),
     enabled: Boolean(stock),
     staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
   const chartTicker = stock
     ? getUnderlyingTicker(stock.symbol, stock.provider)
@@ -334,6 +359,12 @@ export default function StockDetailsPage({
   const timestamps = chartTicker
     ? chartData?.timestamps?.[chartTicker]
     : undefined;
+  const liveChart = mergeLiveStockQuote(
+    values,
+    timestamps,
+    Number(stock?.price || 0),
+    stocksUpdatedAt,
+  );
   const change = stock
     ? getListingChange(
         stock,
@@ -357,16 +388,24 @@ export default function StockDetailsPage({
     );
   }
 
-  const title = stock ? getUnderlyingTicker(stock.symbol) : normalizedSymbol;
+  const underlyingTicker = stock
+    ? getUnderlyingTicker(stock.symbol, stock.provider)
+    : normalizedSymbol;
+  const title = stock
+    ? getDisplayStockSymbol(stock.symbol, stock.provider)
+    : normalizedSymbol;
+  const displayStockSymbol = stock?.symbol || title;
   const name = stock ? getDisplayStockName(stock.name) : "Loading stock";
   const price = Number(stock?.price || 0);
   const isPositive = (change || 0) >= 0;
-  const description = STOCK_DESCRIPTIONS[title] || `${name} is available as a tokenized stock on Kellon, with on-chain settlement and 24/7 access.`;
-  const company = COMPANY_PROFILES[title];
+  const description = STOCK_DESCRIPTIONS[underlyingTicker] || `${name} is available as a tokenized stock on Kellon, with on-chain settlement and 24/7 access.`;
+  const company = COMPANY_PROFILES[underlyingTicker];
   const settlementChain = stock
     ? getStockSettlementChain(stock.provider, stock.settlementChain || stock.chain || stock.network).toUpperCase()
     : "BASE";
-  const providerName = stock?.provider || "Verified provider";
+  const providerName = stock
+    ? getStockProviderLabel(stock.provider)
+    : "Verified provider";
 
   return (
     <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-52 pt-4 md:px-6 md:pb-12 md:pt-28">
@@ -374,8 +413,10 @@ export default function StockDetailsPage({
         <button type="button" onClick={() => router.back()} aria-label="Back to stock opportunities" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-gray-100 text-slate-600 transition-colors hover:bg-gray-200 dark:border-transparent dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-base font-bold text-cryptoNight dark:text-white">{title}</h1>
-        <button type="button" onClick={() => refetch()} aria-label="Refresh stock data" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-gray-100 text-slate-600 transition-colors hover:bg-gray-200 dark:border-transparent dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60">
+        <h1 className="text-base font-bold text-cryptoNight dark:text-white">
+          <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
+        </h1>
+        <button type="button" onClick={() => void Promise.all([refetch(), refetchChart(), refetchDayChart()])} aria-label="Refresh stock data" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-gray-100 text-slate-600 transition-colors hover:bg-gray-200 dark:border-transparent dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60">
           <RefreshCw className="h-4 w-4" />
         </button>
       </header>
@@ -408,18 +449,22 @@ export default function StockDetailsPage({
               src={stock ? getStockLogoUrl(stock.symbol, stock.logoUrl) : undefined}
             />
             <div className="min-w-0">
-              <h2 className="text-xl font-bold text-cryptoNight dark:text-white">{title}</h2>
+              <h2 className="text-xl font-bold text-cryptoNight dark:text-white">
+                <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
+              </h2>
               <p className="truncate text-sm text-gray-30 dark:text-gray-40">{name} · Tokenized stock</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             {canSell ? (
               <Button type="button" variant="outline" className="h-11 px-6" onClick={() => setStockAction("sell")}>
-                Sell {title}
+                Sell <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
               </Button>
             ) : null}
             <Button type="button" variant="flow" className="h-11 px-7" disabled={!stock} onClick={() => setStockAction("buy")}>
-              <span className="relative z-10">Buy {title}</span>
+              <span className="relative z-10">
+                Buy <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
+              </span>
               <span aria-hidden="true" className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
             </Button>
           </div>
@@ -443,7 +488,7 @@ export default function StockDetailsPage({
               ))}
             </div>
           </div>
-          <StockPriceChart values={values} timestamps={timestamps} selectedRange={activeRange} className="mt-5 h-[300px]" />
+          <StockPriceChart values={liveChart.values} timestamps={liveChart.timestamps} selectedRange={activeRange} className="mt-5 h-[300px]" />
           <div className="mt-3 grid grid-cols-6 border-t border-gray-80 pt-5 dark:border-white/10">
             <DesktopMetric label="24h high" value={formatUsd(chartHigh)} />
             <DesktopMetric label="24h low" value={formatUsd(chartLow)} />
@@ -461,7 +506,9 @@ export default function StockDetailsPage({
         <div className="flex items-center gap-3 border-b border-gray-80 pb-3 dark:border-white/10">
           <StockLogo symbol={title} src={stock ? getStockLogoUrl(stock.symbol, stock.logoUrl) : undefined} />
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">{title}</h2>
+            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">
+              <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
+            </h2>
             <p className="truncate text-sm text-gray-30 dark:text-gray-40">{name}</p>
           </div>
         </div>
@@ -488,7 +535,9 @@ export default function StockDetailsPage({
             disabled={!stock}
             onClick={() => setStockAction("buy")}
           >
-            <span className="relative z-10">Buy {title}</span>
+            <span className="relative z-10">
+              Buy <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
+            </span>
           </Button>
         </div>
       </section>
@@ -496,7 +545,7 @@ export default function StockDetailsPage({
       <section className="mt-5 rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-1 md:row-start-1 md:mt-0 md:p-6">
         <p className="text-2xl font-semibold tabular-nums text-cryptoNight dark:text-white">{formatUsd(price)}</p>
         {change !== undefined ? <p className={cn("mt-1 text-sm font-medium", isPositive ? "text-emerald-600 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300")}>{isPositive ? "+" : ""}{change.toFixed(2)}%</p> : null}
-        <StockPriceChart values={values} timestamps={timestamps} selectedRange={activeRange} className="h-[240px]" />
+        <StockPriceChart values={liveChart.values} timestamps={liveChart.timestamps} selectedRange={activeRange} className="h-[240px]" />
         <div className="mt-1 grid grid-cols-5 border-t border-gray-80 pt-3 dark:border-white/10">
           {TIME_RANGES.map((range) => <button key={range} type="button" onClick={() => setActiveRange(range)} className={cn("rounded-md py-1.5 text-xs font-medium transition", activeRange === range ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none" : "text-gray-30 hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white")}>{range}</button>)}
         </div>
@@ -539,9 +588,15 @@ export default function StockDetailsPage({
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-80 bg-white/95 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-secondary-50/95 md:hidden">
         <div className={cn("mx-auto grid max-w-3xl gap-3", canSell ? "grid-cols-2" : "grid-cols-1")}>
           {canSell ? (
-            <Button type="button" variant="outline" className="h-12" onClick={() => setStockAction("sell")}>Sell {title}</Button>
+            <Button type="button" variant="outline" className="h-12" onClick={() => setStockAction("sell")}>
+              Sell <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
+            </Button>
           ) : null}
-          <Button type="button" variant="flow" className="h-12" disabled={!stock} onClick={() => setStockAction("buy")}><span className="relative z-10">Buy {title}</span></Button>
+          <Button type="button" variant="flow" className="h-12" disabled={!stock} onClick={() => setStockAction("buy")}>
+            <span className="relative z-10">
+              Buy <StockSymbol symbol={displayStockSymbol} provider={stock?.provider} />
+            </span>
+          </Button>
         </div>
       </div>
 
