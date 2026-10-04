@@ -11,6 +11,9 @@ import {
 } from "@/lib/payment-rails";
 
 interface ReviewStepProps {
+  netFiat: number;
+  fiatCurrency: string;
+  maxCryptoDebit?: string;
   amount: string;
   asset: string | null;
   amountUnit: string | null;
@@ -23,6 +26,7 @@ interface ReviewStepProps {
 }
 
 export function WithdrawReviewStep({
+  netFiat, fiatCurrency, maxCryptoDebit,
   amount,
   asset,
   amountUnit,
@@ -46,6 +50,15 @@ export function WithdrawReviewStep({
 
         <div className="mb-8 w-full rounded-[28px] border border-black/5 bg-white p-6 dark:border-white/10 dark:bg-secondary-50">
           <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <span>Net bank payout</span>
+              <strong>{netFiat.toLocaleString(undefined, { maximumFractionDigits: 2 })} {fiatCurrency}</strong>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Debit before provider network fee</span>
+              <strong>{maxCryptoDebit || amount} {asset}</strong>
+            </div>
+            <p className="text-xs text-gray-500">If the provider changes these terms, you must review a new quote before funds are sent.</p>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-500">
                 Withdrawal Amount

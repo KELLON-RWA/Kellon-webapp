@@ -7,6 +7,7 @@ import { resolveVerificationType } from "./transfers";
  * { cryptoAmount, fiatCurrency, cryptoCurrency, chain, bankId, bankDetail, rate, ...metadata }
  */
 export interface OfframpInitRequest {
+  quoteId?: string;
   fiatCurrency: string;
   fiatAmount?: number;
   cryptoAmount: number;

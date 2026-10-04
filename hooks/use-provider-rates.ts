@@ -1,8 +1,11 @@
 // hooks/use-provider-rates.ts
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { providerService } from "@/services/api/payment-providers";
 
 interface ProviderRateDetails {
+  quoteId?: string;
+  expiresAt?: string;
+  maxCryptoDebit?: string;
   cryptoAmount: number | null; // Calculated crypto amount
   fiatAmount: number | null; // Calculated fiat amount
   rawRate: number | null; // Raw rate from backend
@@ -49,6 +52,8 @@ export function useProviderRates({
   const [rates, setRates] = useState<ProviderRatesMap>({});
   const [isLoadingRates, setIsLoadingRates] = useState(false);
   const requestIdRef = useRef(0);
+  const [revision, setRevision] = useState(0);
+  const refreshQuotes = useCallback(() => setRevision(value => value + 1), []);
 
   useEffect(() => {
     if (
@@ -81,6 +86,9 @@ export function useProviderRates({
             let cryptoAmount: number | null = null;
             let fiatAmount: number | null = null;
             let rawRate: number | null = null;
+            let quoteId: string | undefined;
+            let expiresAt: string | undefined;
+            let maxCryptoDebit: string | undefined;
 
             if (provider.name.toLowerCase() === "paycrest") {
               // Paycrest's amount parameter is denominated in the token, while
@@ -112,6 +120,7 @@ export function useProviderRates({
                     : res.data?.buy?.price,
                 );
 
+              quoteId = res.data?.quoteId; expiresAt = res.data?.expiresAt; maxCryptoDebit = res.data?.maxCryptoDebit;
               if (res.success && paycrestRate) {
                 rawRate = paycrestRate;
                 if (rawRate > 0) {
@@ -120,7 +129,7 @@ export function useProviderRates({
                     fiatAmount =
                       parseNumber(res.data?.receiveAmount) ??
                       parseNumber(res.data?.fiatAmount) ??
-                      amount * rawRate;
+                      null;
                   } else {
                     cryptoAmount = amount / rawRate;
                     fiatAmount = amount;
@@ -138,6 +147,7 @@ export function useProviderRates({
                 abortController.signal,
               );
 
+              quoteId = res.data?.quoteId; expiresAt = res.data?.expiresAt; maxCryptoDebit = res.data?.maxCryptoDebit;
               if (res.success) {
                 rawRate = res.data?.rate ? parseFloat(res.data.rate) : null;
                 const estimatedAmount = res.data?.estimatedReceivableAmount
@@ -156,7 +166,7 @@ export function useProviderRates({
 
             newRates[provider.id] =
               cryptoAmount !== null || fiatAmount !== null || rawRate !== null
-                ? { cryptoAmount, fiatAmount, rawRate }
+                ? { cryptoAmount, fiatAmount, rawRate, quoteId, expiresAt, maxCryptoDebit }
                 : null;
           } catch (error) {
             if (isAbortError(error)) return;
@@ -200,7 +210,8 @@ export function useProviderRates({
     isAmountValid,
     isLoadingProviders,
     side,
+    revision,
   ]);
 
-  return { rates, isLoadingRates };
+  return { rates, isLoadingRates, refreshQuotes };
 }

@@ -224,6 +224,8 @@ function getFiatReceivedAmount(transaction: Transaction): number | null {
   const metadata = getTransactionMetadata(transaction);
 
   const directAmount = getNumericMetadataValue(metadata, [
+    "settledFiat",
+    "orderNetFiat",
     "receiveAmount",
     "estimatedFiatAmount",
     "fiatPayoutAmount",
@@ -450,7 +452,7 @@ function buildTransactionDetailSections(
 
   if (operation === "withdraw" && fiatReceived !== null) {
     baseRows.push({
-      label: "Amount Received",
+      label: metadata.settledFiat ? "Bank payout confirmed" : "Expected bank payout",
       value: formatFiatAmount(fiatReceived, fiatCurrency),
     });
   } else if (["buy", "deposit"].includes(operation)) {

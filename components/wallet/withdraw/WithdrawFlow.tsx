@@ -237,7 +237,7 @@ export default function WithdrawFlow({
     Number.isFinite(amountValue) &&
     amountValue >= MIN_STABLECOIN_AMOUNT &&
     isStablecoinAmountWithinBalance(amountValue, selectedAssetBalance);
-  const { rates: providerRates, isLoadingRates } = useProviderRates({
+  const { rates: providerRates, isLoadingRates, refreshQuotes } = useProviderRates({
     providers,
     asset,
     amount: amountValue,
@@ -254,11 +254,15 @@ export default function WithdrawFlow({
     selectedProviderRate?.rawRate && selectedProviderRate.rawRate > 0
       ? selectedProviderRate.rawRate
       : undefined;
-  const hasSelectedProviderRate = Boolean(selectedProviderRawRate);
+  const hasSelectedProviderRate = Boolean(
+    selectedProviderRawRate &&
+      selectedProviderRate?.fiatAmount &&
+      selectedProviderRate?.quoteId,
+  );
   const estimatedFiatAmount =
     selectedProviderRate?.fiatAmount && selectedProviderRate.fiatAmount > 0
       ? selectedProviderRate.fiatAmount
-      : amountValue;
+      : 0;
   const withdrawalCryptoAmount =
     selectedProviderRate?.cryptoAmount && selectedProviderRate.cryptoAmount > 0
       ? selectedProviderRate.cryptoAmount
@@ -342,6 +346,15 @@ export default function WithdrawFlow({
       const chainBlocked = chainStatus.blockedMessage(networkName, "out");
       if (chainBlocked) throw new Error(chainBlocked);
       if (!request) {
+        if (
+          !selectedProviderRate?.quoteId ||
+          !Number.isFinite(Date.parse(selectedProviderRate.expiresAt || "")) ||
+          Date.parse(selectedProviderRate.expiresAt || "") <= Date.now()
+        ) {
+          setStep("provider");
+          refreshQuotes();
+          throw new Error("Your withdrawal quote expired. Review the refreshed payout before confirming.");
+        }
         const providerName = normalizeProviderKey(selectedProvider.name);
         const rate = selectedProviderRawRate
           ? String(selectedProviderRawRate)
@@ -353,6 +366,7 @@ export default function WithdrawFlow({
         request = {
           providerName,
           payload: {
+            quoteId: selectedProviderRate.quoteId,
             fiatCurrency,
             fiatAmount: estimatedFiatAmount,
             cryptoAmount: withdrawalCryptoAmount,
@@ -459,7 +473,6 @@ export default function WithdrawFlow({
           order: createdOrder,
           chainKey: selectedNetworkKey,
           symbol: asset,
-          fallbackAmount: withdrawalCryptoAmount,
           verification: verification
             ? {
                 type: verification.verificationMethod,
@@ -543,6 +556,8 @@ export default function WithdrawFlow({
       if (!createdOrder) {
         pendingOrderRef.current = null;
         endOperation();
+        setStep("provider");
+        refreshQuotes();
       }
 
       const message =
@@ -804,6 +819,9 @@ export default function WithdrawFlow({
 
           {step === "review" ? (
             <WithdrawReviewStep
+              netFiat={estimatedFiatAmount}
+              fiatCurrency={fiatCurrency}
+              maxCryptoDebit={selectedProviderRate?.maxCryptoDebit}
               amount={amount}
               asset={asset}
               amountUnit={asset}

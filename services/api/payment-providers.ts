@@ -76,6 +76,9 @@ export interface ProviderFee {
 export type ProviderFeesResponse = Record<string, ProviderFee>;
 
 export interface PaycrestRateResponse {
+  quoteId?: string;
+  expiresAt?: string;
+  maxCryptoDebit?: string;
   buy?: {
     rate: string; // e.g. "1381.57"
     price?: number | string;
@@ -107,6 +110,9 @@ export interface PaycrestRateResponse {
 }
 
 export interface CentiivQuoteResponse {
+  quoteId?: string;
+  expiresAt?: string;
+  maxCryptoDebit?: string;
   rate: string;
   estimatedReceivableAmount: string;
   fees: string;

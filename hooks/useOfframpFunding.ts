@@ -34,23 +34,25 @@ export interface FundableOrder {
   tokenAddress?: string
   /** Set when the backend already funded the order (Centiiv's auto-transfer). */
   fundingTxHash?: string
+  fundingStatus?: string
 }
 
 export interface PendingDeposit {
   address: string
   memo?: string
+  expiresAt?: string
 }
 
 /** The deposit this order still needs, or null if it redirects or is already funded. */
 export function getPendingDeposit(
   order: FundableOrder | null | undefined,
 ): PendingDeposit | null {
-  if (!order || order.fundingTxHash) return null
+  if (!order || order.fundingTxHash || ["QUEUED", "RETRY_REQUIRED", "SUBMITTED", "SETTLED"].includes(order.fundingStatus ?? "")) return null
 
   const address = order.depositAddress || order.depositInstructions?.address
   if (!address) return null
 
-  return { address, memo: order.depositInstructions?.memo }
+  return { address, memo: order.depositInstructions?.memo, expiresAt: order.depositInstructions?.expiresAt }
 }
 
 const EVM_DECIMALS_BY_CHAIN_ID: Record<number, number> = {
@@ -70,16 +72,21 @@ export function useOfframpFunding() {
       order: FundableOrder
       chainKey: string
       symbol: string
-      /** Used when the provider didn't state an exact token amount. */
-      fallbackAmount: number
       verification?: StickyVerification
     }): Promise<string | null> => {
-      const { order, symbol, fallbackAmount, verification } = params
+      const { order, symbol, verification } = params
       const chainKey = params.chainKey.toLowerCase()
 
       const deposit = getPendingDeposit(order)
       if (!deposit) return null
 
+      if (deposit.expiresAt && (!Number.isFinite(Date.parse(deposit.expiresAt)) || Date.parse(deposit.expiresAt) <= Date.now())) {
+        throw new Error("This withdrawal deposit has expired. Request a new quote.")
+      }
+      const transferAmount = Number(order.requiredTokenAmount)
+      if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
+        throw new Error("Provider did not supply an exact deposit amount. Request a new quote.")
+      }
       const activeChains = getActiveChains()
       const chainConfig = activeChains[chainKey as keyof typeof activeChains]
 
@@ -87,11 +94,13 @@ export function useOfframpFunding() {
       if (!chainConfig || !/^0x/.test(deposit.address)) {
         throw new Error(
           `Automatic funding isn't available for ${params.chainKey} withdrawals yet. ` +
-            `Send ${fallbackAmount} ${symbol} to ${deposit.address}` +
+            `Send ${transferAmount} ${symbol} to ${deposit.address}` +
             (deposit.memo ? ` (memo: ${deposit.memo})` : "") +
             ` to complete this order.`,
         )
       }
+
+      if (deposit.memo) throw new Error("This deposit requires a memo and cannot be funded with an EVM token transfer.")
 
       if (!walletsReady) {
         throw new Error(
@@ -127,10 +136,6 @@ export function useOfframpFunding() {
       }
 
       const decimals = EVM_DECIMALS_BY_CHAIN_ID[chainConfig.id as number] ?? 6
-      const transferAmount = Number(order.requiredTokenAmount ?? fallbackAmount)
-      if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
-        throw new Error("Could not determine the amount to transfer.")
-      }
 
       const requiredUnits = toBaseUnits(transferAmount, decimals)
       // The provider needs this exact amount; a shortfall must read as a balance problem,
