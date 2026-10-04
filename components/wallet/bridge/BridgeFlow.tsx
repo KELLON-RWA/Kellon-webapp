@@ -115,6 +115,7 @@ export default function BridgeFlow({
     symbol: BridgeAssetOption["symbol"]
     amount: string
     destination: BridgeAssetOption
+    submissionPhase: "preparing" | "approving" | "submitted" | "completed"
     tracking?: Pick<
       BridgeOutboxJob,
       "txHash" | "provider" | "fromChain" | "toChain" | "amount" | "symbol" | "groupId"
@@ -300,6 +301,12 @@ export default function BridgeFlow({
   const executeBridge = async (code?: string) => {
     if (!source || !destination || !selectedRoute) return
     setIsSubmitting(true)
+    setBridgeSuccess({
+      symbol: source.symbol,
+      amount: receiveAmount || amount,
+      destination,
+      submissionPhase: "preparing",
+    })
 
     try {
       if (code && verification) {
@@ -349,12 +356,16 @@ export default function BridgeFlow({
           symbol: source.symbol,
           amount,
           destination,
+          submissionPhase: "completed",
         })
         return
       }
 
       const transactions = execution.transactions
       let hash: string
+      setBridgeSuccess((current) =>
+        current ? { ...current, submissionPhase: "approving" } : current,
+      )
       if (source.chainType === "stellar") {
         const stellarTransactions = transactions.filter(
           (transaction) => transaction.serializedTx || transaction.data,
@@ -445,6 +456,7 @@ export default function BridgeFlow({
         symbol: source.symbol,
         amount: receiveAmount || amount,
         destination,
+        submissionPhase: "submitted",
         tracking,
       })
       if (
@@ -455,6 +467,7 @@ export default function BridgeFlow({
         void bridgeOutbox.flush(profile.id)
       }
     } catch (error) {
+      setBridgeSuccess(null)
       const verificationError = findTransferVerificationRequiredError(error)
       if (verificationError) {
         const methods = getAvailableVerificationMethods(
@@ -626,6 +639,7 @@ export default function BridgeFlow({
           symbol={bridgeSuccess.symbol}
           destination={bridgeSuccess.destination.chainName}
           tracking={bridgeSuccess.tracking}
+          submissionPhase={bridgeSuccess.submissionPhase}
           onDone={finishBridge}
           onDismiss={() => setBridgeSuccess(null)}
         />
