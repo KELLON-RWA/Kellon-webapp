@@ -4,7 +4,12 @@ import { chainStatus } from "@/lib/chain-status";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useWallets } from "@privy-io/react-auth";
-import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -73,7 +78,15 @@ interface StockActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: () => Promise<void> | void;
+  onViewPosition?: () => void;
 }
+
+type PurchaseSuccess = {
+  symbol: string;
+  shares: number;
+  price: number;
+  cost: number;
+};
 
 interface StockSmartAccountClient {
   account: { address: string };
@@ -107,6 +120,7 @@ export default function StockActionDialog({
   open,
   onOpenChange,
   onComplete,
+  onViewPosition,
 }: StockActionDialogProps) {
   const { wallets, ready: walletsReady } = useWallets();
   const { getSmartAccountClient } = useSmartAccount();
@@ -121,6 +135,8 @@ export default function StockActionDialog({
     useState<StockVerificationContext>("stocks");
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [purchaseSuccess, setPurchaseSuccess] =
+    useState<PurchaseSuccess | null>(null);
   const otpRequestInFlightRef = useRef(false);
   const lastOtpRequestAtRef = useRef(0);
 
@@ -266,15 +282,15 @@ export default function StockActionDialog({
       const verificationPayload =
         verification?.context === "stocks"
           ? {
-            verificationCode: verification.verificationCode,
-            verificationType: verification.verificationType,
-            verificationCodes: [
-              {
-                type: verification.verificationType,
-                code: verification.verificationCode,
-              },
-            ],
-          }
+              verificationCode: verification.verificationCode,
+              verificationType: verification.verificationType,
+              verificationCodes: [
+                {
+                  type: verification.verificationType,
+                  code: verification.verificationCode,
+                },
+              ],
+            }
           : {};
 
       if (action === "buy") {
@@ -295,10 +311,7 @@ export default function StockActionDialog({
           throw new Error("Your wallet is still loading. Please try again.");
         }
 
-        const embeddedWallet = resolveEvmSigner(
-          wallets,
-          profile.chainAccounts,
-        );
+        const embeddedWallet = resolveEvmSigner(wallets, profile.chainAccounts);
         if (!embeddedWallet) {
           throw new Error(
             "Your wallet is not available on this device. Please log out and log in again.",
@@ -369,9 +382,16 @@ export default function StockActionDialog({
           ...verificationPayload,
         });
 
-        toast.success(
-          res.message || `Successfully purchased ${currentStock.symbol} stock!`,
-        );
+        const purchase = res.data;
+        setPurchaseSuccess({
+          symbol: purchase?.symbol || currentStock.symbol,
+          shares:
+            Number(purchase?.shares) ||
+            buildRes.data.quote?.shares ||
+            amountFiat / currentStock.price,
+          price: Number(purchase?.price) || currentStock.price,
+          cost: Number(purchase?.cost) || amountFiat,
+        });
       } else {
         const sellBlocked = chainStatus.blockedMessage(targetStockChain, "out");
         if (sellBlocked) throw new Error(sellBlocked);
@@ -682,6 +702,63 @@ export default function StockActionDialog({
           )();
         }}
       />
+
+      <Dialog
+        open={Boolean(purchaseSuccess)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPurchaseSuccess(null);
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl border-gray-80 bg-white p-6 text-center dark:border-white/10 dark:bg-secondary-50 sm:p-7">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <DialogHeader className="mt-4 items-center">
+            <DialogTitle className="text-xl text-cryptoNight dark:text-white">
+              Purchase successful
+            </DialogTitle>
+            <DialogDescription className="max-w-[18rem] text-center text-sm leading-6 text-gray-30 dark:text-gray-40">
+              Your {purchaseSuccess?.symbol} position has been updated.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-gray-80 bg-gray-80 text-left dark:border-white/10 dark:bg-white/10">
+            <div className="bg-white p-3.5 dark:bg-secondary-50">
+              <p className="text-[11px] text-gray-30 dark:text-gray-40">
+                Shares purchased
+              </p>
+              <p className="mt-1 font-semibold tabular-nums text-cryptoNight dark:text-white">
+                {purchaseSuccess?.shares.toFixed(4)}
+              </p>
+            </div>
+            <div className="bg-white p-3.5 dark:bg-secondary-50">
+              <p className="text-[11px] text-gray-30 dark:text-gray-40">
+                Total paid
+              </p>
+              <p className="mt-1 font-semibold tabular-nums text-cryptoNight dark:text-white">
+                ${purchaseSuccess?.cost.toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="flow"
+            className="mt-5 h-12 w-full"
+            onClick={() => {
+              setPurchaseSuccess(null);
+              onViewPosition?.();
+            }}
+          >
+            <span className="relative z-10">View my position</span>
+          </Button>
+          <button
+            type="button"
+            className="mt-3 w-full text-sm font-semibold text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+            onClick={() => setPurchaseSuccess(null)}
+          >
+            Done
+          </button>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
