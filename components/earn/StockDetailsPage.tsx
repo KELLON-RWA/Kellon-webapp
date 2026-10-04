@@ -32,13 +32,18 @@ import {
 } from "@/lib/dashboard-utils";
 import { getActivityRefetchInterval } from "@/lib/transaction-polling";
 import { transactionService } from "@/services/api/transactions";
-import { stocksService } from "@/services/api/stocks";
+import {
+  stocksService,
+  type StockListing,
+  type StockPortfolioHolding,
+} from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import {
   formatUsd,
   getStockProviderLabel,
   getStockSettlementChain,
+  normalizeChainKey,
 } from "./earn-utils";
 import {
   getDisplayStockName,
@@ -56,6 +61,36 @@ import {
 } from "./StockSparkline";
 
 const TIME_RANGES = ["1D", "1W", "1M", "1Y", "ALL"] as const;
+
+function getListingSymbol(symbol: string): string {
+  return symbol.trim().toUpperCase();
+}
+
+function matchesStockContext(
+  item: Pick<StockListing, "provider" | "settlementChain" | "chain" | "network">,
+  provider?: string,
+  network?: string,
+): boolean {
+  return (
+    (!provider || item.provider.toLowerCase() === provider) &&
+    (!network ||
+      getStockSettlementChain(
+        item.provider,
+        item.settlementChain || item.chain || item.network,
+      ) === network)
+  );
+}
+
+function matchesHoldingContext(
+  item: Pick<StockPortfolioHolding, "provider">,
+  provider?: string,
+  network?: string,
+): boolean {
+  return (
+    (!provider || item.provider.toLowerCase() === provider) &&
+    (!network || getStockSettlementChain(item.provider) === network)
+  );
+}
 
 const STOCK_DESCRIPTIONS: Record<string, string> = {
   AAPL: "Apple Inc. is an American multinational technology company known for the iPhone, Mac, iPad, Apple Watch, and services including the App Store and Apple Music.",
@@ -391,23 +426,34 @@ export default function StockDetailsPage({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedProvider = searchParams.get("provider")?.toLowerCase();
-  const requestedNetwork = searchParams.get("network")?.toLowerCase();
+  const requestedProviderParam = searchParams.get("provider");
+  const requestedProvider = requestedProviderParam?.trim().toLowerCase();
+  const requestedNetworkParam = searchParams.get("network");
+  const requestedNetwork = requestedNetworkParam
+    ? normalizeChainKey(requestedNetworkParam)
+    : undefined;
   useEffect(() => {
     if (!requestedProvider || requestedNetwork) return;
 
     const network = getStockSettlementChain(requestedProvider);
     router.replace(
-      `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(symbol, requestedProvider))}?network=${network}`,
+      `/earn/stocks/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(requestedProviderParam || requestedProvider)}&network=${network}`,
       { scroll: false },
     );
-  }, [requestedNetwork, requestedProvider, router, symbol]);
+  }, [
+    requestedNetwork,
+    requestedProvider,
+    requestedProviderParam,
+    router,
+    symbol,
+  ]);
   const [activeRange, setActiveRange] =
     useState<(typeof TIME_RANGES)[number]>("1M");
   const [stockAction, setStockAction] = useState<StockActionType | null>(null);
   const [activeTab, setActiveTab] = useState<StockPageTab>("Charts");
   const [activeStockholderTab, setActiveStockholderTab] =
     useState<StockholderTab>("Tokenholder rights");
+  const requestedListingSymbol = getListingSymbol(symbol);
   const normalizedSymbol = getUnderlyingTicker(symbol, requestedProvider);
   const {
     data: stocks = [],
@@ -432,32 +478,29 @@ export default function StockDetailsPage({
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
   });
-  const stock = useMemo(
-    () =>
+  const stock = useMemo(() => {
+    const matchesContext = (item: StockListing) =>
+      matchesStockContext(item, requestedProvider, requestedNetwork);
+
+    return (
       stocks.find(
         (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) ===
-            normalizedSymbol &&
-          (!requestedProvider ||
-            item.provider.toLowerCase() === requestedProvider) &&
-          (!requestedNetwork ||
-            getStockSettlementChain(
-              item.provider,
-              item.settlementChain || item.chain || item.network,
-            ) === requestedNetwork),
+          getListingSymbol(item.symbol) === requestedListingSymbol &&
+          matchesContext(item),
       ) ||
       stocks.find(
         (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) ===
-            normalizedSymbol &&
-          (!requestedNetwork ||
-            getStockSettlementChain(
-              item.provider,
-              item.settlementChain || item.chain || item.network,
-            ) === requestedNetwork),
-      ),
-    [normalizedSymbol, requestedNetwork, requestedProvider, stocks],
-  );
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
+          matchesContext(item),
+      )
+    );
+  }, [
+    normalizedSymbol,
+    requestedListingSymbol,
+    requestedNetwork,
+    requestedProvider,
+    stocks,
+  ]);
   const { data: stockPortfolio, refetch: refetchPortfolio } = useQuery({
     queryKey: ["stock-portfolio"],
     queryFn: async () => (await stocksService.getPortfolio()).data,
@@ -478,24 +521,31 @@ export default function StockDetailsPage({
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
-  const holding = useMemo(
-    () =>
-      (stockPortfolio?.holdings || []).find(
+  const holding = useMemo(() => {
+    const holdings = stockPortfolio?.holdings || [];
+    const matchesContext = (item: StockPortfolioHolding) =>
+      matchesHoldingContext(item, requestedProvider, requestedNetwork);
+
+    return (
+      holdings.find(
         (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) ===
-            normalizedSymbol &&
-          (!requestedProvider ||
-            item.provider.toLowerCase() === requestedProvider) &&
-          (!requestedNetwork ||
-            getStockSettlementChain(item.provider) === requestedNetwork),
-      ) || null,
-    [
-      normalizedSymbol,
-      requestedNetwork,
-      requestedProvider,
-      stockPortfolio?.holdings,
-    ],
-  );
+          getListingSymbol(item.symbol) === requestedListingSymbol &&
+          matchesContext(item),
+      ) ||
+      holdings.find(
+        (item) =>
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
+          matchesContext(item),
+      ) ||
+      null
+    );
+  }, [
+    normalizedSymbol,
+    requestedListingSymbol,
+    requestedNetwork,
+    requestedProvider,
+    stockPortfolio?.holdings,
+  ]);
   const canSell = Number(holding?.shares || 0) > 0;
   const stockActivities = useMemo(
     () =>
@@ -685,14 +735,20 @@ export default function StockDetailsPage({
                 {canSell ? (
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-11 px-6"
+                    variant="destructive"
+                    className="group relative h-11 overflow-hidden rounded-xl bg-red-500 px-6 font-bold text-white shadow-lg hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-500"
                     onClick={() => setStockAction("sell")}
                   >
-                    Sell{" "}
-                    <StockSymbol
-                      symbol={displayStockSymbol}
-                      provider={stock?.provider}
+                    <span className="relative z-10">
+                      Sell{" "}
+                      <StockSymbol
+                        symbol={displayStockSymbol}
+                        provider={stock?.provider}
+                      />
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"
                     />
                   </Button>
                 ) : null}
@@ -989,11 +1045,15 @@ export default function StockDetailsPage({
           {canSell ? (
             <Button
               type="button"
-              variant="outline"
-              className="h-12"
+              variant="destructive"
+              className="group relative h-12 overflow-hidden rounded-xl bg-red-500 font-bold text-white shadow-lg hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-500"
               onClick={() => setStockAction("sell")}
             >
-              Sell
+              <span className="relative z-10">Sell</span>
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"
+              />
             </Button>
           ) : null}
           <Button

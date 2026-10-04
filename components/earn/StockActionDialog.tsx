@@ -36,6 +36,7 @@ import {
   stocksService,
   type StockListing,
   type StockPortfolioHolding,
+  type SellStockResponse,
 } from "@/services/api/stocks";
 import type { User } from "@/types/db";
 import { Button } from "@/components/ui/button";
@@ -81,11 +82,12 @@ interface StockActionDialogProps {
   onViewPosition?: () => void;
 }
 
-type PurchaseSuccess = {
+type StockOrderSuccess = {
+  side: StockActionType;
   symbol: string;
   shares: number;
   price: number;
-  cost: number;
+  value: number;
 };
 
 interface StockSmartAccountClient {
@@ -135,8 +137,8 @@ export default function StockActionDialog({
     useState<StockVerificationContext>("stocks");
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] =
-    useState<PurchaseSuccess | null>(null);
+  const [orderSuccess, setOrderSuccess] =
+    useState<StockOrderSuccess | null>(null);
   const otpRequestInFlightRef = useRef(false);
   const lastOtpRequestAtRef = useRef(0);
 
@@ -293,119 +295,128 @@ export default function StockActionDialog({
             }
           : {};
 
+      const transactionChain = getStockSettlementChain(
+        currentStock.provider,
+        currentStock.settlementChain ||
+          currentStock.chain ||
+          currentStock.network,
+      );
+      const chainBlocked = chainStatus.blockedMessage(
+        transactionChain,
+        action === "buy" ? "in" : "out",
+      );
+      if (chainBlocked) throw new Error(chainBlocked);
+      if (transactionChain !== targetStockChain) {
+        throw new Error(
+          "The settlement chain does not match this stock listing.",
+        );
+      }
+      if (!walletsReady) {
+        throw new Error("Your wallet is still loading. Please try again.");
+      }
+
+      const embeddedWallet = resolveEvmSigner(wallets, profile.chainAccounts);
+      if (!embeddedWallet) {
+        throw new Error(
+          "Your wallet is not available on this device. Please log out and log in again.",
+        );
+      }
+
+      const rawClient = await getSmartAccountClient(
+        embeddedWallet,
+        targetStockChain,
+        expectedSafeFor(profile.chainAccounts, targetStockChain),
+      );
+      if (!rawClient) {
+        throw new Error("Smart Account wallet client is not ready.");
+      }
+
+      const client = rawClient as unknown as StockSmartAccountClient;
+      const shares =
+        action === "sell" ? Number(values.value) : undefined;
+      const amountFiat =
+        action === "sell" ? calculatedProceeds : Number(values.value);
+      const buildRes = await stocksService.buildBuyTransaction({
+        symbol: currentStock.symbol,
+        amountFiat,
+        currency: currentStock.currency || "USD",
+        provider: currentStock.provider,
+        fundingSymbol: "USDC",
+        fundingChain: targetStockChain,
+        userAddress: client.account.address,
+        side: action,
+        shares,
+        ...verificationPayload,
+      });
+
+      const batchedCalls = (buildRes.data?.calls || []).map((call) => ({
+        to: call.to as `0x${string}`,
+        data: (call.data || "0x") as `0x${string}`,
+        value: BigInt(call.value || "0"),
+      }));
+
+      if (!batchedCalls.length && !buildRes.data?.to) {
+        throw new Error(
+          `The stock ${action === "buy" ? "purchase" : "sale"} transaction could not be built.`,
+        );
+      }
+
+      const txHash = batchedCalls.length
+        ? await client.sendTransaction({
+            account: client.account,
+            chain: client.chain,
+            calls: batchedCalls,
+          })
+        : await client.sendTransaction({
+            account: client.account,
+            chain: client.chain,
+            to: buildRes.data.to as `0x${string}`,
+            data: (buildRes.data.data || "0x") as `0x${string}`,
+            value: BigInt(buildRes.data.value || "0"),
+          });
+
+      if (!txHash.startsWith("0x")) {
+        throw new Error(
+          `On-chain stock ${action === "buy" ? "purchase" : "sale"} transaction failed to broadcast.`,
+        );
+      }
+
+      const res = await stocksService.confirmTransaction({
+        symbol: currentStock.symbol,
+        amountFiat,
+        shares:
+          shares ||
+          buildRes.data.quote?.shares ||
+          amountFiat / currentStock.price,
+        provider: currentStock.provider,
+        txHash,
+        fundingSymbol: "USDC",
+        fundingChain: targetStockChain,
+        side: action,
+        ...verificationPayload,
+      });
+
       if (action === "buy") {
-        const transactionChain = getStockSettlementChain(
-          currentStock.provider,
-          currentStock.settlementChain ||
-            currentStock.chain ||
-            currentStock.network,
-        );
-        const chainBlocked = chainStatus.blockedMessage(transactionChain, "in");
-        if (chainBlocked) throw new Error(chainBlocked);
-        if (transactionChain !== targetStockChain) {
-          throw new Error(
-            "Funding chain does not match the chain this stock settles on.",
-          );
-        }
-        if (!walletsReady) {
-          throw new Error("Your wallet is still loading. Please try again.");
-        }
-
-        const embeddedWallet = resolveEvmSigner(wallets, profile.chainAccounts);
-        if (!embeddedWallet) {
-          throw new Error(
-            "Your wallet is not available on this device. Please log out and log in again.",
-          );
-        }
-
-        const rawClient = await getSmartAccountClient(
-          embeddedWallet,
-          targetStockChain,
-          expectedSafeFor(profile.chainAccounts, targetStockChain),
-        );
-        if (!rawClient) {
-          throw new Error("Smart Account wallet client is not ready.");
-        }
-
-        const client = rawClient as unknown as StockSmartAccountClient;
-        const amountFiat = Number(values.value);
-        const buildRes = await stocksService.buildBuyTransaction({
-          symbol: currentStock.symbol,
-          amountFiat,
-          currency: currentStock.currency || "USD",
-          provider: currentStock.provider,
-          fundingSymbol: "USDC",
-          fundingChain: targetStockChain,
-          userAddress: client.account.address,
-          ...verificationPayload,
-        });
-
-        const batchedCalls = (buildRes.data?.calls || []).map((call) => ({
-          to: call.to as `0x${string}`,
-          data: (call.data || "0x") as `0x${string}`,
-          value: BigInt(call.value || "0"),
-        }));
-
-        if (!batchedCalls.length && !buildRes.data?.to) {
-          throw new Error("The stock purchase transaction could not be built.");
-        }
-
-        const txHash = batchedCalls.length
-          ? await client.sendTransaction({
-              account: client.account,
-              chain: client.chain,
-              calls: batchedCalls,
-            })
-          : await client.sendTransaction({
-              account: client.account,
-              chain: client.chain,
-              to: buildRes.data.to as `0x${string}`,
-              data: (buildRes.data.data || "0x") as `0x${string}`,
-              value: BigInt(buildRes.data.value || "0"),
-            });
-
-        if (!txHash.startsWith("0x")) {
-          throw new Error(
-            "On-chain stock purchase transaction failed to broadcast.",
-          );
-        }
-
-        const res = await stocksService.confirmTransaction({
-          symbol: currentStock.symbol,
-          amountFiat,
-          shares:
-            buildRes.data.quote?.shares || amountFiat / currentStock.price,
-          provider: currentStock.provider,
-          txHash,
-          fundingSymbol: "USDC",
-          fundingChain: targetStockChain,
-          ...verificationPayload,
-        });
-
         const purchase = res.data;
-        setPurchaseSuccess({
+        setOrderSuccess({
+          side: "buy",
           symbol: purchase?.symbol || currentStock.symbol,
           shares:
             Number(purchase?.shares) ||
             buildRes.data.quote?.shares ||
             amountFiat / currentStock.price,
           price: Number(purchase?.price) || currentStock.price,
-          cost: Number(purchase?.cost) || amountFiat,
+          value: Number(purchase?.cost) || amountFiat,
         });
       } else {
-        const sellBlocked = chainStatus.blockedMessage(targetStockChain, "out");
-        if (sellBlocked) throw new Error(sellBlocked);
-        const res = await stocksService.sellStock({
+        const sale = res.data as unknown as SellStockResponse | undefined;
+        setOrderSuccess({
+          side: "sell",
           symbol: currentStock.symbol,
-          shares: Number(values.value),
-          currency: currentStock.currency || "USD",
-          provider: currentStock.provider,
-          ...verificationPayload,
+          shares: shares || Number(values.value),
+          price: Number(sale?.price) || currentStock.price,
+          value: Number(sale?.proceeds) || amountFiat,
         });
-
-        toast.success(
-          res.message || `Successfully sold shares of ${currentStock.symbol}!`,
-        );
       }
 
       setVerificationType(null);
@@ -625,8 +636,13 @@ export default function StockActionDialog({
 
                 <Button
                   type="submit"
-                  variant="flow"
+                  variant={action === "sell" ? "destructive" : "flow"}
                   size="flow"
+                  className={
+                    action === "sell"
+                      ? "group relative overflow-hidden rounded-xl bg-red-500 font-bold text-white shadow-lg hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-500"
+                      : undefined
+                  }
                   disabled={isSubmitting || isAvailableZero}
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
@@ -704,9 +720,9 @@ export default function StockActionDialog({
       />
 
       <Dialog
-        open={Boolean(purchaseSuccess)}
+        open={Boolean(orderSuccess)}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen) setPurchaseSuccess(null);
+          if (!nextOpen) setOrderSuccess(null);
         }}
       >
         <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl border-gray-80 bg-white p-6 text-center dark:border-white/10 dark:bg-secondary-50 sm:p-7">
@@ -715,27 +731,27 @@ export default function StockActionDialog({
           </div>
           <DialogHeader className="mt-4 items-center">
             <DialogTitle className="text-xl text-cryptoNight dark:text-white">
-              Purchase successful
+              {orderSuccess?.side === "sell" ? "Sale successful" : "Purchase successful"}
             </DialogTitle>
             <DialogDescription className="max-w-[18rem] text-center text-sm leading-6 text-gray-30 dark:text-gray-40">
-              Your {purchaseSuccess?.symbol} position has been updated.
+              Your {orderSuccess?.symbol} position has been updated.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-gray-80 bg-gray-80 text-left dark:border-white/10 dark:bg-white/10">
             <div className="bg-white p-3.5 dark:bg-secondary-50">
               <p className="text-[11px] text-gray-30 dark:text-gray-40">
-                Shares purchased
+                {orderSuccess?.side === "sell" ? "Shares sold" : "Shares purchased"}
               </p>
               <p className="mt-1 font-semibold tabular-nums text-cryptoNight dark:text-white">
-                {purchaseSuccess?.shares.toFixed(4)}
+                {orderSuccess?.shares.toFixed(4)}
               </p>
             </div>
             <div className="bg-white p-3.5 dark:bg-secondary-50">
               <p className="text-[11px] text-gray-30 dark:text-gray-40">
-                Total paid
+                {orderSuccess?.side === "sell" ? "USDC received" : "Total paid"}
               </p>
               <p className="mt-1 font-semibold tabular-nums text-cryptoNight dark:text-white">
-                ${purchaseSuccess?.cost.toFixed(2)}
+                ${orderSuccess?.value.toFixed(2)}
               </p>
             </div>
           </div>
@@ -744,7 +760,7 @@ export default function StockActionDialog({
             variant="flow"
             className="mt-5 h-12 w-full"
             onClick={() => {
-              setPurchaseSuccess(null);
+              setOrderSuccess(null);
               onViewPosition?.();
             }}
           >
@@ -753,7 +769,7 @@ export default function StockActionDialog({
           <button
             type="button"
             className="mt-3 w-full text-sm font-semibold text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
-            onClick={() => setPurchaseSuccess(null)}
+            onClick={() => setOrderSuccess(null)}
           >
             Done
           </button>

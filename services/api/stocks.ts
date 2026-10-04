@@ -94,6 +94,8 @@ export interface StockTransactionCall {
 
 export interface BuildStockBuyTransactionParams extends BuyStockParams {
   userAddress: string;
+  side?: "buy" | "sell";
+  shares?: number;
 }
 
 export interface BuildStockBuyTransactionResponse extends StockTransactionCall {
@@ -114,6 +116,7 @@ export interface ConfirmStockBuyTransactionParams {
   shares: number;
   provider: string;
   txHash: string;
+  side?: "buy" | "sell";
   fundingSymbol?: string;
   fundingChain?: string;
   verificationCode?: string;

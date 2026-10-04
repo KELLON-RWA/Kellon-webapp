@@ -1189,7 +1189,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
       stock.provider,
       stock.settlementChain || stock.chain || stock.network,
     );
-    return `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}?network=${network}`;
+    const params = new URLSearchParams({
+      provider: stock.provider,
+      network,
+    });
+
+    return `/earn/stocks/${encodeURIComponent(stock.symbol)}?${params.toString()}`;
   };
   const prefetchStockDetails = (stock: StockListing) => {
     router.prefetch(getStockDetailsHref(stock));
