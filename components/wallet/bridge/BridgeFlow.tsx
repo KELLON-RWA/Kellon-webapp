@@ -638,6 +638,11 @@ export default function BridgeFlow({
           amount={bridgeSuccess.amount}
           symbol={bridgeSuccess.symbol}
           destination={bridgeSuccess.destination.chainName}
+          destinationHref={
+            embedded
+              ? undefined
+              : `/assets/${bridgeSuccess.symbol.toLowerCase()}?network=${bridgeSuccess.destination.chainKey}`
+          }
           tracking={bridgeSuccess.tracking}
           submissionPhase={bridgeSuccess.submissionPhase}
           onDone={finishBridge}

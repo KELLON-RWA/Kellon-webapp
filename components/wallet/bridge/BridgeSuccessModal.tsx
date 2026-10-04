@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Check, Circle, CircleAlert, LoaderCircle } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   isCompletedBridgeStatus,
@@ -21,6 +22,7 @@ interface BridgeSuccessModalProps {
   amount: string;
   symbol: string;
   destination: string;
+  destinationHref?: string;
   tracking?: Pick<
     BridgeOutboxJob,
     | "txHash"
@@ -94,11 +96,13 @@ export default function BridgeSuccessModal({
   amount,
   symbol,
   destination,
+  destinationHref,
   tracking,
   submissionPhase = "submitted",
   onDone,
   onDismiss,
 }: BridgeSuccessModalProps) {
+  const hasRedirectedRef = useRef(false);
   const statusQuery = useQuery({
     queryKey: ["bridge-status", tracking?.txHash, tracking?.groupId],
     queryFn: () => bridgeService.getStatus(tracking!),
@@ -138,6 +142,21 @@ export default function BridgeSuccessModal({
     : isFailed
       ? "Bridge needs attention"
       : "Bridge in progress";
+
+  useEffect(() => {
+    if (!open || !isComplete || hasRedirectedRef.current) return;
+
+    const redirectTimer = window.setTimeout(() => {
+      hasRedirectedRef.current = true;
+      if (destinationHref) {
+        window.location.assign(destinationHref);
+        return;
+      }
+      onDone();
+    }, 1_500);
+
+    return () => window.clearTimeout(redirectTimer);
+  }, [destinationHref, isComplete, onDone, open]);
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onDismiss()}>
@@ -228,10 +247,11 @@ export default function BridgeSuccessModal({
         <Button
           type="button"
           onClick={isComplete ? onDone : onDismiss}
+          disabled={isComplete}
           className="h-14 rounded-2xl bg-emerald-500 text-base font-bold text-white hover:bg-emerald-600"
         >
           {isComplete
-            ? `View ${symbol} on ${destination}`
+            ? `Opening ${symbol} on ${destination}...`
             : isFailed
               ? "Close"
               : "Continue in background"}
