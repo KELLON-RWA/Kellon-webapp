@@ -27,7 +27,7 @@ interface RewardsPageProps {
   referralCode?: string;
 }
 
-const formatPoints = (value?: string) =>
+const formatPoints = (value?: string | number) =>
   Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 const formatLedgerDate = (value: string) =>
@@ -92,6 +92,16 @@ export default function RewardsPage({
     (summary?.referrals.code && typeof window !== "undefined"
       ? `${window.location.origin}/rewards?ref=${encodeURIComponent(summary.referrals.code)}`
       : "");
+
+  const balance = Number(summary?.balance || 0);
+  const nextReward = [...catalog]
+    .sort((left, right) => Number(left.costPoints) - Number(right.costPoints))
+    .find((item) => Number(item.costPoints) > balance);
+  const nextRewardCost = Number(nextReward?.costPoints || 0);
+  const pointsToNextReward = Math.max(0, nextRewardCost - balance);
+  const nextRewardProgress = nextRewardCost
+    ? Math.min(100, (balance / nextRewardCost) * 100)
+    : 0;
 
   const copyReferralLink = async () => {
     if (!referralLink) return;
@@ -180,6 +190,42 @@ export default function RewardsPage({
             </p>
           </div>
 
+          <div className="relative mt-4 min-[1024px]:mt-auto min-[1024px]:max-w-[48%]">
+            {nextReward ? (
+              <>
+                <div className="flex items-baseline justify-between gap-3 text-xs">
+                  <p className="truncate font-semibold text-cryptoNight dark:text-white">
+                    Next perk: {nextReward.name}
+                  </p>
+                  <span className="shrink-0 tabular-nums text-gray-30 dark:text-gray-40">
+                    {formatPoints(pointsToNextReward)} to go
+                  </span>
+                </div>
+                <div
+                  className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10"
+                  role="progressbar"
+                  aria-label={`Progress toward ${nextReward.name}`}
+                  aria-valuemin={0}
+                  aria-valuemax={nextRewardCost}
+                  aria-valuenow={Math.min(balance, nextRewardCost)}
+                >
+                  <div
+                    className="h-full rounded-full bg-primary-50 transition-[width] duration-500 dark:bg-primary-70"
+                    style={{ width: `${nextRewardProgress}%` }}
+                  />
+                </div>
+              </>
+            ) : catalog.length > 0 ? (
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                All available perks are within reach.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-30 dark:text-gray-40">
+                Available perks will appear here.
+              </p>
+            )}
+          </div>
+
           <div className="relative hidden md:grid md:grid-cols-2 md:gap-3 md:pt-5 min-[1024px]:absolute min-[1024px]:right-4 min-[1024px]:top-1/2 min-[1024px]:w-[46%] min-[1024px]:-translate-y-1/2 min-[1024px]:gap-2 min-[1024px]:pt-0">
             <div className="rounded-xl border border-black/10 bg-white/75 p-3 shadow-sm shadow-primary-90/15 backdrop-blur dark:border-white/10 dark:bg-secondary-50 dark:shadow-none min-[1024px]:p-2">
               <p className="text-[10px] font-bold tracking-tight text-gray-30 dark:text-white/35">
@@ -232,7 +278,13 @@ export default function RewardsPage({
             </button>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 border-t border-gray-80 pt-4 dark:border-white/10">
+          <div className="mt-5 grid grid-cols-3 border-t border-gray-80 pt-4 dark:border-white/10">
+            <div>
+              <p className="text-xs text-gray-30 dark:text-gray-40">Clicks</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
+                {summary?.referrals.clicks ?? 0}
+              </p>
+            </div>
             <div>
               <p className="text-xs text-gray-30 dark:text-gray-40">Invited</p>
               <p className="mt-1 text-lg font-bold tabular-nums text-cryptoNight dark:text-white">
@@ -307,6 +359,24 @@ export default function RewardsPage({
                   <p className="mt-1 min-h-10 text-sm leading-5 text-gray-20 dark:text-gray-40">
                     {item.description || "A Kellon reward available with your points."}
                   </p>
+                  {!affordable ? (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between gap-3 text-xs text-gray-30 dark:text-gray-40">
+                        <span>{formatPoints(Number(item.costPoints) - balance)} more needed</span>
+                        <span className="tabular-nums">
+                          {Math.floor((balance / Number(item.costPoints)) * 100)}%
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-90 dark:bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-primary-70"
+                          style={{
+                            width: `${Math.min(100, (balance / Number(item.costPoints)) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                   <Button
                     variant={affordable ? "flow" : "flowSecondary"}
                     size="sm"
@@ -416,15 +486,29 @@ export default function RewardsPage({
           <div>
             <Gift className="h-5 w-5 text-primary-50 dark:text-primary-80" />
             <h2 className="mt-4 text-base font-bold text-cryptoNight dark:text-white">
-              About points
+              Program details
             </h2>
             <p className="mt-2 text-sm leading-6 text-gray-20 dark:text-gray-40">
-              {pointsUnit.charAt(0).toUpperCase() + pointsUnit.slice(1)} are for
-              rewards only and have no cash value.
+              {summary?.program.name || "Kellon Rewards"}
             </p>
+            <dl className="mt-5 space-y-3 border-t border-gray-80 pt-4 text-sm dark:border-white/10">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-gray-30 dark:text-gray-40">Unit</dt>
+                <dd className="font-semibold capitalize text-cryptoNight dark:text-white">
+                  {pointsUnit}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-gray-30 dark:text-gray-40">Rate</dt>
+                <dd className="text-right font-semibold tabular-nums text-cryptoNight dark:text-white">
+                  {formatPoints(summary?.program.pointsPerUsd)} / {summary?.program.valuationAsset || "USD"}
+                </dd>
+              </div>
+            </dl>
           </div>
           <p className="mt-8 text-xs leading-5 text-gray-30 dark:text-gray-40">
-            Earned points and available perks can change as the program evolves.
+            {pointsUnit.charAt(0).toUpperCase() + pointsUnit.slice(1)} are for
+            rewards only and have no cash value.
           </p>
         </aside>
       </section>
