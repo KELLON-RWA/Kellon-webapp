@@ -58,8 +58,6 @@ const ChainSelect: FC<ChainSelectProps> = ({
   };
 
   const topChains = chains.slice(0, 8);
-  const base = chains;
-  console.log("base", base);
   return (
     <>
       {/* =================== MOBILE VIEW =================== */}

@@ -386,9 +386,6 @@ export function useSmartAccount() {
         })
 
         assertOwnsSafe(safeAccount.address)
-        console.log(
-          `[useSmartAccount] Initialized Safe Account: ${safeAccount.address} (Owner: ${privyWallet.address})`,
-        )
 
         cachedAddresses.set(cacheKey, safeAccount.address)
         cachedAddressRef.current = safeAccount.address

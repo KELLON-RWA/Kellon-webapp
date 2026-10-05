@@ -464,14 +464,6 @@ export default function StockDetailsPage({
     queryKey: ["available-stocks"],
     queryFn: async () => {
       const response = await stocksService.getAvailableStocks("all");
-
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          "[Stock details] Available stocks response:",
-          response.data,
-        );
-      }
-
       return response.data;
     },
     staleTime: 60_000,

@@ -860,11 +860,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
     queryKey: ["available-stocks"],
     queryFn: async () => {
       const response = await stocksService.getAvailableStocks("all");
-
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Earn] Available stocks response:", response.data);
-      }
-
       return response.data;
     },
     enabled: activeTab === "stocks",
