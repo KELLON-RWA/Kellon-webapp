@@ -9,7 +9,6 @@ import {
   Gift,
   Loader2,
   Share2,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -238,7 +237,7 @@ export default function RewardsPage({
       </section>
 
       <section className="mt-8">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-4">
           <div>
             <h2 className="text-lg font-bold text-cryptoNight dark:text-white">
               Redeem rewards
@@ -247,7 +246,6 @@ export default function RewardsPage({
               Use your points on available Kellon perks.
             </p>
           </div>
-          <Sparkles className="h-5 w-5 text-primary-50 dark:text-primary-80" aria-hidden="true" />
         </div>
 
         {catalog.length === 0 ? (
