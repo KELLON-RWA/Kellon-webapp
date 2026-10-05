@@ -16,12 +16,16 @@ import PortfolioBalanceCard from "./PortfolioBalanceCard";
 import QuickActionsPanel from "./QuickActionsPanel";
 import TopMoversPanel from "./TopMoversPanel";
 import { useDashboardData } from "@/lib/use-dashboard-data";
-import { isStablecoinSymbol } from "@/lib/dashboard-utils";
+import {
+  formatCurrencyAmount,
+  isStablecoinSymbol,
+} from "@/lib/dashboard-utils";
 import { useUser } from "@/hooks/use-user";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { isRwaStockListing, stocksService } from "@/services/api/stocks";
 import { yieldService } from "@/services/api/yield";
 import { PositionStatus } from "@/types/db";
+import { getPositionValue } from "@/components/earn/earn-utils";
 
 function getStockTicker(symbol: string) {
   const raw = symbol.trim();
@@ -140,10 +144,42 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
     const purchasedStockCount = investmentAssets.filter(
       (asset) => asset.kind === "stock" && asset.shares > 0,
     ).length;
-    const total = stablecoinCount + purchasedStockCount;
+    const total =
+      stablecoinCount + purchasedStockCount + activeYieldPositions.length;
 
     return `${total} ${total === 1 ? "asset" : "assets"}`;
-  }, [dashboard.groupedAssets, investmentAssets]);
+  }, [activeYieldPositions.length, dashboard.groupedAssets, investmentAssets]);
+  const portfolioValue = useMemo(() => {
+    const stocksUsdValue = investmentAssets.reduce(
+      (total, asset) => total + asset.usdValue,
+      0,
+    );
+    const yieldUsdValue = activeYieldPositions.reduce(
+      (total, position) => total + getPositionValue(position),
+      0,
+    );
+
+    const usdValue = dashboard.groupedAssets.reduce(
+      (total, asset) => total + asset.usdValue,
+      0,
+    ) + stocksUsdValue + yieldUsdValue;
+    const localValue = usdValue * dashboard.exchangeRate;
+
+    return { localValue, usdValue };
+  }, [activeYieldPositions, dashboard.exchangeRate, dashboard.groupedAssets, investmentAssets]);
+  const activePortfolioValue = dashboard.isLocalDisplay
+    ? portfolioValue.localValue
+    : portfolioValue.usdValue;
+  const secondaryPortfolioValue = dashboard.isLocalDisplay
+    ? portfolioValue.usdValue
+    : portfolioValue.localValue;
+  const secondaryPortfolioCurrency = dashboard.isLocalDisplay
+    ? "USD"
+    : dashboard.localCurrency;
+  const isPortfolioLoading =
+    dashboard.isPortfolioLoading ||
+    isStockPortfolioLoading ||
+    isYieldPositionsLoading;
 
   useEffect(() => {
     setGreeting(getGreeting());
@@ -156,7 +192,10 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
       <div className="grid grid-cols-1 gap-6 min-[1024px]:gap-4 min-[1280px]:grid-cols-12 min-[1280px]:items-start min-[1440px]:grid-cols-[minmax(0,1.7fr)_minmax(22rem,1fr)]">
         <div className="contents min-[1280px]:col-span-8 min-[1280px]:flex min-[1280px]:min-w-0 min-[1280px]:flex-col min-[1280px]:gap-4 min-[1280px]:h-full min-[1440px]:col-span-1">
           <PortfolioBalanceCard
-            activeBalanceLabel={dashboard.activeBalanceLabel}
+            activeBalanceLabel={formatCurrencyAmount(
+              activePortfolioValue,
+              dashboard.activeCurrency,
+            )}
             assetCountLabel={holdingCount}
             canToggleCurrency={dashboard.canToggleCurrency}
             countryCode={dashboard.countryCode}
@@ -166,10 +205,13 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             isBalanceVisible={dashboard.isBalanceVisible}
             isDetecting={dashboard.isDetecting}
             isLocalDisplay={dashboard.isLocalDisplay}
-            isPortfolioLoading={dashboard.isPortfolioLoading}
+            isPortfolioLoading={isPortfolioLoading}
             localCurrency={dashboard.localCurrency}
-            portfolioLabel={dashboard.portfolioLabel}
-            secondaryBalanceLabel={dashboard.secondaryBalanceLabel}
+            portfolioLabel={`Portfolio balance (${dashboard.activeCurrency})`}
+            secondaryBalanceLabel={formatCurrencyAmount(
+              secondaryPortfolioValue,
+              secondaryPortfolioCurrency,
+            )}
             setDisplayCurrency={dashboard.setDisplayCurrency}
             setIsBalanceVisible={dashboard.setIsBalanceVisible}
             totalNetworks={dashboard.totalNetworks}
