@@ -118,39 +118,44 @@ export default function AssetsPanel({
         </div>
         <div className="hidden min-[1024px]:flex min-[1024px]:items-center min-[1024px]:gap-3">
           {isDesktopSearchOpen ? (
-            <div className="ml-auto flex w-full max-w-sm items-center gap-3 pb-2">
-              <Search className="h-4 w-4 shrink-0 text-gray-30 dark:text-gray-40" aria-hidden="true" />
-              <input
-                autoFocus
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    setSearchQuery("");
-                    setIsDesktopSearchOpen(false);
-                  }
-                }}
-                placeholder="Search"
-                aria-label={`Search ${activeTable}`}
-                className="min-w-0 flex-1 bg-transparent text-sm text-cryptoNight outline-none caret-primary-90 placeholder:text-gray-30 dark:text-white dark:caret-primary-30 dark:placeholder:text-gray-40"
-              />
-              {searchQuery ? (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  aria-label="Clear asset search"
-                  className="text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
+            <div className="ml-auto flex w-full max-w-sm items-center gap-3">
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70"
+                  aria-hidden="true"
+                />
+                <input
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setSearchQuery("");
+                      setIsDesktopSearchOpen(false);
+                    }
+                  }}
+                  placeholder="Search assets"
+                  aria-label={`Search ${activeTable}`}
+                  className="h-8 w-full rounded-lg border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Clear asset search"
+                    className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setIsDesktopSearchOpen(false);
                 }}
-                className="shrink-0 text-sm text-gray-30 transition hover:text-primary-90 dark:text-gray-40 dark:hover:text-primary-30"
+                className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
               >
                 Cancel
               </button>
@@ -161,7 +166,7 @@ export default function AssetsPanel({
               onClick={() => setIsDesktopSearchOpen(true)}
               aria-label={`Search ${activeTable}`}
               aria-expanded={isDesktopSearchOpen}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
             >
               <Search className="h-4 w-4" />
             </button>
