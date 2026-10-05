@@ -51,12 +51,12 @@ function RewardsPageSkeleton() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(330px,0.85fr)]">
-        <section className="relative min-h-[210px] overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-4 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none md:min-h-[280px] md:rounded-xl md:p-6 min-[1024px]:min-h-[178px] min-[1024px]:p-4">
+        <section className="relative flex w-full flex-col items-start space-y-4 overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-4 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none md:min-h-[280px] md:items-stretch md:justify-between md:rounded-xl md:p-6 min-[1024px]:min-h-[178px] min-[1024px]:space-y-2 min-[1024px]:p-4">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_18%_0%,rgba(138,22,133,0.24),transparent_46%),radial-gradient(circle_at_72%_18%,rgba(209,71,163,0.12),transparent_44%)] dark:bg-[radial-gradient(circle_at_20%_0%,rgba(193,92,165,0.36),transparent_48%)] min-[1024px]:h-28" />
-          <div className="relative animate-pulse">
+          <div className="relative flex flex-1 flex-col self-stretch animate-pulse pt-1">
             <div className="h-7 w-36 rounded-full bg-gray-90/80 dark:bg-white/10" />
-            <div className="mt-7 h-10 w-32 rounded-lg bg-gray-90/80 dark:bg-white/10 min-[1024px]:mt-5" />
-            <div className="mt-4 h-1.5 max-w-[48%] rounded-full bg-gray-90/80 dark:bg-white/10" />
+            <div className="mt-4 h-10 w-32 rounded-lg bg-gray-90/80 dark:bg-white/10 min-[1024px]:mt-5" />
+            <div className="mt-4 hidden h-1.5 max-w-[48%] rounded-full bg-gray-90/80 dark:bg-white/10 md:block" />
             <div className="absolute right-0 top-1/2 hidden w-[46%] -translate-y-1/2 grid-cols-2 gap-2 min-[1024px]:grid">
               <div className="h-14 rounded-xl bg-gray-90/80 dark:bg-white/10" />
               <div className="h-14 rounded-xl bg-gray-90/80 dark:bg-white/10" />
@@ -213,7 +213,7 @@ export default function RewardsPage({ referralCode }: RewardsPageProps) {
   return (
     <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28">
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(330px,0.85fr)]">
-        <section className="relative flex min-h-[210px] w-full flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-4 text-left text-gray-20 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:text-gray-40 dark:shadow-none md:min-h-[280px] md:justify-between md:rounded-xl md:border-white/80 md:bg-white/75 md:p-6 md:text-cryptoNight md:shadow-md md:shadow-primary-90/25 md:dark:border-white/10 md:dark:bg-secondary-50/20 md:dark:text-white md:dark:shadow-none min-[1024px]:min-h-[178px] min-[1024px]:p-4">
+        <section className="relative flex w-full flex-col items-start space-y-4 overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-4 text-left text-gray-20 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:text-gray-40 dark:shadow-none md:min-h-[280px] md:items-stretch md:justify-between md:rounded-xl md:border-white/80 md:bg-white/75 md:p-6 md:text-cryptoNight md:shadow-md md:shadow-primary-90/25 md:dark:border-white/10 md:dark:bg-secondary-50/20 md:dark:text-white md:dark:shadow-none min-[1024px]:min-h-[178px] min-[1024px]:space-y-2 min-[1024px]:p-4">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_18%_0%,rgba(138,22,133,0.28),transparent_46%),radial-gradient(circle_at_72%_18%,rgba(209,71,163,0.16),transparent_44%),linear-gradient(115deg,rgba(255,255,255,0.76),rgba(246,232,242,0.72)_44%,rgba(255,255,255,0.32))] dark:hidden md:h-52 min-[1024px]:h-28" />
           <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-44 dark:block dark:bg-[radial-gradient(circle_at_20%_0%,rgba(193,92,165,0.45),transparent_48%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,0.14),transparent_38%)] md:h-52 min-[1024px]:h-28" />
 
@@ -224,7 +224,7 @@ export default function RewardsPage({ referralCode }: RewardsPageProps) {
             Rewards balance
           </div>
 
-          <div className="relative flex flex-1 flex-col justify-center pt-4 min-[1024px]:justify-start min-[1024px]:pt-5">
+          <div className="relative flex flex-1 flex-col justify-start self-stretch pt-1 md:justify-center md:pt-0 min-[1024px]:justify-start min-[1024px]:pt-1">
             <div className="flex items-baseline gap-2">
               <h2 className="text-3xl font-bold leading-none tabular-nums text-cryptoNight dark:text-white md:text-5xl min-[1024px]:text-3xl">
                 {formatPoints(summary?.balance)}
@@ -233,13 +233,13 @@ export default function RewardsPage({ referralCode }: RewardsPageProps) {
                 {pointsUnit}
               </span>
             </div>
-            <p className="mt-2 text-xs font-semibold text-gray-20 dark:text-gray-40 md:text-base md:dark:text-white/70 min-[1024px]:hidden">
+            <p className="mt-1 text-xs font-semibold text-gray-20 dark:text-gray-40 md:text-base md:dark:text-white/70 min-[1024px]:hidden">
               Earned {formatPoints(summary?.lifetimeEarned)} · Redeemed{" "}
               {formatPoints(summary?.lifetimeRedeemed)}
             </p>
           </div>
 
-          <div className="relative mt-4 min-[1024px]:mt-auto min-[1024px]:max-w-[48%]">
+          <div className="relative mt-4 hidden md:block min-[1024px]:mt-auto min-[1024px]:max-w-[48%]">
             {nextReward ? (
               <>
                 <div className="flex items-baseline justify-between gap-3 text-xs">
