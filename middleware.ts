@@ -1,11 +1,37 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const REFERRAL_COOKIE = "kellon_ref";
+const REFERRAL_CODE = /^@?[A-Za-z0-9_-]{3,64}$/;
+
 export function middleware(request: NextRequest) {
   const onboarded = request.cookies.get("kellon_onboarded")?.value;
   const sessionToken = request.cookies.get("session_token")?.value;
 
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
+
+  // Referral links (/join?ref=CODE, /r/CODE) land before sign-up. Keep the code in a cookie so
+  // it survives onboarding and login; ReferralAttributor claims it once the user is in.
+  const referral =
+    pathname === "/join"
+      ? searchParams.get("ref")
+      : pathname.match(/^\/r\/([^/]+)$/)?.[1];
+  if (pathname === "/join" || pathname.startsWith("/r/")) {
+    const target = !onboarded
+      ? "/onboarding"
+      : sessionToken
+        ? "/rewards"
+        : "/continue";
+    const response = NextResponse.redirect(new URL(target, request.url));
+    if (referral && REFERRAL_CODE.test(referral)) {
+      response.cookies.set(REFERRAL_COOKIE, referral, {
+        maxAge: 7 * 24 * 60 * 60,
+        sameSite: "lax",
+        path: "/",
+      });
+    }
+    return response;
+  }
 
   // Define our "Safe Zones"
   const isOnboardingPage = pathname.startsWith("/onboarding");

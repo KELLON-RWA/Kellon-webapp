@@ -6,6 +6,7 @@ import {
   User,
   SunMoon,
   House,
+  Gift,
 } from "lucide-react"
 import React from "react"
 
@@ -381,6 +382,7 @@ export const Icons = {
   ),
   Card: (props: LucideProps) => <CreditCard {...props} />,
   Earn: (props: LucideProps) => <TrendingUp {...props} />,
+  Gift: (props: LucideProps) => <Gift {...props} />,
   Account: (props: LucideProps) => <User {...props} />,
   Theme: (props: LucideProps) => <SunMoon {...props} />,
   Home: (props: LucideProps) => <House {...props} />,

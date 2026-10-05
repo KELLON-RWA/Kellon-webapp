@@ -21,7 +21,12 @@ export const navigationListUrls: INavigationListUrl[] = [
     href: "/earn",
     icon: "Earn",
   
-  }
+  },
+  {
+    label: "rewards",
+    href: "/rewards",
+    icon: "Gift",
+  },
   // {
   //   label: "stocks",
   //   href: "/stocks",
