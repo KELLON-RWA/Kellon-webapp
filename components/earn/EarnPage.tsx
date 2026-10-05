@@ -1474,7 +1474,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         setIsYieldSearchOpen(false);
                         setYieldSearchQuery("");
                       }}
-                      className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                      className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                     >
                       Cancel
                     </button>
@@ -1501,7 +1501,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           }}
                           placeholder="Search yield"
                           aria-label="Search yield opportunities"
-                          className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
+                          className="h-8 w-full rounded-xl border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                         />
                         {yieldSearchQuery ? (
                           <button type="button" onClick={() => setYieldSearchQuery("")} aria-label="Clear yield search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
@@ -1515,7 +1515,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           setIsYieldSearchOpen(false);
                           setYieldSearchQuery("");
                         }}
-                        className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                        className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         Cancel
                       </button>
@@ -1541,7 +1541,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       onClick={() => setIsYieldSearchOpen(true)}
                       aria-label="Search yield opportunities"
                       aria-expanded={isYieldSearchOpen}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-90 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-30"
+                      className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
                     >
                       <Search className="h-4 w-4" />
                     </button>
@@ -1883,7 +1883,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         setIsStockSearchOpen(false);
                         setStockSearchQuery("");
                       }}
-                      className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                      className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                     >
                       Cancel
                     </button>
@@ -1910,7 +1910,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           }}
                           placeholder="Search stocks"
                           aria-label="Search stock opportunities"
-                          className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
+                          className="h-8 w-full rounded-xl border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                         />
                         {stockSearchQuery ? (
                           <button type="button" onClick={() => setStockSearchQuery("")} aria-label="Clear stock search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
@@ -1924,7 +1924,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           setIsStockSearchOpen(false);
                           setStockSearchQuery("");
                         }}
-                        className="shrink-0 text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                        className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         Cancel
                       </button>
