@@ -23,6 +23,10 @@ import {
   type VerificationMethod,
 } from "@/services/api/transfers";
 import {
+  getEnabledTransactionVerificationMethods,
+  securityService,
+} from "@/services/api/security";
+import {
   beginOperation,
   createWebauthnAttestation,
   endOperation,
@@ -268,6 +272,36 @@ export default function StockActionDialog({
     } catch {
       // The transaction is already confirmed. The dashboard's normal live sync
       // will retry if this immediate reconciliation is temporarily unavailable.
+    }
+  };
+
+  const prepareStockVerification = async (values: FormSchema) => {
+    setIsSubmitting(true);
+
+    try {
+      const securitySettings = await securityService.getSettings();
+      const availableMethods =
+        getEnabledTransactionVerificationMethods(securitySettings);
+
+      if (!availableMethods.length) {
+        await performStockAction(values);
+        return;
+      }
+
+      const selectedMethod = availableMethods[0];
+      setVerificationAction("stocks");
+      setVerificationMethods(availableMethods);
+      setVerificationType(selectedMethod);
+      // OTP delivery is deliberately user initiated from the verification modal.
+      setOtpSent(selectedMethod === "totp");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to load your verification methods.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -537,7 +571,7 @@ export default function StockActionDialog({
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit((values) =>
-                  performStockAction(values),
+                  prepareStockVerification(values),
                 )}
                 className="space-y-5 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:p-5"
               >
