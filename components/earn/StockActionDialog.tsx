@@ -472,13 +472,9 @@ export default function StockActionDialog({
           ? "email_otp"
           : availableMethods[0] || nextType;
         setVerificationType(selectedMethod);
-
-        if (selectedMethod !== "totp" && verification?.context !== nextAction) {
-          await requestStockOtp(
-            selectedMethod === "sms_otp" ? "sms" : "email",
-            nextAction,
-          );
-        }
+        // Let the customer choose a verification method before sending a code.
+        // The verification modal exposes an explicit "Send code" action for OTP methods.
+        setOtpSent(selectedMethod === "totp");
         return;
       }
 
