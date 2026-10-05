@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import AssetInfoModal from "@/components/modals/AssetInfoModal";
 import { useDetectCountry } from "@/hooks/use-detect-country";
 import { useExchangeRate } from "@/hooks/use-exchange-rate";
@@ -54,6 +54,7 @@ export default function AssetDetailsPage({
   const [copiedAddressChain, setCopiedAddressChain] = useState<string | null>(
     null,
   );
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   const assetHoldings = useMemo(
     () =>
@@ -215,6 +216,59 @@ export default function AssetDetailsPage({
       );
   }, [activeChainBalance, normalizedSymbol, allTransactions]);
 
+  const assetTabs = useMemo(
+    () => ["overview", ...chainBalances.map((balance) => balance.chain)],
+    [chainBalances],
+  );
+
+  const selectTab = (tab: string) => {
+    if (!assetTabs.includes(tab) || tab === activeTab) return;
+
+    setActiveTab(tab);
+    const query = tab === "overview" ? "" : `?network=${tab}`;
+    router.replace(`/assets/${normalizedSymbol.toLowerCase()}${query}`, {
+      scroll: false,
+    });
+  };
+
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "button, a, input, textarea, select, [role='button'], [role='link']",
+      )
+    ) {
+      swipeStart.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    swipeStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start) return;
+
+    const touch = event.changedTouches[0];
+    const horizontalDistance = touch.clientX - start.x;
+    const verticalDistance = touch.clientY - start.y;
+
+    if (
+      Math.abs(horizontalDistance) < 64 ||
+      Math.abs(horizontalDistance) <= Math.abs(verticalDistance) * 1.3
+    ) {
+      return;
+    }
+
+    const currentIndex = assetTabs.indexOf(activeTab);
+    const nextIndex = currentIndex + (horizontalDistance < 0 ? 1 : -1);
+    const nextTab = assetTabs[nextIndex];
+
+    if (nextTab) selectTab(nextTab);
+  };
+
   const handleCopyAddress = async () => {
     if (!activeChainAddress || !activeChainBalance) return;
 
@@ -247,9 +301,11 @@ export default function AssetDetailsPage({
   return (
     <div
       className={cn(
-        "container mx-auto flex min-h-[90dvh] w-full flex-col px-4 pb-28 pt-4 md:px-6 md:pb-16 md:pt-20",
+        "container mx-auto flex min-h-[90dvh] w-full touch-pan-y flex-col px-4 pb-28 pt-4 md:px-6 md:pb-16 md:pt-20",
         activeChainBalance ? "max-w-2xl" : "max-w-5xl",
       )}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <AssetDetailsHeader
         symbol={normalizedSymbol}
@@ -262,7 +318,7 @@ export default function AssetDetailsPage({
       <AssetDetailsTabs
         activeTab={activeTab}
         chainBalances={chainBalances}
-        onChange={setActiveTab}
+        onChange={selectTab}
       />
 
       {activeChainBalance ? (
@@ -296,7 +352,7 @@ export default function AssetDetailsPage({
           localCurrency={localCurrency}
           isBalanceVisible={isBalanceVisible}
           isValueLoading={isValueLoading}
-          onSelectChain={setActiveTab}
+          onSelectChain={selectTab}
         />
       )}
 
