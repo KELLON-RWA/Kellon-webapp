@@ -138,12 +138,6 @@ export default function RewardsPage({
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 md:px-6 md:pb-12 md:pt-8">
       <header className="mb-6 flex flex-col gap-2 md:mb-8">
-        <div className="flex items-center gap-2 text-primary-50 dark:text-primary-80">
-          <Gift className="h-4 w-4" aria-hidden="true" />
-          <span className="text-xs font-bold uppercase tracking-[0.14em]">
-            Kellon Rewards
-          </span>
-        </div>
         <h1 className="text-2xl font-bold text-cryptoNight dark:text-white md:text-3xl">
           Your rewards, {firstName}.
         </h1>
