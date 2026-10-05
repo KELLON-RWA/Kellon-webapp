@@ -173,7 +173,7 @@ export default function RewardsPage({
                 {pointsUnit}
               </span>
             </div>
-            <p className="mt-2 text-xs font-semibold text-gray-20 dark:text-gray-40 md:text-base md:dark:text-white/70 min-[1024px]:mt-1 min-[1024px]:text-sm">
+            <p className="mt-2 text-xs font-semibold text-gray-20 dark:text-gray-40 md:text-base md:dark:text-white/70 min-[1024px]:hidden">
               Earned {formatPoints(summary?.lifetimeEarned)} · Redeemed{" "}
               {formatPoints(summary?.lifetimeRedeemed)}
             </p>
