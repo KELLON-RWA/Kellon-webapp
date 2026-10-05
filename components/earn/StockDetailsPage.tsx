@@ -925,9 +925,6 @@ export default function StockDetailsPage({
             </section>
 
             <section className="mt-5 rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-1 md:row-start-1 md:mt-0 md:p-6">
-              <p className="text-2xl font-semibold tabular-nums text-cryptoNight dark:text-white">
-                {formatUsd(price)}
-              </p>
               {change !== undefined ? (
                 <p
                   className={cn(

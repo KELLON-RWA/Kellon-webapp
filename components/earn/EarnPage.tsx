@@ -66,6 +66,12 @@ type NetworkFilterOption = { id: string; label: string; count: number };
 
 const STOCKS_PER_DESKTOP_PAGE = 15;
 
+function getRequestedStockPage(page: string | null): number {
+  const parsedPage = Number(page);
+
+  return Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+}
+
 const earnCategories: Array<{
   id: EarnCategory;
   label: string;
@@ -824,7 +830,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
     key: StockSortKey;
     direction: "asc" | "desc";
   }>({ key: "name", direction: "asc" });
-  const [stockPage, setStockPage] = useState(1);
+  const [stockPage, setStockPage] = useState(() =>
+    getRequestedStockPage(searchParams.get("page")),
+  );
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [stockNetworkFilter, setStockNetworkFilter] = useState("all");
@@ -1148,8 +1156,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const stockCharts = chartQuery.data?.charts || {};
   const stockChartChanges = chartQuery.data?.changes || {};
   useEffect(() => {
-    setStockPage(1);
-  }, [activeTab, stockSearchQuery, stockSort]);
+    setStockPage(getRequestedStockPage(searchParams.get("page")));
+  }, [searchParams]);
   useEffect(() => {
     if (!isStockSearchOpen) return;
 
@@ -1178,6 +1186,20 @@ export default function EarnPage({ profile }: EarnPageProps) {
             ? "asc"
             : "desc",
     }));
+  };
+  const goToStockPage = (page: number) => {
+    const nextPage = Math.max(1, Math.min(stockPageCount, page));
+    const nextParams = new URLSearchParams(searchParams.toString());
+
+    nextParams.set("category", activeTab);
+    if (nextPage === 1) {
+      nextParams.delete("page");
+    } else {
+      nextParams.set("page", String(nextPage));
+    }
+
+    setStockPage(nextPage);
+    router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
   };
   const getStockDetailsHref = (stock: StockListing) => {
     const network = getStockSettlementChain(
@@ -2193,11 +2215,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   >
                     <button
                       type="button"
-                      onClick={() =>
-                        setStockPage((page) => Math.max(1, page - 1))
-                      }
+                      onClick={() => goToStockPage(activeStockPage - 1)}
                       disabled={activeStockPage === 1}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
                       aria-label="Previous stock page"
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -2207,13 +2227,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     </span>
                     <button
                       type="button"
-                      onClick={() =>
-                        setStockPage((page) =>
-                          Math.min(stockPageCount, page + 1),
-                        )
-                      }
+                      onClick={() => goToStockPage(activeStockPage + 1)}
                       disabled={activeStockPage === stockPageCount}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
                       aria-label="Next stock page"
                     >
                       <ChevronRight className="h-4 w-4" />
