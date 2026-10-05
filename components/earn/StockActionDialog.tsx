@@ -27,6 +27,8 @@ import {
   createWebauthnAttestation,
   endOperation,
 } from "@/services/api";
+import { syncMyAssets } from "@/services/api/user";
+import { queryClient } from "@/components/providers/ReactQueryProvider";
 import {
   setStickyVerificationCode,
   useSmartAccount,
@@ -89,6 +91,8 @@ type StockOrderSuccess = {
   price: number;
   value: number;
 };
+
+const BALANCE_RECONCILIATION_DELAY_MS = 5_000;
 
 interface StockSmartAccountClient {
   account: { address: string };
@@ -252,6 +256,18 @@ export default function StockActionDialog({
     } finally {
       otpRequestInFlightRef.current = false;
       setIsRequestingOtp(false);
+    }
+  };
+
+  const reconcileWalletBalances = async () => {
+    try {
+      const response = await syncMyAssets();
+      if (response.data) {
+        queryClient.setQueryData(["user-session"], response.data);
+      }
+    } catch {
+      // The transaction is already confirmed. The dashboard's normal live sync
+      // will retry if this immediate reconciliation is temporarily unavailable.
     }
   };
 
@@ -424,7 +440,13 @@ export default function StockActionDialog({
       setOtpSent(false);
       form.reset();
       onOpenChange(false);
-      await onComplete();
+      await Promise.all([onComplete(), reconcileWalletBalances()]);
+
+      // The stock provider can confirm an order before every RPC/indexer reflects
+      // the USDC debit. Reconcile once more shortly after the immediate refresh.
+      window.setTimeout(() => {
+        void reconcileWalletBalances();
+      }, BALANCE_RECONCILIATION_DELAY_MS);
       endOperation();
     } catch (error: unknown) {
       const mfaErr = findTransferVerificationRequiredError(error);
