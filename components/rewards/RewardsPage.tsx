@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/db";
 import {
@@ -86,17 +87,23 @@ export default function RewardsPage({
     })();
   }, [referralCode, load]);
 
-  const copyCode = async () => {
-    if (!summary) return;
-    await navigator.clipboard.writeText(summary.referrals.code);
-    toast.success("Referral code copied");
+  const referralLink =
+    summary?.referrals.link ||
+    (summary?.referrals.code && typeof window !== "undefined"
+      ? `${window.location.origin}/rewards?ref=${encodeURIComponent(summary.referrals.code)}`
+      : "");
+
+  const copyReferralLink = async () => {
+    if (!referralLink) return;
+    await navigator.clipboard.writeText(referralLink);
+    toast.success("Referral link copied");
   };
 
   const share = async () => {
-    if (!summary) return;
-    const text = `Join me on Kellon and earn rewards. Use my code ${summary.referrals.code}: ${summary.referrals.link}`;
+    if (!summary || !referralLink) return;
+    const text = `Join me on Kellon and earn rewards: ${referralLink}`;
     if (navigator.share) {
-      await navigator.share({ text, url: summary.referrals.link }).catch(() => {
+      await navigator.share({ text, url: referralLink }).catch(() => {
         // Dismissing the share sheet is not an error state.
       });
     } else {
@@ -206,17 +213,24 @@ export default function RewardsPage({
             <Users className="h-5 w-5 shrink-0 text-primary-50 dark:text-primary-80" />
           </div>
 
-          <button
-            type="button"
-            onClick={copyCode}
-            className="mt-5 flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-80 bg-gray-95 px-4 py-3 text-left transition hover:border-primary-70/60 dark:border-white/10 dark:bg-secondary-60 dark:hover:border-primary-80/60"
-            aria-label="Copy referral code"
-          >
-            <span className="font-mono text-lg font-bold tracking-[0.18em] text-primary-50 dark:text-primary-80">
-              {summary?.referrals.code}
-            </span>
-            <Copy className="h-4 w-4 text-gray-30 dark:text-gray-40" />
-          </button>
+          <div className="relative mt-5">
+            <Input
+              value={referralLink}
+              readOnly
+              aria-label="Referral link"
+              placeholder="Referral link unavailable"
+              className="h-11 rounded-lg border-gray-80 bg-gray-95 pr-12 text-sm text-cryptoNight dark:border-white/10 dark:bg-secondary-60 dark:text-white"
+            />
+            <button
+              type="button"
+              onClick={copyReferralLink}
+              disabled={!referralLink}
+              className="absolute right-1 top-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-gray-30 transition hover:bg-white/70 hover:text-primary-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-40 dark:hover:bg-white/10 dark:hover:text-primary-80"
+              aria-label="Copy referral link"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+          </div>
 
           <div className="mt-5 grid grid-cols-2 border-t border-gray-80 pt-4 dark:border-white/10">
             <div>
@@ -233,7 +247,13 @@ export default function RewardsPage({
             </div>
           </div>
 
-          <Button onClick={share} variant="flow" size="default" className="mt-5 w-full">
+          <Button
+            onClick={share}
+            variant="flow"
+            size="default"
+            className="mt-5 w-full"
+            disabled={!referralLink}
+          >
             <Share2 className="h-4 w-4" />
             Share referral link
           </Button>
