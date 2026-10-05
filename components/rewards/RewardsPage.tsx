@@ -40,6 +40,78 @@ const formatLedgerDate = (value: string) =>
 const formatRewardLabel = (entry: RewardLedgerEntry) =>
   (entry.source || entry.type || "Reward activity").replace(/_/g, " ");
 
+function RewardsPageSkeleton() {
+  return (
+    <main
+      aria-label="Loading rewards"
+      aria-busy="true"
+      className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28"
+    >
+      <div className="mb-6 animate-pulse space-y-3 md:mb-8">
+        <div className="h-8 w-56 rounded-lg bg-gray-90 dark:bg-white/10" />
+        <div className="h-4 w-full max-w-xl rounded-full bg-gray-90 dark:bg-white/10" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(330px,0.85fr)]">
+        <section className="relative min-h-[210px] overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-4 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:shadow-none md:min-h-[280px] md:rounded-xl md:p-6 min-[1024px]:min-h-[178px] min-[1024px]:p-4">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_18%_0%,rgba(138,22,133,0.24),transparent_46%),radial-gradient(circle_at_72%_18%,rgba(209,71,163,0.12),transparent_44%)] dark:bg-[radial-gradient(circle_at_20%_0%,rgba(193,92,165,0.36),transparent_48%)] min-[1024px]:h-28" />
+          <div className="relative animate-pulse">
+            <div className="h-7 w-36 rounded-full bg-gray-90/80 dark:bg-white/10" />
+            <div className="mt-7 h-10 w-32 rounded-lg bg-gray-90/80 dark:bg-white/10 min-[1024px]:mt-5" />
+            <div className="mt-4 h-1.5 max-w-[48%] rounded-full bg-gray-90/80 dark:bg-white/10" />
+            <div className="absolute right-0 top-1/2 hidden w-[46%] -translate-y-1/2 grid-cols-2 gap-2 min-[1024px]:grid">
+              <div className="h-14 rounded-xl bg-gray-90/80 dark:bg-white/10" />
+              <div className="h-14 rounded-xl bg-gray-90/80 dark:bg-white/10" />
+            </div>
+          </div>
+        </section>
+
+        <section className="animate-pulse rounded-xl border border-gray-80 bg-white/75 p-5 shadow-sm shadow-primary-90/20 dark:border-white/10 dark:bg-secondary-50/60 dark:shadow-none md:p-6">
+          <div className="h-5 w-28 rounded bg-gray-90 dark:bg-white/10" />
+          <div className="mt-3 h-4 w-full rounded-full bg-gray-90 dark:bg-white/10" />
+          <div className="mt-2 h-4 w-4/5 rounded-full bg-gray-90 dark:bg-white/10" />
+          <div className="mt-5 h-11 rounded-lg bg-gray-90 dark:bg-white/10" />
+          <div className="mt-5 grid grid-cols-3 gap-4 border-t border-gray-80 pt-4 dark:border-white/10">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-9 rounded bg-gray-90 dark:bg-white/10" />
+            ))}
+          </div>
+          <div className="mt-5 h-10 rounded-lg bg-gray-90 dark:bg-white/10" />
+        </section>
+      </div>
+
+      <section className="mt-8 animate-pulse">
+        <div className="h-6 w-40 rounded bg-gray-90 dark:bg-white/10" />
+        <div className="mt-3 h-4 w-64 rounded-full bg-gray-90 dark:bg-white/10" />
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-48 rounded-xl border border-gray-80 bg-white/75 dark:border-white/10 dark:bg-secondary-50/60"
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="animate-pulse overflow-hidden rounded-xl border border-gray-80 bg-white/75 dark:border-white/10 dark:bg-secondary-50/60">
+          <div className="h-20 border-b border-gray-80 p-5 dark:border-white/10">
+            <div className="h-5 w-32 rounded bg-gray-90 dark:bg-white/10" />
+            <div className="mt-3 h-3 w-48 rounded-full bg-gray-90 dark:bg-white/10" />
+          </div>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-[72px] border-b border-gray-80 last:border-b-0 dark:border-white/10"
+            />
+          ))}
+        </div>
+        <div className="h-52 animate-pulse rounded-xl border border-gray-80 bg-gray-95 dark:border-white/10 dark:bg-secondary-60/50" />
+      </section>
+    </main>
+  );
+}
+
 export default function RewardsPage({
   profile,
   referralCode,
@@ -143,11 +215,7 @@ export default function RewardsPage({
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary-50 dark:text-primary-80" />
-      </div>
-    );
+    return <RewardsPageSkeleton />;
   }
 
   const pointsUnit = summary?.program.unit || "points";
