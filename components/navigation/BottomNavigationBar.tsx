@@ -49,18 +49,24 @@ const BottomNavigationBar: FC<BottomNavigationBarProps> = ({
     <section className={cn(className, "fixed bottom-0 w-full")}>
       {/* IMP START - Navigation Menu Container */}
       <nav className="bg-white dark:bg-secondary-50  border-t border-input ">
-        <ul className="flex justify-around ">
+        <ul className="grid grid-cols-5">
           {/* IMP START - Render Navigation Items */}
           {navigationListUrls.map(({ label, href, icon }, i) => {
             const Icon = icon && Icons[icon]; // IMP - Dynamically map icon string to actual component
             return (
-              <li key={i}>
-                <Slab href={href} className={cn(className)} />
+              <li key={i} className="relative min-w-0">
+                <Slab
+                  href={href}
+                  className={cn(
+                    "absolute left-1/2 top-0 w-10 -translate-x-1/2",
+                    className,
+                  )}
+                />
                 <Link
                   href={href}
                   className={cn(
                     // IMP START - Base Styling for Links
-                    "cursor-pointer text-gray-20 dark:text-gray-40 hover:text-black dark:hover:text-white capitalize text-xs font-medium ",
+                    "flex h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium capitalize text-gray-20 hover:text-black dark:text-gray-40 dark:hover:text-white",
                     // IMP END - Base Styling for Links
 
                     // IMP START - Apply Active Link Styling
@@ -68,30 +74,27 @@ const BottomNavigationBar: FC<BottomNavigationBarProps> = ({
                     // IMP END - Apply Active Link Styling
                   )}
                 >
-                  <div className="py-4 flex flex-col space-y-1 items-center">
-                    {/* IMP START - Render Icon if Available */}
-                    {Icon && (
-                      <Icon
-                        className={cn(
-                          "text-gray-20 dark:text-gray-40 hover:text-black dark:hover:text-white h-4 w-4",
-                          isActive(pathname, href) &&
-                            "text-black dark:text-white", // IMP - Apply active color to icon
-                        )}
-                      />
-                    )}
-                    {/* IMP END - Render Icon if Available */}
+                  {/* IMP START - Render Icon if Available */}
+                  {Icon && (
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 text-gray-20 hover:text-black dark:text-gray-40 dark:hover:text-white",
+                        isActive(pathname, href) && "text-black dark:text-white",
+                      )}
+                    />
+                  )}
+                  {/* IMP END - Render Icon if Available */}
 
-                    {/* IMP START - Render Label */}
-                    <span>{label}</span>
-                    {/* IMP END - Render Label */}
-                  </div>
+                  {/* IMP START - Render Label */}
+                  <span className="max-w-full truncate">{label}</span>
+                  {/* IMP END - Render Label */}
                 </Link>
               </li>
             );
           })}
           {
             // profile &&
-            <li>
+            <li className="min-w-0">
               <UserNavigation profile={profile} />
             </li>
           }

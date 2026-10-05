@@ -19,7 +19,6 @@ import { useTheme } from "next-themes";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { ActionToolTip } from "@/components/ActionTooltip";
 import { Icons } from "@/components/Icons";
-import Slab from "@/components/ui/slab";
 import toast from "react-hot-toast";
 
 import { MenuContent } from "./MenuContent";
@@ -101,13 +100,13 @@ const UserNavigation: FC<{ profile: User }> = ({ profile }) => {
       <>
         <Drawer open={menuOpen} onOpenChange={setMenuOpen}>
           <DrawerTrigger asChild>
-            <div className="text-gray-20 dark:text-gray-40 hover:text-black dark:hover:text-white capitalize text-xs font-medium cursor-pointer">
-              <Slab href="" className="invisible" />
-              <div className="py-4 flex flex-col space-y-1 items-center">
-                <Icons.Account className="h-4 w-4" />
-                <span>Account</span>
-              </div>
-            </div>
+            <button
+              type="button"
+              className="flex h-16 w-full min-w-0 cursor-pointer flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium capitalize text-gray-20 hover:text-black dark:text-gray-40 dark:hover:text-white"
+            >
+              <Icons.Account className="h-4 w-4" />
+              <span className="max-w-full truncate">Account</span>
+            </button>
           </DrawerTrigger>
           <DrawerContent className="max-h-[96vh] rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 outline-none dark:bg-none dark:bg-black2 [&>button]:hidden">
             <DrawerHeader className="grid grid-cols-3 items-center border-b border-black/5 dark:border-white/10 pb-4 px-4">

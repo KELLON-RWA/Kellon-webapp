@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Clock3,
   CreditCard,
+  Gift,
   Home,
   PanelLeftClose,
   PanelLeftOpen,
@@ -24,6 +25,7 @@ const items = [
   { href: "/", label: "Home", icon: Home },
   { href: "/cards", label: "Cards", icon: CreditCard },
   { href: "/earn", label: "Earn", icon: Icons.Earn },
+  { href: "/rewards", label: "Rewards", icon: Gift },
   { href: "/transactions", label: "Activity", icon: Clock3 },
   { href: "/settings/profile", label: "Settings", icon: Settings },
 ];
