@@ -222,13 +222,10 @@ export default function RewardsPage({
 
   return (
     <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28">
-      <header className="mb-6 flex flex-col gap-2 md:mb-8">
+      <header className="mb-6 md:mb-8">
         <h1 className="text-2xl font-bold text-cryptoNight dark:text-white md:text-3xl">
           Your rewards, {firstName}.
         </h1>
-        <p className="max-w-xl text-sm text-gray-20 dark:text-gray-40">
-          Track earned points, share your referral, and redeem available perks.
-        </p>
       </header>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(330px,0.85fr)]">
@@ -287,11 +284,7 @@ export default function RewardsPage({
               <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 All available perks are within reach.
               </p>
-            ) : (
-              <p className="text-xs text-gray-30 dark:text-gray-40">
-                Available perks will appear here.
-              </p>
-            )}
+            ) : null}
           </div>
 
           <div className="relative hidden md:grid md:grid-cols-2 md:gap-3 md:pt-5 min-[1024px]:absolute min-[1024px]:right-4 min-[1024px]:top-1/2 min-[1024px]:w-[46%] min-[1024px]:-translate-y-1/2 min-[1024px]:gap-2 min-[1024px]:pt-0">
@@ -320,9 +313,6 @@ export default function RewardsPage({
               <h2 className="text-base font-bold text-cryptoNight dark:text-white">
                 Refer friends
               </h2>
-              <p className="mt-1 text-sm leading-5 text-gray-20 dark:text-gray-40">
-                You both earn points after their first completed transaction.
-              </p>
             </div>
             <Users className="h-5 w-5 shrink-0 text-primary-50 dark:text-primary-80" />
           </div>
@@ -386,9 +376,6 @@ export default function RewardsPage({
             <h2 className="text-lg font-bold text-cryptoNight dark:text-white">
               Redeem rewards
             </h2>
-            <p className="mt-1 text-sm text-gray-20 dark:text-gray-40">
-              Use your points on available Kellon perks.
-            </p>
           </div>
         </div>
 
@@ -397,9 +384,6 @@ export default function RewardsPage({
             <Gift className="mx-auto h-5 w-5 text-gray-30 dark:text-gray-40" />
             <p className="mt-3 text-sm font-semibold text-cryptoNight dark:text-white">
               No rewards available yet
-            </p>
-            <p className="mt-1 text-sm text-gray-20 dark:text-gray-40">
-              Keep earning points and check back soon.
             </p>
           </div>
         ) : (
@@ -476,9 +460,6 @@ export default function RewardsPage({
               <h2 className="text-lg font-bold text-cryptoNight dark:text-white">
                 Points activity
               </h2>
-              <p className="mt-0.5 text-sm text-gray-20 dark:text-gray-40">
-                Your latest rewards movements.
-              </p>
             </div>
           </div>
 
@@ -487,9 +468,6 @@ export default function RewardsPage({
               <CheckCircle2 className="mx-auto h-5 w-5 text-gray-30 dark:text-gray-40" />
               <p className="mt-3 text-sm font-semibold text-cryptoNight dark:text-white">
                 No points activity yet
-              </p>
-              <p className="mt-1 text-sm text-gray-20 dark:text-gray-40">
-                Complete a transaction or invite a friend to start earning.
               </p>
             </div>
           ) : (
@@ -556,10 +534,7 @@ export default function RewardsPage({
             <h2 className="mt-4 text-base font-bold text-cryptoNight dark:text-white">
               Program details
             </h2>
-            <p className="mt-2 text-sm leading-6 text-gray-20 dark:text-gray-40">
-              {summary?.program.name || "Kellon Rewards"}
-            </p>
-            <dl className="mt-5 space-y-3 border-t border-gray-80 pt-4 text-sm dark:border-white/10">
+            <dl className="mt-4 space-y-3 border-t border-gray-80 pt-4 text-sm dark:border-white/10">
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-gray-30 dark:text-gray-40">Unit</dt>
                 <dd className="font-semibold capitalize text-cryptoNight dark:text-white">
