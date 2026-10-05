@@ -25,5 +25,5 @@ export default async function RewardsRoute({
 
   const { ref } = await searchParams;
 
-  return <RewardsPage profile={profile} referralCode={ref} />;
+  return <RewardsPage referralCode={ref} />;
 }

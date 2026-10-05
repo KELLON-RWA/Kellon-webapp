@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   ArrowUpRight,
@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { User } from "@/types/db";
 import {
   rewardsService,
   type RewardCatalogItem,
@@ -23,7 +22,6 @@ import {
 } from "@/services/api/rewards";
 
 interface RewardsPageProps {
-  profile: User;
   referralCode?: string;
 }
 
@@ -112,20 +110,12 @@ function RewardsPageSkeleton() {
   );
 }
 
-export default function RewardsPage({
-  profile,
-  referralCode,
-}: RewardsPageProps) {
+export default function RewardsPage({ referralCode }: RewardsPageProps) {
   const [summary, setSummary] = useState<RewardsSummary | null>(null);
   const [catalog, setCatalog] = useState<RewardCatalogItem[]>([]);
   const [ledger, setLedger] = useState<RewardLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<string | null>(null);
-
-  const firstName = useMemo(
-    () => profile.name?.trim().split(/\s+/)[0] || "there",
-    [profile.name],
-  );
 
   const load = useCallback(async () => {
     try {
@@ -222,12 +212,6 @@ export default function RewardsPage({
 
   return (
     <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28">
-      <header className="mb-6 md:mb-8">
-        <h1 className="text-2xl font-bold text-cryptoNight dark:text-white md:text-3xl">
-          Your rewards, {firstName}.
-        </h1>
-      </header>
-
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(330px,0.85fr)]">
         <section className="relative flex min-h-[210px] w-full flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-4 text-left text-gray-20 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/20 dark:text-gray-40 dark:shadow-none md:min-h-[280px] md:justify-between md:rounded-xl md:border-white/80 md:bg-white/75 md:p-6 md:text-cryptoNight md:shadow-md md:shadow-primary-90/25 md:dark:border-white/10 md:dark:bg-secondary-50/20 md:dark:text-white md:dark:shadow-none min-[1024px]:min-h-[178px] min-[1024px]:p-4">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_18%_0%,rgba(138,22,133,0.28),transparent_46%),radial-gradient(circle_at_72%_18%,rgba(209,71,163,0.16),transparent_44%),linear-gradient(115deg,rgba(255,255,255,0.76),rgba(246,232,242,0.72)_44%,rgba(255,255,255,0.32))] dark:hidden md:h-52 min-[1024px]:h-28" />
