@@ -8,6 +8,8 @@ import {
   ArrowUpRight,
   ChevronRight,
   Filter,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
@@ -18,7 +20,9 @@ import {
   getTransactionStatusClasses,
   getTransactionStatusLabel,
   getTransactionTitle,
+  getStockTransactionFiatLabel,
   isPositiveTransaction,
+  isStockTransaction,
   isYieldTransaction,
 } from "@/lib/dashboard-utils";
 import { transactionService } from "@/services/api/transactions";
@@ -272,64 +276,92 @@ export default function TransactionsPage() {
               </p>
             </div>
           ) : (
-            filteredTransactions.map((transaction) => (
-              <Link
-                key={transaction.id}
-                href={`/transactions/${transaction.id}`}
-                className={cn(
-                  "flex cursor-pointer items-center justify-between gap-4 border-b border-black/5 px-4 py-4 transition-colors last:border-b-0 md:px-5",
-                  "hover:bg-gray-95 dark:border-white/10 dark:hover:bg-secondary-60/40",
-                )}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                      isPositiveTransaction(transaction.type)
-                        ? "bg-primary-95 dark:bg-primary-70/15"
-                        : "bg-gray-95 dark:bg-secondary-60",
-                    )}
-                  >
-                    {isPositiveTransaction(transaction.type) ? (
-                      <ArrowDownLeft className="h-4 w-4 text-primary-60 dark:text-primary-80" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                    )}
-                  </div>
+            filteredTransactions.map((transaction) => {
+              const isStockOrder = isStockTransaction(transaction);
+              const isSale = transaction.type === "SELL";
+              const fiatLabel = getStockTransactionFiatLabel(transaction);
 
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-black dark:text-white">
-                      {getTransactionTitle(transaction)}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                        <HydrationSafeRelativeTime
-                          value={transaction.createdAt}
-                        />
-                      </span>
-                      <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-                      <span
-                        className={cn(
-                          "text-[10px] font-medium",
-                          getTransactionStatusClasses(transaction.status),
-                        )}
-                      >
-                        {getTransactionStatusLabel(transaction.status)}
-                      </span>
+              return (
+                <Link
+                  key={transaction.id}
+                  href={`/transactions/${transaction.id}`}
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-4 border-b border-black/5 px-4 py-4 transition-colors last:border-b-0 md:px-5",
+                    "hover:bg-gray-95 dark:border-white/10 dark:hover:bg-secondary-60/40",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                        isStockOrder
+                          ? isSale
+                            ? "bg-rose-500/10"
+                            : "bg-emerald-500/10"
+                          : isPositiveTransaction(transaction.type)
+                            ? "bg-primary-95 dark:bg-primary-70/15"
+                            : "bg-gray-95 dark:bg-secondary-60",
+                      )}
+                    >
+                      {isStockOrder ? (
+                        isSale ? (
+                          <TrendingDown className="h-4 w-4 text-rose-600 dark:text-rose-300" />
+                        ) : (
+                          <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                        )
+                      ) : isPositiveTransaction(transaction.type) ? (
+                        <ArrowDownLeft className="h-4 w-4 text-primary-60 dark:text-primary-80" />
+                      ) : (
+                        <ArrowUpRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-black dark:text-white">
+                        {getTransactionTitle(transaction)}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                          <HydrationSafeRelativeTime
+                            value={transaction.createdAt}
+                          />
+                        </span>
+                        <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                        <span
+                          className={cn(
+                            "text-[10px] font-medium",
+                            getTransactionStatusClasses(transaction.status),
+                          )}
+                        >
+                          {getTransactionStatusLabel(transaction.status)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex shrink-0 items-center gap-2">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-black dark:text-white">
-                      {getTransactionAmountLabel(transaction)}
-                    </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-black dark:text-white">
+                        {getTransactionAmountLabel(transaction)}
+                      </p>
+                      {fiatLabel ? (
+                        <p
+                          className={cn(
+                            "mt-0.5 text-[11px] font-medium",
+                            isSale
+                              ? "text-emerald-600 dark:text-emerald-300"
+                              : "text-gray-500 dark:text-gray-400",
+                          )}
+                        >
+                          {fiatLabel}
+                        </p>
+                      ) : null}
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
                   </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                </div>
-              </Link>
-            ))
+                </Link>
+              );
+            })
           )}
         </div>
       </div>

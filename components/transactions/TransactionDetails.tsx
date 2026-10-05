@@ -43,6 +43,7 @@ import {
   getTransactionOperation,
   getTransactionSymbol,
   getTransactionTitle,
+  isStockTransaction,
 } from "@/lib/dashboard-utils";
 import {
   extractTransactionBankDetails,
@@ -587,6 +588,7 @@ export default function TransactionDetails({
   }, [centiivBankCode, centiivBanks]);
   const isOnramp = Boolean(
     transaction &&
+      !isStockTransaction(transaction) &&
       ["buy", "deposit"].includes(getTransactionOperation(transaction)) &&
       formatPaidAmount(transaction),
   );
@@ -1160,7 +1162,7 @@ export default function TransactionDetails({
             size="action"
             onClick={() => setIsReceiptDialogOpen(true)}
             disabled={!canGenerateReceipt}
-            className="flex-1"
+            className={explorerUrl ? "flex-1" : "w-full"}
           >
             <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
               <Share2 className="h-4 w-4" />
@@ -1168,22 +1170,25 @@ export default function TransactionDetails({
             </span>
           </Button>
 
-          <Button
-            type="button"
-            variant="flow"
-            size="action"
-            onClick={() => explorerUrl && window.open(explorerUrl, "_blank", "noopener,noreferrer")}
-            disabled={!explorerUrl}
-            className="flex-1"
-            title={explorerUrl ? "View on network explorer" : "A network transaction hash is not available yet"}
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
-              <ExternalLink className="h-4 w-4" />
-              View on explorer
-            </span>
+          {explorerUrl ? (
+            <Button
+              type="button"
+              variant="flow"
+              size="action"
+              onClick={() =>
+                window.open(explorerUrl, "_blank", "noopener,noreferrer")
+              }
+              className="flex-1"
+              title="View on network explorer"
+            >
+              <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-base">
+                <ExternalLink className="h-4 w-4" />
+                View on explorer
+              </span>
 
-            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-          </Button>
+              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+            </Button>
+          ) : null}
         </div>
 
         <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>

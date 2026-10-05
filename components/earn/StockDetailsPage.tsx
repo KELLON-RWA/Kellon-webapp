@@ -1415,7 +1415,6 @@ function StockActivities({
                     : "text-emerald-600 dark:text-emerald-300",
                 )}
               >
-                {isSale ? "-" : "+"}
                 {getTransactionAmountLabel(transaction)}
               </span>
               <ChevronRight className="h-4 w-4 text-gray-30 dark:text-gray-40" />

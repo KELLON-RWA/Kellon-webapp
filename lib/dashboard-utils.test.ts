@@ -4,7 +4,9 @@ import {
   getTransactionAmountLabel,
   getTransactionDisplayAmount,
   getTransactionOperation,
+  getStockTransactionFiatLabel,
   getTransactionTitle,
+  isStockTransaction,
 } from "./dashboard-utils";
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
@@ -221,5 +223,46 @@ describe("transaction operations", () => {
     expect(getTransactionTitle(deposit)).toBe("USDC Deposit");
     expect(getTransactionOperation(withdrawal)).toBe("withdraw");
     expect(getTransactionTitle(withdrawal)).toBe("NGN Withdrawal");
+  });
+});
+
+describe("stock transaction display", () => {
+  it("uses the recorded share quantity instead of the USD buy order total", () => {
+    const transaction = makeTransaction({
+      assetType: "RWA" as Transaction["assetType"],
+      amount: 1,
+      symbol: "NVDAB",
+      metadata: {
+        shares: 0.004254,
+        amountFiat: 1,
+        price: 235.08,
+        fundingChain: "bnb",
+      },
+    });
+
+    expect(isStockTransaction(transaction)).toBe(true);
+    expect(getTransactionDisplayAmount(transaction)).toBe(0.004254);
+    expect(getTransactionAmountLabel(transaction)).toBe("+0.004254 NVDAB");
+    expect(getStockTransactionFiatLabel(transaction)).toBe("$-1.00");
+    expect(getTransactionTitle(transaction)).toBe("Buy NVDAB");
+  });
+
+  it("uses sale proceeds as the USD value while retaining the sold shares", () => {
+    const transaction = makeTransaction({
+      type: "SELL" as Transaction["type"],
+      assetType: "RWA" as Transaction["assetType"],
+      amount: 0.98,
+      symbol: "BNVDA",
+      metadata: {
+        shares: 0.004205,
+        proceeds: 0.98,
+        price: 235.08,
+      },
+    });
+
+    expect(getTransactionDisplayAmount(transaction)).toBe(0.004205);
+    expect(getTransactionAmountLabel(transaction)).toBe("-0.004205 BNVDA");
+    expect(getStockTransactionFiatLabel(transaction)).toBe("$+0.98");
+    expect(getTransactionTitle(transaction)).toBe("Sell BNVDA");
   });
 });

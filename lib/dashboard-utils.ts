@@ -230,6 +230,94 @@ export function getTransactionSymbol(transaction: Transaction): string {
   }
 }
 
+/**
+ * Stock orders store the order's USD total in `amount`; the purchased or sold
+ * share quantity lives in metadata. Keep that distinction here so every
+ * activity surface reports the same asset movement.
+ */
+export function isStockTransaction(transaction: Transaction): boolean {
+  if (!["BUY", "SELL"].includes(transaction.type)) return false;
+  if (transaction.assetType === "RWA") return true;
+
+  return (
+    getDeepMetadataValue(transaction.metadata, [
+      "shares",
+      "stockShares",
+      "stockQuantity",
+      "shareQuantity",
+    ]) !== null &&
+    getDeepMetadataValue(transaction.metadata, [
+      "price",
+      "stockPrice",
+      "amountFiat",
+      "cost",
+      "proceeds",
+    ]) !== null
+  );
+}
+
+export function getStockTransactionShares(
+  transaction: Transaction,
+): number | null {
+  if (!isStockTransaction(transaction)) return null;
+
+  const shares = getDeepMetadataNumberValue(transaction.metadata, [
+    "shares",
+    "stockShares",
+    "stockQuantity",
+    "shareQuantity",
+    "quantity",
+    "units",
+  ]);
+
+  return shares !== null && shares >= 0 ? shares : null;
+}
+
+export function getStockTransactionFiatAmount(
+  transaction: Transaction,
+): number | null {
+  if (!isStockTransaction(transaction)) return null;
+
+  const value = getDeepMetadataNumberValue(
+    transaction.metadata,
+    transaction.type === "SELL"
+      ? ["proceeds", "amountFiat", "value", "cost"]
+      : ["cost", "amountFiat", "value", "proceeds"],
+  );
+
+  return value !== null && value >= 0 ? value : null;
+}
+
+export function getStockTransactionFiatLabel(
+  transaction: Transaction,
+): string | null {
+  const amount = getStockTransactionFiatAmount(transaction);
+  if (amount === null) return null;
+
+  const prefix = transaction.type === "SELL" ? "+" : "-";
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `$${prefix}${formatted}`;
+}
+
+export function getTransactionNetworkLabel(
+  transaction: Transaction,
+): string | null {
+  const network = getDeepMetadataValue(transaction.metadata, [
+    "fundingChain",
+    "settlementChain",
+    "chain",
+    "network",
+    "fromChain",
+  ]);
+
+  return typeof network === "string" && network.trim()
+    ? network.trim().toLowerCase()
+    : null;
+}
+
 export function getProviderAmount(transaction: Transaction): number | null {
   const metadata = transaction.metadata;
   const provider = getProviderName(transaction);
@@ -351,6 +439,9 @@ function getOnrampDerivedCryptoAmount(
 export function getTransactionFiatAmount(
   transaction: Transaction,
 ): number | null {
+  const stockFiatAmount = getStockTransactionFiatAmount(transaction);
+  if (stockFiatAmount !== null) return stockFiatAmount;
+
   return getDeepMetadataNumberValue(transaction.metadata, [
     "fiatAmount",
     "paidAmount",
@@ -380,6 +471,9 @@ function hasOnrampMetadata(transaction: Transaction): boolean {
 export function getTransactionDisplayAmount(
   transaction: Transaction,
 ): number | null {
+  const stockShares = getStockTransactionShares(transaction);
+  if (stockShares !== null) return stockShares;
+
   const metadataAmount = getExplicitCryptoAmount(transaction);
   if (metadataAmount !== null) return metadataAmount;
 
@@ -540,6 +634,10 @@ export function getTransactionTitle(transaction: Transaction): string {
       return `Bridge (${fromChain} → ${toChain})`;
     }
     return `Bridge ${symbol}`;
+  }
+
+  if (isStockTransaction(transaction)) {
+    return `${action} ${symbol}`;
   }
 
   if (action === "Buy") {
