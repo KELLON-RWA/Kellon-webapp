@@ -143,7 +143,7 @@ export default function RewardsPage({
   const pointsUnit = summary?.program.unit || "points";
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 md:px-6 md:pb-12 md:pt-8">
+    <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28">
       <header className="mb-6 flex flex-col gap-2 md:mb-8">
         <h1 className="text-2xl font-bold text-cryptoNight dark:text-white md:text-3xl">
           Your rewards, {firstName}.
