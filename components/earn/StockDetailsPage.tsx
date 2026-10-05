@@ -687,7 +687,7 @@ export default function StockDetailsPage({
             type="button"
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "min-h-9 rounded-lg px-1 text-[10px] font-semibold transition min-[360px]:px-2 min-[360px]:text-xs sm:text-sm",
+              "min-h-9 cursor-pointer rounded-lg px-1 text-[10px] font-semibold transition min-[360px]:px-2 min-[360px]:text-xs sm:text-sm",
               activeTab === tab
                 ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none"
                 : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
@@ -1264,7 +1264,7 @@ function StockholderInformation({
             type="button"
             onClick={() => onTabChange(tab)}
             className={cn(
-              "min-h-10 rounded-lg px-2 text-[11px] font-semibold transition sm:text-sm",
+              "min-h-10 cursor-pointer rounded-lg px-2 text-[11px] font-semibold transition sm:text-sm",
               activeTab === tab
                 ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none"
                 : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
