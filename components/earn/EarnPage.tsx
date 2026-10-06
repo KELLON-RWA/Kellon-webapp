@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Pagination from "@/components/Pagination";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +66,7 @@ type StockSortKey = "name" | "price" | "change";
 type NetworkFilterOption = { id: string; label: string; count: number };
 
 const STOCKS_PER_DESKTOP_PAGE = 15;
+const YIELD_OPPORTUNITIES_PER_PAGE = 15;
 
 function getRequestedStockPage(page: string | null): number {
   const parsedPage = Number(page);
@@ -196,7 +198,7 @@ export function getDisplayStockSymbolParts(
 
   if (
     raw.length > 1 &&
-    ((suffix === "b" || suffix === "c") || (isXstock && suffix === "x"))
+    (suffix === "b" || suffix === "c" || (isXstock && suffix === "x"))
   ) {
     return { base: raw.slice(0, -1).toUpperCase(), suffix };
   }
@@ -205,7 +207,10 @@ export function getDisplayStockSymbolParts(
 }
 
 /** Keep the provider-issued symbol visible while lookups use the underlying ticker. */
-export function getDisplayStockSymbol(symbol: string, provider?: string): string {
+export function getDisplayStockSymbol(
+  symbol: string,
+  provider?: string,
+): string {
   const { base, suffix } = getDisplayStockSymbolParts(symbol, provider);
   return `${base}${suffix || ""}`;
 }
@@ -833,6 +838,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [stockPage, setStockPage] = useState(() =>
     getRequestedStockPage(searchParams.get("page")),
   );
+  const [yieldPage, setYieldPage] = useState(1);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [stockNetworkFilter, setStockNetworkFilter] = useState("all");
@@ -1008,6 +1014,19 @@ export default function EarnPage({ profile }: EarnPageProps) {
       ].some((value) => value.toLowerCase().includes(query)),
     );
   }, [opportunities, yieldChainFilter, yieldSearchQuery]);
+  const yieldPageCount = Math.max(
+    1,
+    Math.ceil(filteredOpportunities.length / YIELD_OPPORTUNITIES_PER_PAGE),
+  );
+  const activeYieldPage = Math.min(yieldPage, yieldPageCount);
+  const pagedOpportunities = useMemo(
+    () =>
+      filteredOpportunities.slice(
+        (activeYieldPage - 1) * YIELD_OPPORTUNITIES_PER_PAGE,
+        activeYieldPage * YIELD_OPPORTUNITIES_PER_PAGE,
+      ),
+    [activeYieldPage, filteredOpportunities],
+  );
   const totalSupplied = activePositions.reduce(
     (total, position) => total + getPositionValue(position),
     0,
@@ -1158,6 +1177,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
   useEffect(() => {
     setStockPage(getRequestedStockPage(searchParams.get("page")));
   }, [searchParams]);
+  useEffect(() => {
+    setYieldPage(1);
+  }, [yieldChainFilter, yieldSearchQuery]);
+  useEffect(() => {
+    setYieldPage((page) => Math.min(page, yieldPageCount));
+  }, [yieldPageCount]);
   useEffect(() => {
     if (!isStockSearchOpen) return;
 
@@ -1445,7 +1470,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 <>
                   <div className="flex w-full items-center gap-3 md:hidden">
                     <div className="relative min-w-0 flex-1">
-                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
+                      <Search
+                        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70"
+                        aria-hidden="true"
+                      />
                       <input
                         ref={mobileYieldSearchInputRef}
                         value={yieldSearchQuery}
@@ -1463,7 +1491,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                       />
                       {yieldSearchQuery ? (
-                        <button type="button" onClick={() => setYieldSearchQuery("")} aria-label="Clear yield search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
+                        <button
+                          type="button"
+                          onClick={() => setYieldSearchQuery("")}
+                          aria-label="Clear yield search"
+                          className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                        >
                           <X className="h-4 w-4" />
                         </button>
                       ) : null}
@@ -1486,7 +1519,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     </h2>
                     <div className="ml-auto flex w-full max-w-sm items-center gap-3">
                       <div className="relative min-w-0 flex-1">
-                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
+                        <Search
+                          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70"
+                          aria-hidden="true"
+                        />
                         <input
                           ref={desktopYieldSearchInputRef}
                           value={yieldSearchQuery}
@@ -1504,7 +1540,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           className="h-8 w-full rounded-xl border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                         />
                         {yieldSearchQuery ? (
-                          <button type="button" onClick={() => setYieldSearchQuery("")} aria-label="Clear yield search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
+                          <button
+                            type="button"
+                            onClick={() => setYieldSearchQuery("")}
+                            aria-label="Clear yield search"
+                            className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                          >
                             <X className="h-4 w-4" />
                           </button>
                         ) : null}
@@ -1555,7 +1596,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               <>
                 <div className="md:hidden">
                   <div className="space-y-2">
-                    {filteredOpportunities.map((opportunity) => {
+                    {pagedOpportunities.map((opportunity) => {
                       return (
                         <button
                           key={opportunity.id}
@@ -1608,7 +1649,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-80 dark:divide-white/10">
-                      {filteredOpportunities.map((opportunity) => {
+                      {pagedOpportunities.map((opportunity) => {
                         const risk = Object.values(RiskLevel).includes(
                           opportunity.riskLevel,
                         )
@@ -1687,6 +1728,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     </tbody>
                   </table>
                 </div>
+                <Pagination
+                  ariaLabel="Yield opportunity pages"
+                  currentPage={activeYieldPage}
+                  onPageChange={setYieldPage}
+                  pageCount={yieldPageCount}
+                />
               </>
             ) : (
               <div className="flex min-h-36 items-center justify-center rounded-lg border border-gray-80 bg-white/65 px-4 text-center dark:border-white/10 dark:bg-secondary-50/55">
@@ -1854,7 +1901,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 <>
                   <div className="flex w-full items-center gap-3 md:hidden">
                     <div className="relative min-w-0 flex-1">
-                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
+                      <Search
+                        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70"
+                        aria-hidden="true"
+                      />
                       <input
                         ref={mobileStockSearchInputRef}
                         value={stockSearchQuery}
@@ -1872,7 +1922,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                       />
                       {stockSearchQuery ? (
-                        <button type="button" onClick={() => setStockSearchQuery("")} aria-label="Clear stock search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
+                        <button
+                          type="button"
+                          onClick={() => setStockSearchQuery("")}
+                          aria-label="Clear stock search"
+                          className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                        >
                           <X className="h-4 w-4" />
                         </button>
                       ) : null}
@@ -1895,7 +1950,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     </h2>
                     <div className="ml-auto flex w-full max-w-sm items-center gap-3">
                       <div className="relative min-w-0 flex-1">
-                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70" aria-hidden="true" />
+                        <Search
+                          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-40 dark:text-white/70"
+                          aria-hidden="true"
+                        />
                         <input
                           ref={desktopStockSearchInputRef}
                           value={stockSearchQuery}
@@ -1913,7 +1971,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           className="h-8 w-full rounded-xl border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                         />
                         {stockSearchQuery ? (
-                          <button type="button" onClick={() => setStockSearchQuery("")} aria-label="Clear stock search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white">
+                          <button
+                            type="button"
+                            onClick={() => setStockSearchQuery("")}
+                            aria-label="Clear stock search"
+                            className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                          >
                             <X className="h-4 w-4" />
                           </button>
                         ) : null}
@@ -2208,34 +2271,13 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     </tbody>
                   </table>
                 </div>
-                {stockPageCount > 1 ? (
-                  <nav
-                    className="mt-4 flex items-center justify-center gap-2"
-                    aria-label="Stock listing pages"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => goToStockPage(activeStockPage - 1)}
-                      disabled={activeStockPage === 1}
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
-                      aria-label="Previous stock page"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="min-w-14 text-center text-sm font-semibold tabular-nums text-cryptoNight dark:text-white">
-                      {activeStockPage} / {stockPageCount}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => goToStockPage(activeStockPage + 1)}
-                      disabled={activeStockPage === stockPageCount}
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-30 dark:hover:text-primary-30"
-                      aria-label="Next stock page"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </nav>
-                ) : null}
+                <Pagination
+                  ariaLabel="Stock listing pages"
+                  currentPage={activeStockPage}
+                  onPageChange={goToStockPage}
+                  pageCount={stockPageCount}
+                  className="mt-1"
+                />
               </>
             ) : (
               <div className="flex min-h-36 items-center justify-center rounded-lg border border-gray-80 bg-white/65 px-4 text-center dark:border-white/10 dark:bg-secondary-50/55">

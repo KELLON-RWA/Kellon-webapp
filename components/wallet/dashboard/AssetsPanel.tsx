@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronRight, Coins, Search, X } from "lucide-react";
+import Pagination from "@/components/Pagination";
 import AssetCard from "@/components/wallet/dashboard/AssetCard";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import type {
@@ -49,6 +50,8 @@ export default function AssetsPanel({
   isYieldPositionsLoading = false,
 }: AssetsPanelProps) {
   const [activeTable, setActiveTable] = useState<"assets" | "yield">("assets");
+  const [assetPage, setAssetPage] = useState(1);
+  const [yieldPage, setYieldPage] = useState(1);
   const [isDesktopSearchOpen, setIsDesktopSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   // Kellon dashboard holdings are stablecoins and purchased tokenized stocks.
@@ -90,10 +93,15 @@ export default function AssetsPanel({
     }
   }, [activeTable, hasYieldPositions]);
 
+  useEffect(() => {
+    setAssetPage(1);
+    setYieldPage(1);
+  }, [activeTable, searchQuery]);
+
   return (
-    <div className="order-3 flex w-full flex-col gap-4 min-[1024px]:col-span-full min-[1024px]:flex-1 min-[1024px]:rounded-xl min-[1024px]:border-0 min-[1024px]:!bg-white/80 min-[1024px]:gap-3 min-[1024px]:p-4 min-[1024px]:shadow-none min-[1024px]:dark:!bg-secondary-50">
+    <div className="order-3 flex w-full flex-col gap-4 lg:col-span-full lg:flex-1 lg:rounded-xl lg:border-0 lg:bg-white/80! lg:gap-3 lg:p-4 lg:shadow-none lg:dark:bg-secondary-50!">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 rounded-lg bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+        <div className="flex items-center gap-1 rounded-lg bg-black/4 p-1 dark:bg-white/6">
           {(
             [
               ["assets", "Assets"],
@@ -120,7 +128,7 @@ export default function AssetsPanel({
             </button>
           ))}
         </div>
-        <div className="hidden min-[1024px]:flex min-[1024px]:items-center min-[1024px]:gap-3">
+        <div className="hidden lg:flex lg:items-center lg:gap-3">
           {isDesktopSearchOpen ? (
             <div className="ml-auto flex w-full max-w-sm items-center gap-3">
               <div className="relative min-w-0 flex-1">
@@ -170,7 +178,7 @@ export default function AssetsPanel({
               onClick={() => setIsDesktopSearchOpen(true)}
               aria-label={`Search ${activeTable}`}
               aria-expanded={isDesktopSearchOpen}
-              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/8 hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/8 dark:hover:text-primary-60"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -180,7 +188,7 @@ export default function AssetsPanel({
 
       {activeTable === "assets" && hasAssets ? (
         <>
-          <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
+          <div className="grid min-h-0 content-start gap-3 lg:hidden">
             {mobileVisibleAssets.map((asset) => {
               const cardValue =
                 displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
@@ -220,22 +228,24 @@ export default function AssetsPanel({
           </div>
           <Link
             href="/assets"
-            className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/[0.04] px-4 py-2 text-sm font-semibold text-cryptoNight transition hover:bg-black/[0.08] dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12] min-[1024px]:hidden"
+            className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/4 px-4 py-2 text-sm font-semibold text-cryptoNight transition hover:bg-black/8 dark:bg-white/8 dark:text-white dark:hover:bg-white/12 lg:hidden"
           >
             View all
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           <DesktopAssetTable
             activeCurrency={activeCurrency}
+            currentPage={assetPage}
             displayCurrency={displayCurrency}
             isBalanceVisible={isBalanceVisible}
             investmentAssets={filteredInvestmentAssets}
+            onPageChange={setAssetPage}
             visibleAssets={filteredVisibleAssets}
           />
         </>
       ) : activeTable === "yield" && hasYieldPositions ? (
         <>
-          <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
+          <div className="grid min-h-0 content-start gap-3 lg:hidden">
             {mobileYieldPositions.map((position) => {
               const opportunity = getPositionOpportunity(
                 position,
@@ -267,19 +277,21 @@ export default function AssetsPanel({
             })}
           </div>
           <DesktopYieldTable
+            currentPage={yieldPage}
             positions={filteredYieldPositions}
             opportunities={yieldOpportunities}
             isLoading={isYieldPositionsLoading}
+            onPageChange={setYieldPage}
           />
         </>
       ) : isInvestmentsLoading ? (
-        <div className="flex min-h-[160px] flex-1 flex-col justify-center gap-3 rounded-xl border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50">
+        <div className="flex min-h-40 flex-1 flex-col justify-center gap-3 rounded-xl border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50">
           <div className="h-4 w-28 animate-pulse rounded-full bg-gray-90 dark:bg-white/10" />
           <div className="h-12 animate-pulse rounded-lg bg-gray-90 dark:bg-white/5" />
         </div>
       ) : (
         <FlowEmptyState
-          className="min-h-[220px] flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:min-h-0 md:rounded-lg lg:items-start lg:text-left"
+          className="min-h-55 flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:min-h-0 md:rounded-lg lg:items-start lg:text-left"
           icon={
             <Coins
               size={24}
@@ -296,170 +308,208 @@ export default function AssetsPanel({
 }
 
 function DesktopYieldTable({
+  currentPage,
   isLoading,
+  onPageChange,
   opportunities,
   positions,
 }: {
+  currentPage: number;
   isLoading: boolean;
+  onPageChange: (page: number) => void;
   opportunities: YieldOpportunity[];
   positions: YieldPosition[];
 }) {
-  const displayedPositions = positions.slice(0, 10);
+  const pageCount = Math.max(1, Math.ceil(positions.length / 10));
+  const activePage = Math.min(currentPage, pageCount);
+  const displayedPositions = positions.slice(
+    (activePage - 1) * 10,
+    activePage * 10,
+  );
 
   return (
-    <div className="hidden overflow-x-auto rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
-      <div className="grid min-w-[700px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_70px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_90px] min-[1280px]:gap-3">
-        <span>Position</span>
-        <span className="text-right">Supplied</span>
-        <span className="text-right">APY</span>
-        <span className="text-right">Status</span>
-      </div>
-      {isLoading ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-gray-40">
-          Loading yield positions…
+    <div className="hidden lg:block">
+      <div className="overflow-x-auto rounded-xl border border-black/10 xl:flex xl:h-full xl:flex-1 xl:flex-col dark:border-white/10">
+        <div className="grid min-w-175 grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_70px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 xl:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_90px] xl:gap-3">
+          <span>Position</span>
+          <span className="text-right">Supplied</span>
+          <span className="text-right">APY</span>
+          <span className="text-right">Status</span>
         </div>
-      ) : displayedPositions.length ? (
-        displayedPositions.map((position) => {
-          const opportunity = getPositionOpportunity(position, opportunities);
-          if (!opportunity) return null;
-          const amount = getPositionValue(position);
-          return (
+        {isLoading ? (
+          <div className="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-gray-40">
+            Loading yield positions…
+          </div>
+        ) : displayedPositions.length ? (
+          displayedPositions.map((position) => {
+            const opportunity = getPositionOpportunity(position, opportunities);
+            if (!opportunity) return null;
+            const amount = getPositionValue(position);
+            return (
+              <Link
+                key={position.id}
+                href={`/earn/positions/${encodeURIComponent(position.id)}`}
+                className="grid min-w-175 grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/4 xl:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_90px] xl:gap-3"
+              >
+                <AssetIdentity
+                  name={getProtocolName(opportunity.protocol)}
+                  symbol={opportunity.symbol}
+                  subtitle={`${getProtocolName(opportunity.protocol)} · ${opportunity.chain}`}
+                />
+                <span className="text-right text-sm text-cryptoNight dark:text-white">
+                  {formatTokenAmount(amount)} {opportunity.symbol}
+                </span>
+                <span className="text-right text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                  {formatApy(position.entryApy)}
+                </span>
+                <span className="justify-self-end rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                  {position.status}
+                </span>
+              </Link>
+            );
+          })
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+            <p className="text-sm font-semibold text-cryptoNight dark:text-white">
+              No active yield positions
+            </p>
             <Link
-              key={position.id}
-              href={`/earn/positions/${encodeURIComponent(position.id)}`}
-              className="grid min-w-[700px] grid-cols-[minmax(150px,1.7fr)_minmax(80px,.8fr)_80px_70px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.9fr)_minmax(100px,.8fr)_90px] min-[1280px]:gap-3"
+              href="/earn?category=yield"
+              className="text-sm font-medium text-primary-50 hover:underline dark:text-primary-70"
             >
-              <AssetIdentity
-                name={getProtocolName(opportunity.protocol)}
-                symbol={opportunity.symbol}
-                subtitle={`${getProtocolName(opportunity.protocol)} · ${opportunity.chain}`}
-              />
-              <span className="text-right text-sm text-cryptoNight dark:text-white">
-                {formatTokenAmount(amount)} {opportunity.symbol}
-              </span>
-              <span className="text-right text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                {formatApy(position.entryApy)}
-              </span>
-              <span className="justify-self-end rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-                {position.status}
-              </span>
+              Explore earning opportunities
             </Link>
-          );
-        })
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <p className="text-sm font-semibold text-cryptoNight dark:text-white">
-            No active yield positions
-          </p>
-          <Link
-            href="/earn?category=yield"
-            className="text-sm font-medium text-primary-50 hover:underline dark:text-primary-70"
-          >
-            Explore earning opportunities
-          </Link>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
+      <Pagination
+        ariaLabel="Wallet yield position pages"
+        currentPage={activePage}
+        onPageChange={onPageChange}
+        pageCount={pageCount}
+      />
     </div>
   );
 }
 
 function DesktopAssetTable({
   activeCurrency,
+  currentPage,
   displayCurrency,
   investmentAssets,
   isBalanceVisible,
+  onPageChange,
   visibleAssets,
 }: {
   activeCurrency: string;
+  currentPage: number;
   displayCurrency: "LOCAL" | "USD";
   investmentAssets: InvestmentAssetSummary[];
   isBalanceVisible: boolean;
+  onPageChange: (page: number) => void;
   visibleAssets: GroupedAssetSummary[];
 }) {
-  const displayedVisibleAssets = visibleAssets.slice(0, 10);
-  const remainingAssetSlots = 10 - displayedVisibleAssets.length;
+  const assetsPerPage = 10;
+  const pageCount = Math.max(
+    1,
+    Math.ceil((visibleAssets.length + investmentAssets.length) / assetsPerPage),
+  );
+  const activePage = Math.min(currentPage, pageCount);
+  const pageStart = (activePage - 1) * assetsPerPage;
+  const pageEnd = pageStart + assetsPerPage;
+  const displayedVisibleAssets = visibleAssets.slice(pageStart, pageEnd);
+  const investmentStart = Math.max(0, pageStart - visibleAssets.length);
+  const investmentEnd = Math.max(0, pageEnd - visibleAssets.length);
   const displayedInvestmentAssets = investmentAssets.slice(
-    0,
-    Math.max(0, remainingAssetSlots),
+    investmentStart,
+    investmentEnd,
   );
   const valueFor = (asset: { localValue: number; usdValue: number }) =>
     displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
 
   return (
-    <div className="hidden overflow-x-auto rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
-      <div className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] min-[1280px]:gap-3">
-        <span>Asset</span>
-        <span className="text-right">Balance</span>
-        <span className="text-right">Price</span>
-        <span className="text-right">Value</span>
-        <span className="text-right">24h</span>
-      </div>
+    <div className="hidden lg:block">
+      <div className="overflow-x-auto rounded-xl border border-black/10 xl:flex xl:h-full xl:flex-1 xl:flex-col dark:border-white/10">
+        <div className="grid min-w-205 grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 xl:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] xl:gap-3">
+          <span>Asset</span>
+          <span className="text-right">Balance</span>
+          <span className="text-right">Price</span>
+          <span className="text-right">Value</span>
+          <span className="text-right">24h</span>
+        </div>
 
-      {displayedVisibleAssets.map((asset) => (
-        <Link
-          key={asset.symbol}
-          href={`/assets/${asset.symbol.toLowerCase()}`}
-          className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] min-[1280px]:gap-3"
-        >
-          <AssetIdentity name={asset.name} symbol={asset.symbol} />
-          <span className="text-right text-sm text-cryptoNight dark:text-white">
-            {isBalanceVisible ? formatAssetAmount(asset.amount) : "••••"}
-          </span>
-          <span className="text-right text-sm text-cryptoNight dark:text-white">
-            $1.00
-          </span>
-          <span className="text-right text-sm font-medium text-cryptoNight dark:text-white">
-            {isBalanceVisible
-              ? formatCurrencyAmount(valueFor(asset), activeCurrency)
-              : "••••"}
-          </span>
-          <span className="text-right text-sm text-gray-500 dark:text-gray-40">
-            —
-          </span>
-        </Link>
-      ))}
-
-      {displayedInvestmentAssets.map((asset) => {
-        const change = asset.change24hPercentage;
-        return (
+        {displayedVisibleAssets.map((asset) => (
           <Link
-            key={asset.id}
-            href={asset.href}
-            className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] min-[1280px]:gap-3"
+            key={asset.symbol}
+            href={`/assets/${asset.symbol.toLowerCase()}`}
+            className="grid min-w-205 grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/4 xl:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] xl:gap-3"
           >
-            <AssetIdentity
-              iconUrl={asset.logoUrl}
-              name={asset.name}
-              symbol={asset.symbol}
-              subtitle="Tokenized stock"
-            />
+            <AssetIdentity name={asset.name} symbol={asset.symbol} />
             <span className="text-right text-sm text-cryptoNight dark:text-white">
-              {isBalanceVisible ? formatAssetAmount(asset.shares) : "••••"}
+              {isBalanceVisible ? formatAssetAmount(asset.amount) : "••••"}
             </span>
             <span className="text-right text-sm text-cryptoNight dark:text-white">
-              {asset.price ? `$${asset.price.toFixed(2)}` : "—"}
+              $1.00
             </span>
             <span className="text-right text-sm font-medium text-cryptoNight dark:text-white">
               {isBalanceVisible
                 ? formatCurrencyAmount(valueFor(asset), activeCurrency)
                 : "••••"}
             </span>
-            <span
-              className={`text-right text-sm font-medium ${
-                change === undefined || change === 0
-                  ? "text-gray-40"
-                  : change > 0
-                    ? "text-emerald-700 dark:text-emerald-300"
-                    : "text-rose-700 dark:text-rose-300"
-              }`}
-            >
-              {change === undefined || change === 0
-                ? "—"
-                : `${change > 0 ? "+" : ""}${change.toFixed(2)}%`}
+            <span className="text-right text-sm text-gray-500 dark:text-gray-40">
+              —
             </span>
           </Link>
-        );
-      })}
+        ))}
+
+        {displayedInvestmentAssets.map((asset) => {
+          const change = asset.change24hPercentage;
+          return (
+            <Link
+              key={asset.id}
+              href={asset.href}
+              className="grid min-w-205 grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/4 xl:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] xl:gap-3"
+            >
+              <AssetIdentity
+                iconUrl={asset.logoUrl}
+                name={asset.name}
+                symbol={asset.symbol}
+                subtitle="Tokenized stock"
+              />
+              <span className="text-right text-sm text-cryptoNight dark:text-white">
+                {isBalanceVisible ? formatAssetAmount(asset.shares) : "••••"}
+              </span>
+              <span className="text-right text-sm text-cryptoNight dark:text-white">
+                {asset.price ? `$${asset.price.toFixed(2)}` : "—"}
+              </span>
+              <span className="text-right text-sm font-medium text-cryptoNight dark:text-white">
+                {isBalanceVisible
+                  ? formatCurrencyAmount(valueFor(asset), activeCurrency)
+                  : "••••"}
+              </span>
+              <span
+                className={`text-right text-sm font-medium ${
+                  change === undefined || change === 0
+                    ? "text-gray-40"
+                    : change > 0
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : "text-rose-700 dark:text-rose-300"
+                }`}
+              >
+                {change === undefined || change === 0
+                  ? "—"
+                  : `${change > 0 ? "+" : ""}${change.toFixed(2)}%`}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+      <Pagination
+        ariaLabel="Wallet asset pages"
+        currentPage={activePage}
+        onPageChange={onPageChange}
+        pageCount={pageCount}
+      />
     </div>
   );
 }

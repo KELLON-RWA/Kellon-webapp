@@ -49,7 +49,7 @@ export default function ActivityPanel({
         </h3>
         <Link
           href="/transactions"
-          className="cursor-pointer text-sm text-primary-50 hover:opacity-80 dark:min-[1024px]:text-white dark:min-[1024px]:hover:text-white/70"
+          className="cursor-pointer text-xs font-semibold text-primary-60 transition hover:text-primary-50 dark:text-primary-80 dark:hover:text-primary-70"
         >
           See All
         </Link>
@@ -145,7 +145,7 @@ export default function ActivityPanel({
 function ActivityEmptyState({ title, text }: { title: string; text: string }) {
   return (
     <FlowEmptyState
-      className="min-h-[250px] flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 min-[1024px]:min-h-0 min-[1024px]:p-4 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:rounded-lg"
+      className="min-h-62.5 flex-1 rounded-xl border-black/10 bg-white/70 shadow-sm shadow-primary-90/10 lg:min-h-0 lg:p-4 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none md:rounded-lg"
       icon={
         <Clock
           size={24}

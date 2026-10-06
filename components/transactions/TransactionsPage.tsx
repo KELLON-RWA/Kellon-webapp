@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  ChevronLeft,
   ChevronRight,
   Filter,
   TrendingDown,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
+import Pagination from "@/components/Pagination";
 import { cn } from "@/lib/utils";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import {
@@ -38,49 +38,6 @@ type QuickTab = "all" | "sent" | "received";
 
 const QUICK_TABS: QuickTab[] = ["all", "sent", "received"];
 const TRANSACTIONS_PER_PAGE = 25;
-type PageItem = number | "ellipsis";
-
-function getPaginationItems(
-  currentPage: number,
-  pageCount: number,
-): PageItem[] {
-  if (pageCount <= 5) {
-    return Array.from({ length: pageCount }, (_, index) => index + 1);
-  }
-
-  if (currentPage <= 2) {
-    return [1, 2, "ellipsis", pageCount];
-  }
-
-  if (currentPage === 3) {
-    return [1, 2, 3, 4, "ellipsis", pageCount];
-  }
-
-  if (currentPage >= pageCount - 1) {
-    return [1, "ellipsis", pageCount - 1, pageCount];
-  }
-
-  if (currentPage === pageCount - 2) {
-    return [
-      1,
-      "ellipsis",
-      pageCount - 3,
-      pageCount - 2,
-      pageCount - 1,
-      pageCount,
-    ];
-  }
-
-  return [
-    1,
-    "ellipsis",
-    currentPage - 1,
-    currentPage,
-    currentPage + 1,
-    "ellipsis",
-    pageCount,
-  ];
-}
 
 function matchesActivityFilter(
   transaction: Transaction,
@@ -483,64 +440,13 @@ export default function TransactionsPage() {
           )}
         </div>
       </div>
-      {filteredTransactions.length > TRANSACTIONS_PER_PAGE ? (
-        <nav
-          aria-label="Transaction pages"
-          className="flex shrink-0 items-center justify-center px-1 py-4 sm:justify-between"
-        >
-          <span className="hidden text-xs text-gray-500 dark:text-gray-40 sm:block">
-            Page {currentPage} of {pageCount}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={currentPage === 1}
-              aria-label="Previous transaction page"
-              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-80 text-gray-500 transition-colors hover:border-primary-70 hover:text-primary-60 disabled:cursor-default disabled:opacity-40 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-80"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            {getPaginationItems(currentPage, pageCount).map((item, index) =>
-              item === "ellipsis" ? (
-                <span
-                  key={`ellipsis-${index}`}
-                  className="grid h-8 w-5 shrink-0 place-items-center text-xs text-gray-500 dark:text-gray-40"
-                  aria-hidden="true"
-                >
-                  …
-                </span>
-              ) : (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setCurrentPage(item)}
-                  aria-current={item === currentPage ? "page" : undefined}
-                  className={cn(
-                    "grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-xs font-semibold transition-colors",
-                    item === currentPage
-                      ? "bg-primary-70 text-white"
-                      : "border border-gray-80 text-gray-500 hover:border-primary-70 hover:text-primary-60 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-80",
-                  )}
-                >
-                  {item}
-                </button>
-              ),
-            )}
-            <button
-              type="button"
-              onClick={() =>
-                setCurrentPage((page) => Math.min(pageCount, page + 1))
-              }
-              disabled={currentPage === pageCount}
-              aria-label="Next transaction page"
-              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-80 text-gray-500 transition-colors hover:border-primary-70 hover:text-primary-60 disabled:cursor-default disabled:opacity-40 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-80"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </nav>
-      ) : null}
+      <Pagination
+        ariaLabel="Transaction pages"
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        pageCount={pageCount}
+        className="shrink-0"
+      />
     </section>
   );
 }
