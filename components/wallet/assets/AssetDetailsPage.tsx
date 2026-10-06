@@ -546,6 +546,7 @@ export default function AssetDetailsPage({
 
       <AssetDetailsTabs
         activeTab={activeTab}
+        pendingTab={isSwipeDragging || shouldCommitSwipe ? swipeTarget : null}
         chainBalances={chainBalances}
         onChange={selectTab}
       />

@@ -6,12 +6,14 @@ import type { ChainBalance } from "./asset-details-utils";
 
 interface AssetDetailsTabsProps {
   activeTab: string;
+  pendingTab?: string | null;
   chainBalances: ChainBalance[];
   onChange: (tab: string) => void;
 }
 
 export function AssetDetailsTabs({
   activeTab,
+  pendingTab,
   chainBalances,
   onChange,
 }: AssetDetailsTabsProps) {
@@ -20,28 +22,23 @@ export function AssetDetailsTabs({
 
   useEffect(() => {
     const tabList = tabListRef.current;
-    const activeTabElement = tabRefs.current.get(activeTab);
+    const visibleTab = pendingTab || activeTab;
+    const activeTabElement = tabRefs.current.get(visibleTab);
 
     if (!tabList || !activeTabElement) return;
 
     const padding = 16;
-    const tabLeft = activeTabElement.offsetLeft;
-    const tabRight = tabLeft + activeTabElement.offsetWidth;
-    const visibleLeft = tabList.scrollLeft + padding;
-    const visibleRight = tabList.scrollLeft + tabList.clientWidth - padding;
+    const listBounds = tabList.getBoundingClientRect();
+    const tabBounds = activeTabElement.getBoundingClientRect();
+    const visibleLeft = listBounds.left + padding;
+    const visibleRight = listBounds.right - padding;
 
-    if (tabLeft < visibleLeft) {
-      tabList.scrollTo({
-        left: Math.max(0, tabLeft - padding),
-        behavior: "smooth",
-      });
-    } else if (tabRight > visibleRight) {
-      tabList.scrollTo({
-        left: tabRight - tabList.clientWidth + padding,
-        behavior: "smooth",
-      });
+    if (tabBounds.left < visibleLeft) {
+      tabList.scrollLeft += tabBounds.left - visibleLeft;
+    } else if (tabBounds.right > visibleRight) {
+      tabList.scrollLeft += tabBounds.right - visibleRight;
     }
-  }, [activeTab]);
+  }, [activeTab, pendingTab]);
 
   return (
     <nav className="-mx-4 border-b border-black/5 dark:border-white/10 md:mx-0">
