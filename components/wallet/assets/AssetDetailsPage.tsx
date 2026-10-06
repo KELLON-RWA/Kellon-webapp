@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -278,7 +279,9 @@ export default function AssetDetailsPage({
     setShouldCommitSwipe(false);
   };
 
-  useEffect(() => {
+  // Position the newly-mounted incoming panel before paint. A regular effect
+  // allows one visible frame at its default position, which looks like a jump.
+  useLayoutEffect(() => {
     if (!swipeTarget || !incomingSlideRef.current) return;
 
     const viewportWidth =

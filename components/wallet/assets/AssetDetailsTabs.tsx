@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { ChainBalance } from "./asset-details-utils";
 
@@ -20,7 +20,9 @@ export function AssetDetailsTabs({
   const tabListRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
 
-  useEffect(() => {
+  // Keep the selected network visible before the page paints its new state so
+  // the tab strip moves in lockstep with the completed swipe.
+  useLayoutEffect(() => {
     const tabList = tabListRef.current;
     const visibleTab = pendingTab || activeTab;
     const activeTabElement = tabRefs.current.get(visibleTab);
