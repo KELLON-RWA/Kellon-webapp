@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronRight, Coins, MoreHorizontal, Search, X } from "lucide-react";
+import { ChevronRight, Coins, Search, X } from "lucide-react";
 import AssetCard from "@/components/wallet/dashboard/AssetCard";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import type {
@@ -70,7 +70,9 @@ export default function AssetsPanel({
   );
   const filteredYieldPositions = yieldPositions.filter((position) => {
     const opportunity = getPositionOpportunity(position, yieldOpportunities);
-    return opportunity && matchesSearch(opportunity.protocol, opportunity.symbol);
+    return (
+      opportunity && matchesSearch(opportunity.protocol, opportunity.symbol)
+    );
   });
   const hasAssets = visibleAssets.length + investmentAssets.length > 0;
   const hasYieldPositions = yieldPositions.length > 0;
@@ -92,12 +94,14 @@ export default function AssetsPanel({
     <div className="order-3 flex w-full flex-col gap-4 min-[1024px]:col-span-full min-[1024px]:flex-1 min-[1024px]:rounded-xl min-[1024px]:border-0 min-[1024px]:!bg-white/80 min-[1024px]:gap-3 min-[1024px]:p-4 min-[1024px]:shadow-none min-[1024px]:dark:!bg-secondary-50">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-1 rounded-lg bg-black/[0.04] p-1 dark:bg-white/[0.06]">
-          {([
-            ["assets", "Assets"],
-            ...(hasYieldPositions
-              ? [["yield", `Yield (${yieldPositions.length})`] as const]
-              : []),
-          ] as const).map(([table, label]) => (
+          {(
+            [
+              ["assets", "Assets"],
+              ...(hasYieldPositions
+                ? [["yield", `Yield (${yieldPositions.length})`] as const]
+                : []),
+            ] as const
+          ).map(([table, label]) => (
             <button
               key={table}
               type="button"
@@ -177,42 +181,42 @@ export default function AssetsPanel({
       {activeTable === "assets" && hasAssets ? (
         <>
           <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
-          {mobileVisibleAssets.map((asset) => {
-            const cardValue =
-              displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
+            {mobileVisibleAssets.map((asset) => {
+              const cardValue =
+                displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
 
-            return (
-              <AssetCard
-                key={asset.symbol}
-                name={asset.name}
-                symbol={asset.symbol}
-                amount={formatAssetAmount(asset.amount)}
-                value={formatCurrencyAmount(cardValue, activeCurrency)}
-                hideBalances={!isBalanceVisible}
-                isValueLoading={isAssetValueLoading}
-                compact
-              />
-            );
-          })}
-          {mobileInvestmentAssets.map((asset) => {
-            const cardValue =
-              displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
+              return (
+                <AssetCard
+                  key={asset.symbol}
+                  name={asset.name}
+                  symbol={asset.symbol}
+                  amount={formatAssetAmount(asset.amount)}
+                  value={formatCurrencyAmount(cardValue, activeCurrency)}
+                  hideBalances={!isBalanceVisible}
+                  isValueLoading={isAssetValueLoading}
+                  compact
+                />
+              );
+            })}
+            {mobileInvestmentAssets.map((asset) => {
+              const cardValue =
+                displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
 
-            return (
-              <AssetCard
-                key={asset.id}
-                name={asset.name}
-                symbol={asset.symbol}
-                amount={`${formatAssetAmount(asset.shares)} shares`}
-                value={formatCurrencyAmount(cardValue, activeCurrency)}
-                hideBalances={!isBalanceVisible}
-                href={asset.href}
-                iconUrl={asset.logoUrl}
-                subtitle={`${asset.kind === "rwa" ? "RWA" : "Tokenized stock"} · ${asset.provider}`}
-                compact
-              />
-            );
-          })}
+              return (
+                <AssetCard
+                  key={asset.id}
+                  name={asset.name}
+                  symbol={asset.symbol}
+                  amount={`${formatAssetAmount(asset.shares)} shares`}
+                  value={formatCurrencyAmount(cardValue, activeCurrency)}
+                  hideBalances={!isBalanceVisible}
+                  href={asset.href}
+                  iconUrl={asset.logoUrl}
+                  subtitle={`${asset.kind === "rwa" ? "RWA" : "Tokenized stock"} · ${asset.provider}`}
+                  compact
+                />
+              );
+            })}
           </div>
           <Link
             href="/assets"
@@ -233,7 +237,10 @@ export default function AssetsPanel({
         <>
           <div className="grid min-h-0 content-start gap-3 min-[1024px]:hidden">
             {mobileYieldPositions.map((position) => {
-              const opportunity = getPositionOpportunity(position, yieldOpportunities);
+              const opportunity = getPositionOpportunity(
+                position,
+                yieldOpportunities,
+              );
               if (!opportunity) return null;
               return (
                 <Link
@@ -251,7 +258,8 @@ export default function AssetsPanel({
                       {formatApy(opportunity.apy)}
                     </span>
                     <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-40">
-                      {formatTokenAmount(getPositionValue(position))} {opportunity.symbol}
+                      {formatTokenAmount(getPositionValue(position))}{" "}
+                      {opportunity.symbol}
                     </p>
                   </div>
                 </Link>
@@ -307,7 +315,9 @@ function DesktopYieldTable({
         <span className="text-right">Status</span>
       </div>
       {isLoading ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-gray-40">Loading yield positions…</div>
+        <div className="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-gray-40">
+          Loading yield positions…
+        </div>
       ) : displayedPositions.length ? (
         displayedPositions.map((position) => {
           const opportunity = getPositionOpportunity(position, opportunities);
@@ -338,8 +348,13 @@ function DesktopYieldTable({
         })
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <p className="text-sm font-semibold text-cryptoNight dark:text-white">No active yield positions</p>
-          <Link href="/earn?category=yield" className="text-sm font-medium text-primary-50 hover:underline dark:text-primary-70">
+          <p className="text-sm font-semibold text-cryptoNight dark:text-white">
+            No active yield positions
+          </p>
+          <Link
+            href="/earn?category=yield"
+            className="text-sm font-medium text-primary-50 hover:underline dark:text-primary-70"
+          >
             Explore earning opportunities
           </Link>
         </div>
@@ -363,39 +378,44 @@ function DesktopAssetTable({
 }) {
   const displayedVisibleAssets = visibleAssets.slice(0, 10);
   const remainingAssetSlots = 10 - displayedVisibleAssets.length;
-  const displayedInvestmentAssets = investmentAssets.slice(0, Math.max(0, remainingAssetSlots));
+  const displayedInvestmentAssets = investmentAssets.slice(
+    0,
+    Math.max(0, remainingAssetSlots),
+  );
   const valueFor = (asset: { localValue: number; usdValue: number }) =>
     displayCurrency === "LOCAL" ? asset.localValue : asset.usdValue;
 
   return (
     <div className="hidden overflow-x-auto rounded-xl border border-black/10 min-[1024px]:block min-[1280px]:flex min-[1280px]:h-full min-[1280px]:flex-1 min-[1280px]:flex-col dark:border-white/10">
-      <div className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3">
+      <div className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-5 py-3 text-[11px] font-semibold text-gray-500 dark:border-white/10 dark:text-gray-40 min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] min-[1280px]:gap-3">
         <span>Asset</span>
         <span className="text-right">Balance</span>
         <span className="text-right">Price</span>
         <span className="text-right">Value</span>
         <span className="text-right">24h</span>
-        <span aria-label="Actions" />
       </div>
 
       {displayedVisibleAssets.map((asset) => (
         <Link
           key={asset.symbol}
           href={`/assets/${asset.symbol.toLowerCase()}`}
-          className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
+          className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] min-[1280px]:gap-3"
         >
           <AssetIdentity name={asset.name} symbol={asset.symbol} />
           <span className="text-right text-sm text-cryptoNight dark:text-white">
             {isBalanceVisible ? formatAssetAmount(asset.amount) : "••••"}
           </span>
-          <span className="text-right text-sm text-cryptoNight dark:text-white">$1.00</span>
+          <span className="text-right text-sm text-cryptoNight dark:text-white">
+            $1.00
+          </span>
           <span className="text-right text-sm font-medium text-cryptoNight dark:text-white">
             {isBalanceVisible
               ? formatCurrencyAmount(valueFor(asset), activeCurrency)
               : "••••"}
           </span>
-          <span className="text-right text-sm text-gray-500 dark:text-gray-40">—</span>
-          <MoreHorizontal className="justify-self-end text-gray-500 dark:text-gray-40" size={18} />
+          <span className="text-right text-sm text-gray-500 dark:text-gray-40">
+            —
+          </span>
         </Link>
       ))}
 
@@ -405,7 +425,7 @@ function DesktopAssetTable({
           <Link
             key={asset.id}
             href={asset.href}
-            className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px_28px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)_42px] min-[1280px]:gap-3"
+            className="grid min-w-[820px] grid-cols-[minmax(150px,1.6fr)_80px_80px_90px_58px] items-center gap-2 border-b border-black/10 px-4 py-2 transition-colors hover:bg-primary-99 dark:border-white/10 dark:hover:bg-white/[0.04] min-[1280px]:grid-cols-[minmax(180px,1.7fr)_minmax(105px,.8fr)_minmax(110px,.9fr)_minmax(115px,.9fr)_minmax(95px,.7fr)] min-[1280px]:gap-3"
           >
             <AssetIdentity
               iconUrl={asset.logoUrl}
@@ -437,7 +457,6 @@ function DesktopAssetTable({
                 ? "—"
                 : `${change > 0 ? "+" : ""}${change.toFixed(2)}%`}
             </span>
-            <MoreHorizontal className="justify-self-end text-gray-40" size={18} />
           </Link>
         );
       })}
@@ -474,8 +493,12 @@ function AssetIdentity({
         />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-cryptoNight dark:text-white">{symbol}</span>
-        <span className="block truncate text-xs text-gray-500 dark:text-gray-40">{subtitle || name}</span>
+        <span className="block truncate text-sm font-semibold text-cryptoNight dark:text-white">
+          {symbol}
+        </span>
+        <span className="block truncate text-xs text-gray-500 dark:text-gray-40">
+          {subtitle || name}
+        </span>
       </span>
     </span>
   );

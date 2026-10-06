@@ -26,6 +26,7 @@ import { isRwaStockListing, stocksService } from "@/services/api/stocks";
 import { yieldService } from "@/services/api/yield";
 import { PositionStatus } from "@/types/db";
 import { getPositionValue } from "@/components/earn/earn-utils";
+import { getStockCharts } from "@/components/earn/StockSparkline";
 
 function getStockTicker(symbol: string) {
   const raw = symbol.trim();
@@ -77,10 +78,30 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
       staleTime: 30_000,
     },
   );
-  const { data: stockListings = [], isLoading: isStockListingsLoading } = useQuery({
-    queryKey: ["available-stocks"],
-    queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
+  const { data: stockListings = [], isLoading: isStockListingsLoading } =
+    useQuery({
+      queryKey: ["available-stocks"],
+      queryFn: async () => (await stocksService.getAvailableStocks("all")).data,
+      staleTime: 60_000,
+    });
+  const heldStockTickers = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (stockPortfolio?.holdings || [])
+            .filter((holding) => Number(holding.shares) > 0)
+            .map((holding) => getStockTicker(holding.symbol)),
+        ),
+      ),
+    [stockPortfolio?.holdings],
+  );
+  const { data: heldStockCharts } = useQuery({
+    queryKey: ["dashboard-held-stock-changes", heldStockTickers],
+    queryFn: () => getStockCharts(heldStockTickers, "1D"),
+    enabled: heldStockTickers.length > 0,
     staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
   const { data: yieldPositions = [], isLoading: isYieldPositionsLoading } =
     useQuery({
@@ -114,6 +135,10 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
           const isRwa = listing
             ? isRwaStockListing(listing)
             : Boolean(holding.rwaCategory);
+          const listingChange = Number(
+            listing?.change24hPercentage ?? listing?.changePercentage,
+          );
+          const liveChange = heldStockCharts?.changes[ticker];
 
           return {
             id: `investment:${holding.provider}:${holding.symbol}`,
@@ -127,15 +152,23 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
               (Number(holding.currentValue) || 0) * dashboard.exchangeRate,
             provider: holding.provider,
             price: Number(listing?.price || holding.currentPrice) || 0,
-            change24hPercentage: Number(
-              listing?.change24hPercentage ?? listing?.changePercentage ?? 0,
-            ),
+            change24hPercentage:
+              typeof liveChange === "number" && Number.isFinite(liveChange)
+                ? liveChange
+                : Number.isFinite(listingChange)
+                  ? listingChange
+                  : undefined,
             kind: isRwa ? ("rwa" as const) : ("stock" as const),
             href: `/earn/stocks/${encodeURIComponent(ticker)}?provider=${encodeURIComponent(holding.provider)}`,
             logoUrl: getStockLogo(holding.symbol, listing?.logoUrl),
           };
         }),
-    [dashboard.exchangeRate, stockListings, stockPortfolio?.holdings],
+    [
+      dashboard.exchangeRate,
+      heldStockCharts?.changes,
+      stockListings,
+      stockPortfolio?.holdings,
+    ],
   );
   const holdingCount = useMemo(() => {
     const stablecoinCount = dashboard.groupedAssets.filter(
@@ -159,14 +192,22 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
       0,
     );
 
-    const usdValue = dashboard.groupedAssets.reduce(
-      (total, asset) => total + asset.usdValue,
-      0,
-    ) + stocksUsdValue + yieldUsdValue;
+    const usdValue =
+      dashboard.groupedAssets.reduce(
+        (total, asset) => total + asset.usdValue,
+        0,
+      ) +
+      stocksUsdValue +
+      yieldUsdValue;
     const localValue = usdValue * dashboard.exchangeRate;
 
     return { localValue, usdValue };
-  }, [activeYieldPositions, dashboard.exchangeRate, dashboard.groupedAssets, investmentAssets]);
+  }, [
+    activeYieldPositions,
+    dashboard.exchangeRate,
+    dashboard.groupedAssets,
+    investmentAssets,
+  ]);
   const activePortfolioValue = dashboard.isLocalDisplay
     ? portfolioValue.localValue
     : portfolioValue.usdValue;
@@ -176,10 +217,9 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
   const secondaryPortfolioCurrency = dashboard.isLocalDisplay
     ? "USD"
     : dashboard.localCurrency;
-  const isPortfolioLoading =
-    dashboard.isPortfolioLoading ||
-    isStockPortfolioLoading ||
-    isYieldPositionsLoading;
+  // The wallet snapshot is available at first paint. Stock and yield data enrich
+  // the total as they arrive, but should never hide a user's available balance.
+  const isPortfolioLoading = dashboard.isPortfolioLoading;
 
   useEffect(() => {
     setGreeting(getGreeting());
