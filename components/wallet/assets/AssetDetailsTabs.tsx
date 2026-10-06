@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { ChainBalance } from "./asset-details-utils";
 
@@ -14,9 +15,37 @@ export function AssetDetailsTabs({
   chainBalances,
   onChange,
 }: AssetDetailsTabsProps) {
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  useEffect(() => {
+    const tabList = tabListRef.current;
+    const activeTabElement = tabRefs.current.get(activeTab);
+
+    if (!tabList || !activeTabElement) return;
+
+    const padding = 16;
+    const tabLeft = activeTabElement.offsetLeft;
+    const tabRight = tabLeft + activeTabElement.offsetWidth;
+    const visibleLeft = tabList.scrollLeft + padding;
+    const visibleRight = tabList.scrollLeft + tabList.clientWidth - padding;
+
+    if (tabLeft < visibleLeft) {
+      tabList.scrollTo({
+        left: Math.max(0, tabLeft - padding),
+        behavior: "smooth",
+      });
+    } else if (tabRight > visibleRight) {
+      tabList.scrollTo({
+        left: tabRight - tabList.clientWidth + padding,
+        behavior: "smooth",
+      });
+    }
+  }, [activeTab]);
+
   return (
     <nav className="-mx-4 border-b border-black/5 dark:border-white/10 md:mx-0">
-      <div className="flex gap-1 overflow-x-auto px-4 md:px-0">
+      <div ref={tabListRef} className="flex gap-1 overflow-x-auto px-4 md:px-0">
         {[
           { id: "overview", label: "Overview" },
           ...chainBalances.map((item) => ({
@@ -29,6 +58,10 @@ export function AssetDetailsTabs({
           return (
             <button
               key={tab.id}
+              ref={(element) => {
+                if (element) tabRefs.current.set(tab.id, element);
+                else tabRefs.current.delete(tab.id);
+              }}
               type="button"
               onClick={() => onChange(tab.id)}
               className={cn(
