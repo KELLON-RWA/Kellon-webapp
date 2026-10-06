@@ -67,7 +67,10 @@ function getListingSymbol(symbol: string): string {
 }
 
 function matchesStockContext(
-  item: Pick<StockListing, "provider" | "settlementChain" | "chain" | "network">,
+  item: Pick<
+    StockListing,
+    "provider" | "settlementChain" | "chain" | "network"
+  >,
   provider?: string,
   network?: string,
 ): boolean {
@@ -482,8 +485,8 @@ export default function StockDetailsPage({
       ) ||
       stocks.find(
         (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
-          matchesContext(item),
+          getUnderlyingTicker(item.symbol, item.provider) ===
+            normalizedSymbol && matchesContext(item),
       )
     );
   }, [
@@ -526,8 +529,8 @@ export default function StockDetailsPage({
       ) ||
       holdings.find(
         (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol &&
-          matchesContext(item),
+          getUnderlyingTicker(item.symbol, item.provider) ===
+            normalizedSymbol && matchesContext(item),
       ) ||
       null
     );
@@ -1008,6 +1011,15 @@ export default function StockDetailsPage({
             activities={stockActivities}
             isActivitiesLoading={isStockActivitiesLoading}
             onOpenActivity={(id) => router.push(`/transactions/${id}`)}
+            onViewAllActivities={() => {
+              if (!stock) return;
+
+              const query = new URLSearchParams({
+                stock: stock.symbol,
+                provider: stock.provider,
+              });
+              router.push(`/transactions?${query.toString()}`);
+            }}
           />
         </>
       ) : (
@@ -1246,6 +1258,7 @@ function StockholderInformation({
   activities,
   isActivitiesLoading,
   onOpenActivity,
+  onViewAllActivities,
 }: {
   activeTab: StockholderTab;
   onTabChange: (tab: StockholderTab) => void;
@@ -1254,6 +1267,7 @@ function StockholderInformation({
   activities: Transaction[];
   isActivitiesLoading: boolean;
   onOpenActivity: (id: string) => void;
+  onViewAllActivities: () => void;
 }) {
   return (
     <section className="mt-5 md:mt-7">
@@ -1279,6 +1293,8 @@ function StockholderInformation({
           "mt-4 rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7",
           activeTab === "My positions" &&
             "border-transparent bg-transparent p-0 dark:border-transparent dark:bg-transparent md:border-gray-80 md:bg-white/70 md:p-7 md:dark:border-white/10 md:dark:bg-secondary-50/60",
+          activeTab === "Activities" &&
+            "border-transparent bg-transparent p-0 dark:border-transparent dark:bg-transparent md:border-transparent md:bg-transparent md:p-0 md:dark:border-transparent md:dark:bg-transparent",
         )}
       >
         {activeTab === "Tokenholder rights" ? (
@@ -1317,6 +1333,7 @@ function StockholderInformation({
             isLoading={isActivitiesLoading}
             title={title}
             onOpenActivity={onOpenActivity}
+            onViewAllActivities={onViewAllActivities}
           />
         )}
       </div>
@@ -1329,11 +1346,13 @@ function StockActivities({
   isLoading,
   title,
   onOpenActivity,
+  onViewAllActivities,
 }: {
   activities: Transaction[];
   isLoading: boolean;
   title: string;
   onOpenActivity: (id: string) => void;
+  onViewAllActivities: () => void;
 }) {
   if (isLoading) {
     return (
@@ -1366,62 +1385,82 @@ function StockActivities({
   }
 
   return (
-    <div className="divide-y divide-gray-80 overflow-hidden rounded-xl border border-gray-80 dark:divide-white/10 dark:border-white/10">
-      {activities.map((transaction) => {
-        const isSale = transaction.type === "SELL";
-        return (
-          <button
-            key={transaction.id}
-            type="button"
-            onClick={() => onOpenActivity(transaction.id)}
-            className="flex w-full items-center gap-3 px-3 py-3 text-left transition hover:bg-gray-90 dark:hover:bg-white/5"
-          >
-            <span
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                isSale
-                  ? "bg-rose-500/10 text-rose-600 dark:text-rose-300"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-              )}
+    <div className="overflow-hidden rounded-xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/60">
+      <div className="flex items-center justify-between gap-3 border-b border-gray-80 px-3 py-3 dark:border-white/10">
+        <h2 className="text-sm font-bold text-cryptoNight dark:text-white">
+          Recent activity
+        </h2>
+        <button
+          type="button"
+          onClick={onViewAllActivities}
+          className="cursor-pointer text-xs font-semibold text-primary-60 transition hover:text-primary-50 dark:text-primary-80 dark:hover:text-primary-70"
+        >
+          See all
+        </button>
+      </div>
+      <div className="divide-y divide-gray-80 dark:divide-white/10">
+        {activities.slice(0, 10).map((transaction) => {
+          const isSale = transaction.type === "SELL";
+          return (
+            <button
+              key={transaction.id}
+              type="button"
+              onClick={() => onOpenActivity(transaction.id)}
+              className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-3 text-left transition hover:bg-gray-90 dark:hover:bg-white/5 sm:gap-3"
             >
-              {isSale ? (
-                <TrendingDown className="h-4 w-4" />
-              ) : (
-                <TrendingUp className="h-4 w-4" />
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-cryptoNight dark:text-white">
-                {getTransactionTitle(transaction)}
-              </span>
-              <span className="mt-0.5 flex items-center gap-2 text-xs text-gray-30 dark:text-gray-40">
-                <HydrationSafeRelativeTime value={transaction.createdAt} />
+              <span className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <span
                   className={cn(
-                    "font-semibold",
-                    getTransactionStatusClasses(transaction.status),
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-9 sm:w-9",
+                    isSale
+                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-300"
+                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
                   )}
                 >
-                  {getTransactionStatusLabel(transaction.status)}
+                  {isSale ? (
+                    <TrendingDown className="h-4 w-4" />
+                  ) : (
+                    <TrendingUp className="h-4 w-4" />
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-medium text-cryptoNight dark:text-white">
+                    {getTransactionTitle(transaction)}
+                  </span>
+                  <span className="mt-1 flex items-center gap-2 text-[11px] text-gray-30 dark:text-gray-40">
+                    <span className="whitespace-nowrap">
+                      <HydrationSafeRelativeTime
+                        value={transaction.createdAt}
+                      />
+                    </span>
+                    <span
+                      className={cn(
+                        "whitespace-nowrap text-[10px] font-medium",
+                        getTransactionStatusClasses(transaction.status),
+                      )}
+                    >
+                      {getTransactionStatusLabel(transaction.status)}
+                    </span>
+                  </span>
                 </span>
               </span>
-            </span>
-            <span className="flex items-center gap-1 text-right">
-              <span
-                className={cn(
-                  "text-sm font-semibold tabular-nums",
-                  isSale
-                    ? "text-rose-600 dark:text-rose-300"
-                    : "text-emerald-600 dark:text-emerald-300",
-                )}
-              >
-                {getTransactionAmountLabel(transaction)}
+              <span className="flex shrink-0 items-center gap-0.5 text-right sm:gap-1">
+                <span
+                  className={cn(
+                    "whitespace-nowrap text-[11px] font-medium tabular-nums",
+                    isSale
+                      ? "text-rose-600 dark:text-rose-300"
+                      : "text-emerald-600 dark:text-emerald-300",
+                  )}
+                >
+                  {getTransactionAmountLabel(transaction)}
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-30 dark:text-gray-40 sm:h-4 sm:w-4" />
               </span>
-              <ChevronRight className="h-4 w-4 text-gray-30 dark:text-gray-40" />
-            </span>
-          </button>
-        );
-      })}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

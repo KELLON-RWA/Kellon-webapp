@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  ChevronLeft,
   ChevronRight,
   Filter,
   TrendingDown,
@@ -19,6 +20,7 @@ import {
   getTransactionAmountLabel,
   getTransactionStatusClasses,
   getTransactionStatusLabel,
+  getTransactionSymbol,
   getTransactionTitle,
   getStockTransactionFiatLabel,
   isPositiveTransaction,
@@ -35,6 +37,50 @@ import TransactionFilterModal, {
 type QuickTab = "all" | "sent" | "received";
 
 const QUICK_TABS: QuickTab[] = ["all", "sent", "received"];
+const TRANSACTIONS_PER_PAGE = 25;
+type PageItem = number | "ellipsis";
+
+function getPaginationItems(
+  currentPage: number,
+  pageCount: number,
+): PageItem[] {
+  if (pageCount <= 5) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 2) {
+    return [1, 2, "ellipsis", pageCount];
+  }
+
+  if (currentPage === 3) {
+    return [1, 2, 3, 4, "ellipsis", pageCount];
+  }
+
+  if (currentPage >= pageCount - 1) {
+    return [1, "ellipsis", pageCount - 1, pageCount];
+  }
+
+  if (currentPage === pageCount - 2) {
+    return [
+      1,
+      "ellipsis",
+      pageCount - 3,
+      pageCount - 2,
+      pageCount - 1,
+      pageCount,
+    ];
+  }
+
+  return [
+    1,
+    "ellipsis",
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    "ellipsis",
+    pageCount,
+  ];
+}
 
 function matchesActivityFilter(
   transaction: Transaction,
@@ -84,6 +130,28 @@ function matchesActivityFilter(
   }
 }
 
+function matchesStockFilter(
+  transaction: Transaction,
+  stockSymbol: string,
+  provider: string | null,
+): boolean {
+  if (!isStockTransaction(transaction)) return false;
+
+  const normalizedSymbol = stockSymbol.toUpperCase();
+  const rawSymbol = String(transaction.symbol || "").toUpperCase();
+  const metadataSymbol = getTransactionSymbol(transaction).toUpperCase();
+
+  if (rawSymbol === normalizedSymbol) return true;
+  if (metadataSymbol !== normalizedSymbol) return false;
+
+  return (
+    !provider ||
+    JSON.stringify(transaction.metadata || {})
+      .toLowerCase()
+      .includes(provider.toLowerCase())
+  );
+}
+
 function normalizeDate(value: string | null, endOfDay = false): number | null {
   if (!value) return null;
 
@@ -122,6 +190,7 @@ function TransactionListSkeleton() {
 
 export default function TransactionsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeQuickTab, setActiveQuickTab] = useState<QuickTab>("all");
   const [appliedActivityFilter, setAppliedActivityFilter] =
@@ -132,6 +201,9 @@ export default function TransactionsPage() {
     useState<ActivityFilter>("all");
   const [draftStartDate, setDraftStartDate] = useState("");
   const [draftEndDate, setDraftEndDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const stockSymbol = searchParams.get("stock")?.trim().toUpperCase() || "";
+  const stockProvider = searchParams.get("provider")?.trim() || null;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["transactions"],
@@ -163,6 +235,13 @@ export default function TransactionsPage() {
           return false;
         }
 
+        if (
+          stockSymbol &&
+          !matchesStockFilter(transaction, stockSymbol, stockProvider)
+        ) {
+          return false;
+        }
+
         const timestamp = new Date(transaction.createdAt).getTime();
         if (startTime !== null && timestamp < startTime) return false;
         if (endTime !== null && timestamp > endTime) return false;
@@ -180,7 +259,32 @@ export default function TransactionsPage() {
     appliedActivityFilter,
     appliedStartDate,
     appliedEndDate,
+    stockProvider,
+    stockSymbol,
   ]);
+  const pageCount = Math.max(
+    1,
+    Math.ceil(filteredTransactions.length / TRANSACTIONS_PER_PAGE),
+  );
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * TRANSACTIONS_PER_PAGE;
+    return filteredTransactions.slice(start, start + TRANSACTIONS_PER_PAGE);
+  }, [currentPage, filteredTransactions]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    activeQuickTab,
+    appliedActivityFilter,
+    appliedStartDate,
+    appliedEndDate,
+    stockProvider,
+    stockSymbol,
+  ]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, pageCount));
+  }, [pageCount]);
 
   const openFilters = () => {
     setDraftActivityFilter(appliedActivityFilter);
@@ -276,21 +380,26 @@ export default function TransactionsPage() {
               </p>
             </div>
           ) : (
-            filteredTransactions.map((transaction) => {
+            paginatedTransactions.map((transaction) => {
               const isStockOrder = isStockTransaction(transaction);
               const isSale = transaction.type === "SELL";
               const fiatLabel = getStockTransactionFiatLabel(transaction);
+              const amountLabel = getTransactionAmountLabel(transaction);
+              const hasKnownAmount = !amountLabel.startsWith("--");
+              const isPositiveAmount = isStockOrder
+                ? !isSale
+                : isPositiveTransaction(transaction.type);
 
               return (
                 <Link
                   key={transaction.id}
                   href={`/transactions/${transaction.id}`}
                   className={cn(
-                    "flex cursor-pointer items-center justify-between gap-4 border-b border-black/5 px-4 py-4 transition-colors last:border-b-0 md:px-5",
+                    "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-black/5 px-3 py-3 transition-colors last:border-b-0 sm:gap-3 md:px-5",
                     "hover:bg-gray-95 dark:border-white/10 dark:hover:bg-secondary-60/40",
                   )}
                 >
-                  <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                     <div
                       className={cn(
                         "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
@@ -317,11 +426,11 @@ export default function TransactionsPage() {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-black dark:text-white">
+                      <p className="truncate text-xs font-medium text-black dark:text-white">
                         {getTransactionTitle(transaction)}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        <span className="whitespace-nowrap text-[11px] text-gray-500 dark:text-gray-400">
                           <HydrationSafeRelativeTime
                             value={transaction.createdAt}
                           />
@@ -329,7 +438,7 @@ export default function TransactionsPage() {
                         <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
                         <span
                           className={cn(
-                            "text-[10px] font-medium",
+                            "whitespace-nowrap text-[10px] font-medium",
                             getTransactionStatusClasses(transaction.status),
                           )}
                         >
@@ -339,10 +448,19 @@ export default function TransactionsPage() {
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-0.5 text-right sm:gap-1">
                     <div className="text-right">
-                      <p className="text-sm font-medium text-black dark:text-white">
-                        {getTransactionAmountLabel(transaction)}
+                      <p
+                        className={cn(
+                          "whitespace-nowrap text-[11px] font-medium",
+                          hasKnownAmount &&
+                            (isPositiveAmount
+                              ? "text-emerald-600 dark:text-emerald-300"
+                              : "text-rose-600 dark:text-rose-300"),
+                          !hasKnownAmount && "text-black dark:text-white",
+                        )}
+                      >
+                        {amountLabel}
                       </p>
                       {fiatLabel ? (
                         <p
@@ -365,6 +483,64 @@ export default function TransactionsPage() {
           )}
         </div>
       </div>
+      {filteredTransactions.length > TRANSACTIONS_PER_PAGE ? (
+        <nav
+          aria-label="Transaction pages"
+          className="flex shrink-0 items-center justify-center px-1 py-4 sm:justify-between"
+        >
+          <span className="hidden text-xs text-gray-500 dark:text-gray-40 sm:block">
+            Page {currentPage} of {pageCount}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+              aria-label="Previous transaction page"
+              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-80 text-gray-500 transition-colors hover:border-primary-70 hover:text-primary-60 disabled:cursor-default disabled:opacity-40 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-80"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {getPaginationItems(currentPage, pageCount).map((item, index) =>
+              item === "ellipsis" ? (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="grid h-8 w-5 shrink-0 place-items-center text-xs text-gray-500 dark:text-gray-40"
+                  aria-hidden="true"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setCurrentPage(item)}
+                  aria-current={item === currentPage ? "page" : undefined}
+                  className={cn(
+                    "grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-xs font-semibold transition-colors",
+                    item === currentPage
+                      ? "bg-primary-70 text-white"
+                      : "border border-gray-80 text-gray-500 hover:border-primary-70 hover:text-primary-60 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-80",
+                  )}
+                >
+                  {item}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                setCurrentPage((page) => Math.min(pageCount, page + 1))
+              }
+              disabled={currentPage === pageCount}
+              aria-label="Next transaction page"
+              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-80 text-gray-500 transition-colors hover:border-primary-70 hover:text-primary-60 disabled:cursor-default disabled:opacity-40 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-80"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </nav>
+      ) : null}
     </section>
   );
 }

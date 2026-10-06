@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  ChevronRight,
-  Clock,
-} from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Clock } from "lucide-react";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import { cn } from "@/lib/utils";
@@ -70,59 +65,71 @@ export default function ActivityPanel({
       ) : recentTransactions.length > 0 ? (
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <div className="overflow-hidden rounded-xl border border-black/10 bg-white/80 shadow-sm shadow-primary-90/10 dark:border-white/10 dark:bg-secondary-50 dark:shadow-none">
-            {recentTransactions.map((transaction) => (
-              <Link
-                key={transaction.id}
-                href={`/transactions/${transaction.id}`}
-                className="flex cursor-pointer items-center justify-between gap-2 border-b border-black/10 px-2.5 py-3 transition-colors last:border-b-0 hover:bg-primary-99/80 dark:border-white/10 dark:hover:bg-secondary-60/40 xs:gap-3 xs:px-3 min-[1024px]:gap-2 min-[1024px]:px-2.5 min-[1024px]:py-1.5 lg:gap-3 lg:px-3 lg:py-1.5"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-2 xs:gap-3 min-[1024px]:gap-2 lg:gap-3">
-                  <div
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full min-[1024px]:h-7 min-[1024px]:w-7 lg:h-8 lg:w-8",
-                      isPositiveTransaction(transaction.type)
-                        ? "bg-primary-95 dark:bg-primary-70/15"
-                        : "bg-white dark:bg-secondary-60",
-                    )}
-                  >
-                    {isPositiveTransaction(transaction.type) ? (
-                      <ArrowDownLeft className="h-3.5 w-3.5 text-primary-50 dark:text-primary-80 min-[1024px]:h-3 min-[1024px]:w-3 lg:h-3.5 lg:w-3.5" />
-                    ) : (
-                      <ArrowUpRight className="h-3.5 w-3.5 text-gray-20 dark:text-gray-40 min-[1024px]:h-3 min-[1024px]:w-3 lg:h-3.5 lg:w-3.5" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-black dark:text-white min-[1024px]:text-[11px] lg:text-sm">
-                      {getTransactionTitle(transaction)}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2 min-[1024px]:gap-1.5">
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400 min-[1024px]:text-[10px] lg:text-[11px]">
-                        <HydrationSafeRelativeTime
-                          value={transaction.createdAt}
-                        />
-                      </span>
-                      <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-                      <span
-                        className={cn(
-                          "text-[10px] font-medium min-[1024px]:text-[9px] lg:text-[10px]",
-                          getTransactionStatusClasses(transaction.status),
-                        )}
-                      >
-                        {getTransactionStatusLabel(transaction.status)}
-                      </span>
+            {recentTransactions.map((transaction) => {
+              const amountLabel = getTransactionAmountLabel(transaction);
+              const hasKnownAmount = !amountLabel.startsWith("--");
+
+              return (
+                <Link
+                  key={transaction.id}
+                  href={`/transactions/${transaction.id}`}
+                  className="flex cursor-pointer items-center justify-between gap-2 border-b border-black/10 px-2.5 py-3 transition-colors last:border-b-0 hover:bg-primary-99/80 dark:border-white/10 dark:hover:bg-secondary-60/40 xs:gap-3 xs:px-3 min-[1024px]:gap-2 min-[1024px]:px-2.5 min-[1024px]:py-1.5 lg:gap-3 lg:px-3 lg:py-1.5"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2 xs:gap-3 min-[1024px]:gap-2 lg:gap-3">
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full min-[1024px]:h-7 min-[1024px]:w-7 lg:h-8 lg:w-8",
+                        isPositiveTransaction(transaction.type)
+                          ? "bg-primary-95 dark:bg-primary-70/15"
+                          : "bg-white dark:bg-secondary-60",
+                      )}
+                    >
+                      {isPositiveTransaction(transaction.type) ? (
+                        <ArrowDownLeft className="h-3.5 w-3.5 text-primary-50 dark:text-primary-80 min-[1024px]:h-3 min-[1024px]:w-3 lg:h-3.5 lg:w-3.5" />
+                      ) : (
+                        <ArrowUpRight className="h-3.5 w-3.5 text-gray-20 dark:text-gray-40 min-[1024px]:h-3 min-[1024px]:w-3 lg:h-3.5 lg:w-3.5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-black dark:text-white min-[1024px]:text-[11px] lg:text-sm">
+                        {getTransactionTitle(transaction)}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2 min-[1024px]:gap-1.5">
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400 min-[1024px]:text-[10px] lg:text-[11px]">
+                          <HydrationSafeRelativeTime
+                            value={transaction.createdAt}
+                          />
+                        </span>
+                        <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                        <span
+                          className={cn(
+                            "text-[10px] font-medium min-[1024px]:text-[9px] lg:text-[10px]",
+                            getTransactionStatusClasses(transaction.status),
+                          )}
+                        >
+                          {getTransactionStatusLabel(transaction.status)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="ml-2 min-w-[50px] shrink-0 text-right xs:min-w-[56px] min-[1024px]:ml-2 min-[1024px]:min-w-[48px] lg:ml-3 lg:min-w-[56px]">
-                  <p className="break-words text-[11px] font-medium leading-tight text-black dark:text-white xs:text-xs min-[1024px]:text-[11px] lg:text-sm">
-                    {isBalanceVisible
-                      ? getTransactionAmountLabel(transaction)
-                      : "••••"}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                  <div className="ml-2 min-w-[50px] shrink-0 text-right xs:min-w-[56px] min-[1024px]:ml-2 min-[1024px]:min-w-[48px] lg:ml-3 lg:min-w-[56px]">
+                    <p
+                      className={cn(
+                        "break-words text-[11px] font-medium leading-tight xs:text-xs min-[1024px]:text-[11px] lg:text-sm",
+                        hasKnownAmount &&
+                          (isPositiveTransaction(transaction.type)
+                            ? "text-emerald-600 dark:text-emerald-300"
+                            : "text-rose-600 dark:text-rose-300"),
+                        !hasKnownAmount && "text-black dark:text-white",
+                      )}
+                    >
+                      {isBalanceVisible ? amountLabel : "••••"}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       ) : (
