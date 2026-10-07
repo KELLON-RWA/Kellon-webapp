@@ -9,12 +9,23 @@ import {
   addGuardian,
   approveRecovery,
   acceptGuardianInvite,
+  executeRecovery,
+  executeSimpleRecover,
+  getMyRecoveryRequests,
+  getPendingApprovals,
+  initiateRecovery,
+  removeGuardian,
+  type RecoveryRequest,
 } from "@/services/api/social-recovery";
 import {
   ApprovalFormValues,
   approvalSchema,
   GuardianFormValues,
   guardianSchema,
+  QuickRecoveryFormValues,
+  quickRecoverySchema,
+  SocialRecoveryFormValues,
+  socialRecoverySchema,
 } from "@/lib/validations/social-recovery";
 
 export const useSocialRecovery = (isOpen: boolean) => {
@@ -26,6 +37,12 @@ export const useSocialRecovery = (isOpen: boolean) => {
   );
   const [myGuardians, setMyGuardians] = useState<Guardian[]>([]);
   const [guardianFor, setGuardianFor] = useState<Guardian[]>([]);
+  const [recoveryRequests, setRecoveryRequests] = useState<RecoveryRequest[]>(
+    [],
+  );
+  const [pendingApprovals, setPendingApprovals] = useState<RecoveryRequest[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   const guardianForm = useForm<GuardianFormValues>({
@@ -38,15 +55,53 @@ export const useSocialRecovery = (isOpen: boolean) => {
     defaultValues: { requestId: "" },
   });
 
+  const quickRecoveryForm = useForm<QuickRecoveryFormValues>({
+    resolver: zodResolver(quickRecoverySchema),
+    defaultValues: { newOwnerAddress: "", chain: "" },
+  });
+
+  const socialRecoveryForm = useForm<SocialRecoveryFormValues>({
+    resolver: zodResolver(socialRecoverySchema),
+    defaultValues: { newOwnerAddress: "", chain: "", threshold: 1 },
+  });
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [myRes, forRes] = await Promise.all([
-        getMyGuardians(),
-        getGuardiansOf(),
-      ]);
-      if (myRes.success) setMyGuardians(myRes.data || []);
-      if (forRes.success) setGuardianFor(forRes.data || []);
+      const [myResult, forResult, requestsResult, approvalsResult] =
+        await Promise.allSettled([
+          getMyGuardians(),
+          getGuardiansOf(),
+          getMyRecoveryRequests(),
+          getPendingApprovals(),
+        ]);
+
+      if (myResult.status === "fulfilled" && myResult.value.success) {
+        setMyGuardians(myResult.value.data || []);
+      }
+      if (forResult.status === "fulfilled" && forResult.value.success) {
+        setGuardianFor(forResult.value.data || []);
+      }
+      if (
+        requestsResult.status === "fulfilled" &&
+        requestsResult.value.success
+      ) {
+        setRecoveryRequests(requestsResult.value.data || []);
+      }
+      if (
+        approvalsResult.status === "fulfilled" &&
+        approvalsResult.value.success
+      ) {
+        setPendingApprovals(approvalsResult.value.data || []);
+      }
+
+      if (
+        [myResult, forResult, requestsResult, approvalsResult].every(
+          (result) => result.status === "rejected",
+        )
+      ) {
+        throw new Error("Unable to load recovery data");
+      }
     } catch {
       toast.error("Failed to sync guardian data");
     } finally {
@@ -70,13 +125,19 @@ export const useSocialRecovery = (isOpen: boolean) => {
       toast.error("User is already a guardian or pending.");
       return;
     }
-    const res = await addGuardian(values.guardianId);
-    if (res.success) {
-      toast.success("Guardian added");
-      guardianForm.reset();
-      fetchData();
-    } else {
-      toast.error(res.message || "Failed to add guardian");
+    try {
+      const res = await addGuardian(values.guardianId);
+      if (res.success) {
+        toast.success("Guardian invitation sent");
+        guardianForm.reset();
+        await fetchData();
+      } else {
+        toast.error(res.message || "Failed to add guardian");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add guardian",
+      );
     }
   };
 
@@ -87,21 +148,94 @@ export const useSocialRecovery = (isOpen: boolean) => {
       if (res.success) {
         toast.success("Recovery request approved");
         approvalForm.reset();
+        await fetchData();
       } else {
         toast.error(res.message || "Approval failed. Check the ID.");
       }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to approve request",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleAcceptInvite = async (userId: string) => {
-    const res = await acceptGuardianInvite(userId);
-    if (res.success) {
-      toast.success("Invitation accepted!");
-      fetchData();
-    } else {
-      toast.error(res.message || "Failed to accept invitation");
+    try {
+      const res = await acceptGuardianInvite(userId);
+      if (res.success) {
+        toast.success("Guardian invitation accepted");
+        await fetchData();
+      } else {
+        toast.error(res.message || "Failed to accept invitation");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to accept invitation",
+      );
+    }
+  };
+
+  const handleRemoveGuardian = async (guardianId: string) => {
+    try {
+      const res = await removeGuardian(guardianId);
+      if (!res.success) {
+        throw new Error(res.message || "Failed to remove guardian");
+      }
+      toast.success("Guardian removed");
+      await fetchData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove guardian",
+      );
+    }
+  };
+
+  const handleQuickRecovery = async (values: QuickRecoveryFormValues) => {
+    try {
+      const res = await executeSimpleRecover(values);
+      if (!res.success) {
+        throw new Error(res.message || "Quick recovery failed");
+      }
+      toast.success("Quick recovery submitted");
+      quickRecoveryForm.reset();
+      await fetchData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Quick recovery failed",
+      );
+    }
+  };
+
+  const handleInitiateRecovery = async (values: SocialRecoveryFormValues) => {
+    try {
+      const res = await initiateRecovery(values);
+      if (!res.success) {
+        throw new Error(res.message || "Recovery request failed");
+      }
+      toast.success("Recovery request sent to your guardians");
+      socialRecoveryForm.reset();
+      await fetchData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Recovery request failed",
+      );
+    }
+  };
+
+  const handleExecuteRecovery = async (requestId: string) => {
+    try {
+      const res = await executeRecovery(requestId);
+      if (!res.success) {
+        throw new Error(res.message || "Recovery execution failed");
+      }
+      toast.success("Recovery execution submitted");
+      await fetchData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Recovery execution failed",
+      );
     }
   };
 
@@ -112,12 +246,20 @@ export const useSocialRecovery = (isOpen: boolean) => {
     setActiveTab,
     myGuardians,
     guardianFor,
+    recoveryRequests,
+    pendingApprovals,
     isLoading,
     guardianForm,
     approvalForm,
+    quickRecoveryForm,
+    socialRecoveryForm,
     fetchData,
     handleAddGuardian,
     handleApproveRequest, // Added this
     handleAcceptInvite, // Added this
+    handleRemoveGuardian,
+    handleQuickRecovery,
+    handleInitiateRecovery,
+    handleExecuteRecovery,
   };
 };

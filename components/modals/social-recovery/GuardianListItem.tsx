@@ -1,7 +1,7 @@
 "use client";
 
 import { FC, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ interface GuardianListItemProps {
   status: string; // e.g., "ACTIVE" or "PENDING"
   showAcceptButton?: boolean;
   onAccept?: () => Promise<void>;
+  showRemoveButton?: boolean;
+  onRemove?: () => Promise<void>;
 }
 
 export const GuardianListItem: FC<GuardianListItemProps> = ({
@@ -20,8 +22,11 @@ export const GuardianListItem: FC<GuardianListItemProps> = ({
   status,
   showAcceptButton,
   onAccept,
+  showRemoveButton,
+  onRemove,
 }) => {
   const [isAccepting, setIsAccepting] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [activeDateLabel, setActiveDateLabel] = useState("");
 
   useEffect(() => {
@@ -50,6 +55,16 @@ export const GuardianListItem: FC<GuardianListItemProps> = ({
     }
   };
 
+  const handleRemoveClick = async () => {
+    if (!onRemove) return;
+    setIsRemoving(true);
+    try {
+      await onRemove();
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between p-4 bg-white dark:bg-secondary-60 border border-black/5 dark:border-white/10 rounded-[24px] transition-all">
       <div className="flex items-center gap-4">
@@ -66,7 +81,7 @@ export const GuardianListItem: FC<GuardianListItemProps> = ({
           </span>
           <span
             className={cn(
-              "text-[10px] font-bold mt-1 tracking-wide",
+              "text-[10px] font-bold mt-1",
               status === "ACTIVE" || status === "ACCEPTED"
                 ? "text-green-500"
                 : "text-orange-500",
@@ -84,12 +99,30 @@ export const GuardianListItem: FC<GuardianListItemProps> = ({
         <Button
           onClick={handleAcceptClick}
           disabled={isAccepting}
-          className="bg-primary-20 hover:bg-primary-20/90 text-white text-xs h-9 px-5 rounded-xl font-bold transition-all"
+          variant="flow"
+          className="h-9 px-5 text-xs"
         >
           {isAccepting ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             "Accept"
+          )}
+        </Button>
+      )}
+      {showRemoveButton && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Remove ${label || "guardian"}`}
+          onClick={handleRemoveClick}
+          disabled={isRemoving}
+          className="h-9 w-9 rounded-xl text-gray-20 hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed"
+        >
+          {isRemoving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
           )}
         </Button>
       )}

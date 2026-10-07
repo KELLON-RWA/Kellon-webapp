@@ -1,7 +1,6 @@
 import type { User } from "@/types/db";
 import StellarKeyRecoveryModal from "@/components/modals/StellarRecoveryModal";
 import TrustedDevicesModal from "@/components/modals/TrustedDevicesModal";
-import SocialRecoveryModal from "@/components/modals/social-recovery/SocialRevoveryModal";
 import type { IntegrationModal } from "../security-types";
 
 interface SecurityIntegrationModalsProps {
@@ -25,10 +24,6 @@ export default function SecurityIntegrationModals({
         isOpen={activeModal === "devices"}
         onClose={onClose}
         profile={profile}
-      />
-      <SocialRecoveryModal
-        isOpen={activeModal === "social"}
-        onClose={onClose}
       />
     </>
   );

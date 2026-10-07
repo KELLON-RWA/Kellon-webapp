@@ -35,12 +35,20 @@ const SocialRecoveryModal: FC<SocialRecoveryModalProps> = ({
     setActiveTab,
     myGuardians,
     guardianFor,
+    recoveryRequests,
+    pendingApprovals,
     isLoading,
     guardianForm,
     approvalForm,
+    quickRecoveryForm,
+    socialRecoveryForm,
     handleAddGuardian,
     handleApproveRequest,
     handleAcceptInvite,
+    handleRemoveGuardian,
+    handleQuickRecovery,
+    handleInitiateRecovery,
+    handleExecuteRecovery,
   } = useSocialRecovery(isOpen);
 
   // Reset view when modal closes
@@ -57,7 +65,14 @@ const SocialRecoveryModal: FC<SocialRecoveryModalProps> = ({
         onClose={onClose}
         onNavigate={() => setCurrentView("manage-guardians")}
         approvalForm={approvalForm}
+        quickRecoveryForm={quickRecoveryForm}
+        socialRecoveryForm={socialRecoveryForm}
+        recoveryRequests={recoveryRequests}
+        pendingApprovals={pendingApprovals}
         onApprove={handleApproveRequest}
+        onQuickRecovery={handleQuickRecovery}
+        onInitiateRecovery={handleInitiateRecovery}
+        onExecuteRecovery={handleExecuteRecovery}
       />
     ) : (
       <ManageGuardiansView
@@ -70,6 +85,7 @@ const SocialRecoveryModal: FC<SocialRecoveryModalProps> = ({
         guardianForm={guardianForm}
         onAddGuardian={handleAddGuardian}
         onAcceptInvite={handleAcceptInvite}
+        onRemoveGuardian={handleRemoveGuardian}
       />
     );
 

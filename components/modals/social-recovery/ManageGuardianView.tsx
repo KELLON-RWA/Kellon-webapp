@@ -12,6 +12,7 @@ import { GuardianListItem } from "./GuardianListItem";
 
 interface ManageGuardiansViewProps {
   onBack: () => void;
+  hideHeader?: boolean;
   activeTab: "my-guardians" | "guardian-for";
   setActiveTab: (tab: "my-guardians" | "guardian-for") => void;
   myGuardians: Guardian[];
@@ -20,10 +21,12 @@ interface ManageGuardiansViewProps {
   guardianForm: UseFormReturn<GuardianFormValues>;
   onAddGuardian: (values: GuardianFormValues) => Promise<void>;
   onAcceptInvite: (userId: string) => Promise<void>;
+  onRemoveGuardian: (guardianId: string) => Promise<void>;
 }
 
 export const ManageGuardiansView: FC<ManageGuardiansViewProps> = ({
   onBack,
+  hideHeader = false,
   activeTab,
   setActiveTab,
   myGuardians,
@@ -32,6 +35,7 @@ export const ManageGuardiansView: FC<ManageGuardiansViewProps> = ({
   guardianForm,
   onAddGuardian,
   onAcceptInvite,
+  onRemoveGuardian,
 }) => {
   const {
     register,
@@ -40,20 +44,21 @@ export const ManageGuardiansView: FC<ManageGuardiansViewProps> = ({
   } = guardianForm;
 
   return (
-    <div className="px-4 pb-8 h-full">
-      {/* Header logic remains the same... */}
-      <div className="flex justify-between items-center mb-6">
-        <button
-          onClick={onBack}
-          className="p-2 bg-white dark:bg-secondary-60/50 rounded-full border border-black/5 dark:border-none hover:opacity-80 transition-opacity outline-none cursor-pointer"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
-        </button>
-        <h2 className="text-xl font-bold text-black dark:text-white">
-          Guardians
-        </h2>
-        <div className="w-9" />
-      </div>
+    <div className={cn("h-full", hideHeader ? "pb-0" : "px-4 pb-8")}>
+      {!hideHeader && (
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={onBack}
+            className="p-2 bg-white dark:bg-secondary-60/50 rounded-full border border-black/5 dark:border-none hover:opacity-80 transition-opacity outline-none cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-white" />
+          </button>
+          <h2 className="text-xl font-bold text-black dark:text-white">
+            Guardians
+          </h2>
+          <div className="w-9" />
+        </div>
+      )}
 
       {/* Tabs logic remains the same... */}
       <div className="flex border-b border-black/5 dark:border-white/10 mb-6">
@@ -116,7 +121,8 @@ export const ManageGuardiansView: FC<ManageGuardiansViewProps> = ({
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-primary-20 hover:bg-primary-20/90 h-10 w-10 p-0 rounded-xl shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                  variant="flow"
+                  className="h-10 w-10 shrink-0 p-0"
                 >
                   {isSubmitting ? (
                     <Loader2 className="animate-spin w-4 h-4" />
@@ -147,6 +153,8 @@ export const ManageGuardiansView: FC<ManageGuardiansViewProps> = ({
                   id={g.id}
                   label={g.guardian?.name || ""}
                   status={g.status}
+                  showRemoveButton
+                  onRemove={() => onRemoveGuardian(g.guardianId)}
                 />
               ))
             )}

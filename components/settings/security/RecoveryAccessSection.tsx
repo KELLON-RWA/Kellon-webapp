@@ -1,4 +1,5 @@
 import { ChevronRight, KeyRound, TabletSmartphone, Users } from "lucide-react";
+import Link from "next/link";
 import type { IntegrationModal } from "./security-types";
 
 const INTEGRATIONS = [
@@ -40,13 +41,10 @@ export default function RecoveryAccessSection({
       <div className="mt-3 overflow-hidden rounded-2xl border border-black/5 bg-white dark:border-white/10 dark:bg-secondary-50">
         {INTEGRATIONS.map((integration) => {
           const Icon = integration.icon;
-          return (
-            <button
-              key={integration.id}
-              type="button"
-              onClick={() => onSelect(integration.id)}
-              className="flex w-full cursor-pointer items-center gap-4 border-b border-black/5 px-4 py-4 text-left transition hover:bg-gray-95 last:border-b-0 dark:border-white/10 dark:hover:bg-secondary-60"
-            >
+          const className =
+            "flex w-full cursor-pointer items-center gap-4 border-b border-black/5 px-4 py-4 text-left transition hover:bg-gray-95 last:border-b-0 dark:border-white/10 dark:hover:bg-secondary-60";
+          const content = (
+            <>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-95 text-primary-50 dark:bg-primary-70/15 dark:text-primary-80">
                 <Icon className="h-5 w-5" />
               </div>
@@ -59,6 +57,29 @@ export default function RecoveryAccessSection({
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-gray-30" />
+            </>
+          );
+
+          if (integration.id === "social") {
+            return (
+              <Link
+                key={integration.id}
+                href="/settings/security/recovery"
+                className={className}
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <button
+              key={integration.id}
+              type="button"
+              onClick={() => onSelect(integration.id)}
+              className={className}
+            >
+              {content}
             </button>
           );
         })}
