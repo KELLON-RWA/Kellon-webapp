@@ -51,7 +51,10 @@ const amountSchema = z.object({
     .string()
     .min(1, "Amount is required")
     .regex(/^\d+(\.\d{0,2})?$/, "Invalid amount format (max 2 decimal places)")
-    .refine((val) => parseFloat(val) > 0, "Amount must be greater than 0"),
+    .refine(
+      (val) => Number.isFinite(Number(val)) && Number(val) > 0,
+      "Amount must be greater than 0",
+    ),
 });
 
 type AmountFormValues = z.infer<typeof amountSchema>;
@@ -205,8 +208,10 @@ export function AmountEntryStep({
                           </div>
                           <FormControl>
                             <Input
-                              type="number"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
+                              autoComplete="off"
+                              pattern="[0-9]*[.]?[0-9]{0,2}"
                               placeholder="0.00"
                               className="h-12 rounded-2xl border-black/5 bg-gray-95 pl-12 text-center placeholder:text-gray-400 focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white"
                               {...field}

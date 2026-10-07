@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Mail, MessageSquareText, ShieldCheck, Smartphone } from "lucide-react";
 import {
   Dialog,
@@ -86,15 +86,19 @@ export default function TransferVerificationModal({
 
   const activeMethod = selectedMethod || verificationType;
   const challengeMethods = availableMethods?.length ? availableMethods : null;
-  const methods = enabledMethods
-    ? challengeMethods
-      ? enabledMethods.filter((method) => challengeMethods.includes(method))
-      : enabledMethods
-    : challengeMethods || [activeMethod];
+  const methods = useMemo(
+    () =>
+      enabledMethods
+        ? challengeMethods
+          ? enabledMethods.filter((method) => challengeMethods.includes(method))
+          : enabledMethods
+        : challengeMethods || [activeMethod],
+    [activeMethod, challengeMethods, enabledMethods],
+  );
   const isOtpMethod = activeMethod !== "totp";
-  const trimmedCode = code.trim();
+  const trimmedCode = code.replace(/\D/g, "").slice(0, 6);
   const canSubmit =
-    trimmedCode.length >= 4 && !isSubmitting && (!isOtpMethod || otpSent);
+    trimmedCode.length === 6 && !isSubmitting && (!isOtpMethod || otpSent);
   const showMethodPicker = methods.length > 1 && Boolean(onMethodChange);
   const isChoosingOtpChannel = isOtpMethod && !otpSent && Boolean(onResend);
   const methodLabel =
@@ -130,11 +134,11 @@ export default function TransferVerificationModal({
   };
 
   const completeEmailSetup = async () => {
-    if (setupCode.trim().length < 4) return;
+    if (setupCode.replace(/\D/g, "").length !== 6) return;
     setIsSettingUp(true);
     setSetupError(null);
     try {
-      await securityService.enableOtp("email", setupCode.trim());
+      await securityService.enableOtp("email", setupCode.replace(/\D/g, ""));
       setEnabledMethods(["email_otp"]);
       onMethodChange?.("email_otp");
       setSetupCode("");
@@ -191,9 +195,15 @@ export default function TransferVerificationModal({
               {setupSent ? (
                 <Input
                   value={setupCode}
-                  onChange={(event) => setSetupCode(event.target.value)}
+                  onChange={(event) =>
+                    setSetupCode(
+                      event.target.value.replace(/\D/g, "").slice(0, 6),
+                    )
+                  }
                   inputMode="numeric"
                   autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
                   placeholder="Enter email code"
                   className="mt-3 h-11 rounded-xl border-black/5 bg-white text-center text-sm font-semibold tracking-[0.2em] text-cryptoNight placeholder:tracking-normal dark:border-white/10 dark:bg-secondary-60 dark:text-white"
                   disabled={isSettingUp}
@@ -207,9 +217,7 @@ export default function TransferVerificationModal({
               <button
                 type="button"
                 onClick={setupSent ? completeEmailSetup : sendSetupCode}
-                disabled={
-                  isSettingUp || (setupSent && setupCode.trim().length < 4)
-                }
+                disabled={isSettingUp || (setupSent && setupCode.length !== 6)}
                 className="mt-3 h-10 w-full rounded-xl bg-primary-50 text-sm font-semibold text-white transition hover:bg-primary-40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-70 dark:hover:bg-primary-80"
               >
                 {isSettingUp
@@ -270,10 +278,14 @@ export default function TransferVerificationModal({
 
           {!requiresSecuritySetup && (!isOtpMethod || otpSent) ? (
             <Input
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
+              value={trimmedCode}
+              onChange={(event) =>
+                setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+              }
               inputMode="numeric"
               autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxLength={6}
               placeholder="Enter code"
               className="mt-5 h-12 rounded-2xl border-black/5 bg-gray-95 text-center text-base font-semibold tracking-[0.35em] text-cryptoNight placeholder:tracking-normal placeholder:text-gray-400 focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white"
               disabled={isSubmitting}

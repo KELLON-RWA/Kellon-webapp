@@ -5,14 +5,27 @@ export const invoiceSchema = z.object({
   amount: z
     .string()
     .trim()
-    .refine((value) => Number(value) > 0, "Enter a valid amount"),
+    .regex(/^\d+(\.\d{1,6})?$/, "Enter a valid amount")
+    .refine(
+      (value) => Number.isFinite(Number(value)) && Number(value) > 0,
+      "Enter a valid amount",
+    ),
   assetSymbol: z.string().min(1, "Select an asset"),
   chain: z.string().min(1, "Select a network"),
-  description: z.string().trim().optional(),
-  customerName: z.string().trim().optional(),
+  description: z
+    .string()
+    .trim()
+    .max(500, "Description must be 500 characters or less")
+    .optional(),
+  customerName: z
+    .string()
+    .trim()
+    .max(100, "Name must be 100 characters or less")
+    .optional(),
   customerContact: z
     .string()
     .trim()
+    .max(254, "Email or Kellon tag is too long")
     .min(1, "Enter the customer's email or Kellon tag")
     .refine(
       (value) =>

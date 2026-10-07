@@ -51,6 +51,8 @@ export function CustomerDetailsSection({
                 <Input
                   {...field}
                   placeholder="Customer name"
+                  autoComplete="name"
+                  maxLength={100}
                   className={cn(INVOICE_INPUT_CLASS, "h-12 rounded-2xl")}
                 />
               </FormControl>
@@ -74,6 +76,11 @@ export function CustomerDetailsSection({
                 <FormControl>
                   <Input
                     {...field}
+                    type="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    maxLength={254}
                     placeholder="customer@email.com or @username"
                     className={cn(INVOICE_INPUT_CLASS, "h-12 rounded-2xl")}
                   />

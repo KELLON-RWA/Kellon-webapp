@@ -138,7 +138,10 @@ export function AmountSection({
                 <div className="relative">
                   <Input
                     {...field}
+                    type="text"
                     inputMode="decimal"
+                    autoComplete="off"
+                    pattern="[0-9]*[.]?[0-9]{0,6}"
                     placeholder="0.00"
                     className={cn(
                       INVOICE_INPUT_CLASS,

@@ -52,7 +52,9 @@ export default function AmountStep({
   const quickAmounts = [
     ...QUICK_PERCENTAGES.map((percentage) => ({
       label: `${percentage}%`,
-      value: formatAssetAmount(((selectedAsset?.amount || 0) * percentage) / 100),
+      value: formatAssetAmount(
+        ((selectedAsset?.amount || 0) * percentage) / 100,
+      ),
     })),
     { label: "Max", value: formatAssetAmount(selectedAsset?.amount || 0) },
   ];
@@ -91,9 +93,7 @@ export default function AmountStep({
             render={({ field }) => (
               <FormItem>
                 <div>
-                  <div
-                    className="flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5 md:hidden"
-                  >
+                  <div className="flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5 md:hidden">
                     <span className="text-xl font-bold text-gray-400">
                       {selectedAsset?.symbol || "Asset"}
                     </span>
@@ -120,7 +120,10 @@ export default function AmountStep({
                           field.onChange(event);
                           onAmountChange(event.target.value);
                         }}
+                        type="text"
                         inputMode="decimal"
+                        autoComplete="off"
+                        pattern="[0-9]*[.]?[0-9]{0,6}"
                         placeholder="0.00"
                         className="h-16 w-full rounded-2xl border border-black/5 bg-gray-95 px-4 pr-20 text-4xl font-bold tracking-tight text-black outline-none placeholder:text-gray-60 focus-visible:ring-[3px] focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white dark:placeholder:text-white/15 md:h-12 md:pl-16 md:pr-16 md:text-center md:text-base"
                       />
@@ -162,7 +165,9 @@ export default function AmountStep({
               })();
             }}
             disabled={!isAmountValid}
-            buttonClassName={!isAmountValid ? "from-gray-400 to-gray-500" : undefined}
+            buttonClassName={
+              !isAmountValid ? "from-gray-400 to-gray-500" : undefined
+            }
             textClassName="text-sm"
             showShimmer={isAmountValid}
           >

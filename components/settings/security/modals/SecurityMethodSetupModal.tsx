@@ -30,6 +30,7 @@ export default function SecurityMethodSetupModal({
   onSubmit,
 }: SecurityMethodSetupModalProps) {
   const [code, setCode] = useState("");
+  const normalizedCode = code.replace(/\D/g, "").slice(0, 6);
   const [totpQrCode, setTotpQrCode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,18 +106,22 @@ export default function SecurityMethodSetupModal({
         ) : null}
 
         <Input
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
+          value={normalizedCode}
+          onChange={(event) =>
+            setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+          }
           inputMode="numeric"
           autoComplete="one-time-code"
+          pattern="[0-9]{6}"
+          maxLength={6}
           placeholder="Enter verification code"
           className="h-12 rounded-xl text-center text-sm"
           disabled={isSubmitting}
         />
         <button
           type="button"
-          onClick={() => void onSubmit(code)}
-          disabled={code.trim().length < 4 || isBusy}
+          onClick={() => void onSubmit(normalizedCode)}
+          disabled={normalizedCode.length !== 6 || isBusy}
           className="h-12 cursor-pointer rounded-xl bg-primary-50 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-70"
         >
           {isSubmitting ? "Verifying…" : "Verify and enable"}

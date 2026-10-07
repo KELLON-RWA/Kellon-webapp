@@ -1,31 +1,31 @@
-"use client"
+"use client";
 
-import { Loader2 } from "lucide-react"
-import type { UseFormReturn } from "react-hook-form"
+import { Loader2 } from "lucide-react";
+import type { UseFormReturn } from "react-hook-form";
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import type { TransferRecipient } from "@/services/api/transfers"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { TransferRecipient } from "@/services/api/transfers";
 import {
   GIFT_CARD_CLASS,
   GIFT_INPUT_CLASS,
   GIFT_LABEL_CLASS,
   GIFT_SECTION_TITLE_CLASS,
   type GiftFormValues,
-} from "../gift-types"
+} from "../gift-types";
 
 interface GiftRecipientMessageSectionProps {
-  form: UseFormReturn<GiftFormValues>
-  lookupMessage: string
-  verifiedRecipient: TransferRecipient | null
-  isVerifyingRecipient: boolean
-  isCustomTemplate: boolean
+  form: UseFormReturn<GiftFormValues>;
+  lookupMessage: string;
+  verifiedRecipient: TransferRecipient | null;
+  isVerifyingRecipient: boolean;
+  isCustomTemplate: boolean;
 }
 
 export default function GiftRecipientMessageSection({
@@ -39,7 +39,7 @@ export default function GiftRecipientMessageSection({
     ? "text-emerald-600 dark:text-emerald-400"
     : isVerifyingRecipient
       ? "text-gray-500 dark:text-gray-400"
-      : "text-red-500"
+      : "text-red-500";
 
   return (
     <div className="space-y-4">
@@ -55,7 +55,8 @@ export default function GiftRecipientMessageSection({
           control={form.control}
           name="recipient"
           render={({ field, fieldState }) => {
-            const showLookupMessage = Boolean(lookupMessage) && !fieldState.error
+            const showLookupMessage =
+              Boolean(lookupMessage) && !fieldState.error;
 
             return (
               <FormItem>
@@ -65,6 +66,11 @@ export default function GiftRecipientMessageSection({
                 <FormControl>
                   <Input
                     {...field}
+                    type="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    maxLength={254}
                     placeholder="Who is this gift for?"
                     className={cn(GIFT_INPUT_CLASS, "h-12 rounded-2xl")}
                   />
@@ -84,7 +90,7 @@ export default function GiftRecipientMessageSection({
                 ) : null}
                 <FormMessage className="text-xs text-red-500" />
               </FormItem>
-            )
+            );
           }}
         />
 
@@ -143,5 +149,5 @@ export default function GiftRecipientMessageSection({
         />
       </section>
     </div>
-  )
+  );
 }

@@ -37,8 +37,11 @@ export const amountSchema = z.object({
     .string()
     .trim()
     .min(1, "Enter an amount")
-    .regex(/^\d+(\.\d{0,6})?$/, "Enter a valid amount")
-    .refine((value) => Number(value) > 0, "Amount must be greater than 0"),
+    .regex(/^\d+(\.\d{1,6})?$/, "Enter a valid amount")
+    .refine(
+      (value) => Number.isFinite(Number(value)) && Number(value) > 0,
+      "Amount must be greater than 0",
+    ),
 });
 
 export function parseAssetAmount(amount: Asset["amount"]): number {

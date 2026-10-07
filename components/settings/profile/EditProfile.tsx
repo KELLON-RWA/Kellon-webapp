@@ -39,8 +39,18 @@ interface ProfilePageProps {
   initialProfile: User;
 }
 const profileSchema = z.object({
-  displayName: z.string().min(2, "Name is too short"),
-  kellonTag: z.string().min(3, "Tag is too short"), // No longer requires user to type @
+  displayName: z
+    .string()
+    .trim()
+    .min(2, "Name is too short")
+    .max(100, "Name is too long"),
+  kellonTag: z
+    .string()
+    .trim()
+    .regex(
+      /^@?[a-zA-Z0-9_.-]{3,30}$/,
+      "Use 3–30 letters, numbers, dots, hyphens, or underscores",
+    ),
 });
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
@@ -214,6 +224,8 @@ const ProfilePage: FC<ProfilePageProps> = ({ initialProfile }) => {
                         <FormControl>
                           <Input
                             {...field}
+                            autoComplete="name"
+                            maxLength={100}
                             className="bg-gray-95 dark:bg-secondary-60 border-black/5 dark:border-white/10 h-12 pl-12 rounded-2xl text-black dark:text-white placeholder:text-gray-400 focus-visible:ring-primary-70/20"
                           />
                         </FormControl>
@@ -235,6 +247,10 @@ const ProfilePage: FC<ProfilePageProps> = ({ initialProfile }) => {
                         <FormControl>
                           <Input
                             {...field}
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            maxLength={31}
                             className="bg-gray-95 dark:bg-secondary-60 border-black/5 dark:border-white/10 h-12 pl-12 rounded-2xl text-black dark:text-white placeholder:text-gray-400 focus-visible:ring-primary-70/20"
                           />
                         </FormControl>

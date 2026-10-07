@@ -31,6 +31,7 @@ export default function DisableSecurityMethodModal({
   onRequestCode,
 }: DisableSecurityMethodModalProps) {
   const [code, setCode] = useState("");
+  const normalizedCode = code.replace(/\D/g, "").slice(0, 6);
   const requiresSentCode = action?.kind === "otp";
 
   useEffect(() => {
@@ -67,10 +68,14 @@ export default function DisableSecurityMethodModal({
           </label>
           <Input
             id="disable-security-code"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
+            value={normalizedCode}
+            onChange={(event) =>
+              setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+            }
             inputMode="numeric"
             autoComplete="one-time-code"
+            pattern="[0-9]{6}"
+            maxLength={6}
             placeholder="Enter verification code"
             disabled={isBusy}
             className="h-12 rounded-xl text-center text-sm"
@@ -96,9 +101,9 @@ export default function DisableSecurityMethodModal({
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault();
-              void onConfirm(code);
+              void onConfirm(normalizedCode);
             }}
-            disabled={isBusy || code.trim().length < 4}
+            disabled={isBusy || normalizedCode.length !== 6}
             className="h-12 cursor-pointer rounded-xl border-none bg-red-600 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed"
           >
             {isBusy ? (

@@ -57,6 +57,11 @@ export default function RecipientStep({
                   <FormControl>
                     <Input
                       id="send-recipient"
+                      type="text"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      maxLength={254}
                       placeholder="email address, @kellonTag, or wallet address"
                       className="h-12 rounded-2xl border-black/5 bg-gray-95 pl-11 text-sm font-medium shadow-none placeholder:text-xs placeholder:text-gray-400 focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white md:h-[52px] md:rounded-2xl md:placeholder:text-sm"
                       {...field}

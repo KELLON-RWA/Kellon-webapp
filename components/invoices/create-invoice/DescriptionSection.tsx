@@ -34,6 +34,7 @@ export function DescriptionSection({ form }: DescriptionSectionProps) {
               <textarea
                 {...field}
                 placeholder="What is this payment for?"
+                maxLength={500}
                 className={cn(
                   INVOICE_INPUT_CLASS,
                   "min-h-28 w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none transition focus-visible:ring-[3px] dark:placeholder:text-gray-400",
