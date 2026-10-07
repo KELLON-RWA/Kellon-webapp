@@ -217,9 +217,13 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
   const secondaryPortfolioCurrency = dashboard.isLocalDisplay
     ? "USD"
     : dashboard.localCurrency;
-  // The wallet snapshot is available at first paint. Stock and yield data enrich
-  // the total as they arrive, but should never hide a user's available balance.
-  const isPortfolioLoading = dashboard.isPortfolioLoading;
+  // Do not present a partial portfolio as the user's available balance. Stablecoin
+  // balances arrive with the wallet profile, while stock and yield positions load
+  // independently. The card remains skeletal until all value-bearing sources settle.
+  const isPortfolioLoading =
+    dashboard.isPortfolioLoading ||
+    isStockPortfolioLoading ||
+    isYieldPositionsLoading;
 
   useEffect(() => {
     setGreeting(getGreeting());
