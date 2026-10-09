@@ -39,18 +39,12 @@ function getStockTicker(symbol: string) {
   ).toUpperCase();
 }
 
-const STOCK_LOGO_TICKER_ALIASES: Record<string, string> = {
-  // BNVDA is the provider-issued symbol for the NVIDIA tokenized stock.
-  // It is not a market ticker, so the logo service must use NVDA instead.
-  BNVDA: "NVDA",
-};
-
 function getStockLogo(symbol: string, logoUrl?: string) {
   const ticker = getStockTicker(symbol);
 
   return (
     logoUrl ||
-    `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(STOCK_LOGO_TICKER_ALIASES[ticker] || ticker)}.png`
+    `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker)}`
   );
 }
 

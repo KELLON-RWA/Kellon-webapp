@@ -12,16 +12,17 @@ interface MobileFeaturedOpportunitiesProps {
 
 function ticker(symbol: string) {
   const withoutProviderSuffix = symbol.trim().replace(/[bc]$/i, "");
-  return (withoutProviderSuffix.startsWith("b")
-    ? withoutProviderSuffix.slice(1)
-    : withoutProviderSuffix
+  return (
+    withoutProviderSuffix.startsWith("b")
+      ? withoutProviderSuffix.slice(1)
+      : withoutProviderSuffix
   ).toUpperCase();
 }
 
 function stockLogo(stock: StockListing) {
   return (
     stock.logoUrl ||
-    `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(ticker(stock.symbol))}.png`
+    `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker(stock.symbol))}`
   );
 }
 
@@ -30,7 +31,9 @@ export default function MobileFeaturedOpportunities({
   yieldOpportunities,
 }: MobileFeaturedOpportunitiesProps) {
   const featuredStocks = Array.from(
-    new Map(stockListings.map((stock) => [ticker(stock.symbol), stock])).values(),
+    new Map(
+      stockListings.map((stock) => [ticker(stock.symbol), stock]),
+    ).values(),
   ).slice(0, 5);
   const featuredYield = yieldOpportunities.slice(0, 5);
 
@@ -53,7 +56,7 @@ export default function MobileFeaturedOpportunities({
                     <img
                       src={stockLogo(stock)}
                       alt={`${ticker(stock.symbol)} logo`}
-                      className="absolute inset-0 h-full w-full bg-white object-contain p-0.5"
+                      className="absolute inset-0 h-full w-full rounded-full bg-white object-cover"
                       onError={(event) => {
                         event.currentTarget.hidden = true;
                       }}

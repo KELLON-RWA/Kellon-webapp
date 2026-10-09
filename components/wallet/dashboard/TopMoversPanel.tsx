@@ -19,7 +19,7 @@ function ticker(symbol: string) {
 function assetLogo(listing: StockListing) {
   return (
     listing.logoUrl ||
-    `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(ticker(listing.symbol))}.png`
+    `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker(listing.symbol))}`
   );
 }
 
@@ -30,7 +30,9 @@ export default function TopMoversPanel({
   const marketSymbols = useMemo(
     () =>
       Array.from(
-        new Map(listings.map((listing) => [ticker(listing.symbol), listing])).keys(),
+        new Map(
+          listings.map((listing) => [ticker(listing.symbol), listing]),
+        ).keys(),
       ).slice(0, 20),
     [listings],
   );
@@ -55,7 +57,9 @@ export default function TopMoversPanel({
   return (
     <section className="hidden rounded-xl border border-black/10 bg-white/80 p-5 shadow-none dark:border-white/10 dark:bg-secondary-50 min-[1280px]:block min-[1280px]:border-0 min-[1280px]:!bg-white/80 min-[1280px]:p-4 min-[1280px]:shadow-none min-[1280px]:dark:!bg-secondary-50">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-cryptoNight dark:text-white">Top movers (24h)</h3>
+        <h3 className="text-base font-semibold text-cryptoNight dark:text-white">
+          Top movers (24h)
+        </h3>
       </div>
       {isListingsLoading || isLoading ? (
         <TopMoversListSkeleton />
@@ -76,7 +80,7 @@ export default function TopMoversPanel({
                     <img
                       src={assetLogo(listing)}
                       alt=""
-                      className="absolute inset-0 h-full w-full bg-white object-contain p-0.5"
+                      className="absolute inset-0 h-full w-full rounded-full bg-white object-cover"
                       onError={(event) => {
                         event.currentTarget.hidden = true;
                       }}

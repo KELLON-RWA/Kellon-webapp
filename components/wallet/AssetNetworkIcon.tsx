@@ -51,7 +51,7 @@ export default function AssetNetworkIcon({
           <img
             src={imageSrc}
             alt={symbol}
-            className="h-full w-full object-contain"
+            className="h-full w-full rounded-full object-cover"
             onError={(event) => {
               const image = event.currentTarget;
               if (image.dataset.fallbackApplied) {

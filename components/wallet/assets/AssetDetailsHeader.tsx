@@ -33,7 +33,7 @@ export function AssetDetailsHeader({
               alt={symbol}
               width={24}
               height={24}
-              className="object-contain p-0.5"
+              className="rounded-full object-cover"
             />
           </span>
           <span>{symbol}</span>

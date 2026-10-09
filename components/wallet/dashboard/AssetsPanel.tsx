@@ -536,7 +536,7 @@ function AssetIdentity({
             `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`
           }
           alt=""
-          className="absolute inset-0 h-full w-full bg-white object-contain p-0.5"
+          className="absolute inset-0 h-full w-full rounded-full bg-white object-cover"
           onError={(event) => {
             event.currentTarget.hidden = true;
           }}
