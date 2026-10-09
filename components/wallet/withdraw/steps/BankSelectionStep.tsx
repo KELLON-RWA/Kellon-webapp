@@ -60,6 +60,8 @@ export function WithdrawBankSelectionStep({
   onContinue,
 }: BankSelectionStepProps) {
   const [accountNumber, setAccountNumber] = useState("");
+  const [isAccountNumberReadyForVerification, setIsAccountNumberReadyForVerification] =
+    useState(false);
   const [verifiedAccount, setVerifiedAccount] = useState<BankDetail | null>(
     null,
   );
@@ -70,18 +72,30 @@ export function WithdrawBankSelectionStep({
   const lastVerificationKeyRef = useRef("");
   const isPaycrest = providerName?.toLowerCase() === "paycrest";
   const usesVerifiedBankFlow = true;
+  const isKenyanPayout = country?.toUpperCase() === "KE";
+  const accountNumberMinLength = isKenyanPayout ? 8 : 10;
+  const accountNumberMaxLength = isKenyanPayout ? 16 : 10;
+  const accountNumberHint = isKenyanPayout
+    ? "Enter an 8-16 digit account number"
+    : "Enter 10-digit account number";
 
   useEffect(() => {
     setAccountNumber("");
+    setIsAccountNumberReadyForVerification(false);
     setVerifiedAccount(null);
     setVerificationError("");
     lastVerificationKeyRef.current = "";
   }, [selectedProviderBank?.value]);
 
   useEffect(() => {
-    const hasValidAccountNumber = /^\d{10}$/.test(accountNumber);
+    const hasValidAccountNumber = new RegExp(
+      `^\\d{${accountNumberMinLength},${accountNumberMaxLength}}$`,
+    ).test(accountNumber);
+    const shouldVerify =
+      hasValidAccountNumber &&
+      (!isKenyanPayout || isAccountNumberReadyForVerification);
 
-    if (!selectedProviderBank || !hasValidAccountNumber) {
+    if (!selectedProviderBank || !shouldVerify) {
       setVerifiedAccount(null);
       setVerificationError("");
       lastVerificationKeyRef.current = "";
@@ -151,17 +165,25 @@ export function WithdrawBankSelectionStep({
     return () => {
       cancelled = true;
     };
-  }, [accountNumber, country, fiatCurrency, isPaycrest, selectedProviderBank]);
+  }, [
+    accountNumber,
+    accountNumberMaxLength,
+    accountNumberMinLength,
+    country,
+    fiatCurrency,
+    isAccountNumberReadyForVerification,
+    isKenyanPayout,
+    isPaycrest,
+    selectedProviderBank,
+  ]);
 
   const handleAccountNumberChange = (value: string) => {
-    if (!/^\d{0,10}$/.test(value)) return;
+    if (!new RegExp(`^\\d{0,${accountNumberMaxLength}}$`).test(value)) return;
 
     setAccountNumber(value);
-
-    if (value.length !== 10) {
-      setVerifiedAccount(null);
-      setVerificationError("");
-    }
+    setIsAccountNumberReadyForVerification(false);
+    setVerifiedAccount(null);
+    setVerificationError("");
   };
 
   const handleUseVerifiedBank = async () => {
@@ -321,17 +343,25 @@ export function WithdrawBankSelectionStep({
                           handleAccountNumberChange(event.target.value)
                         }
                         inputMode="numeric"
-                        maxLength={10}
-                        placeholder="Enter 10-digit account number"
+                        maxLength={accountNumberMaxLength}
+                        placeholder={accountNumberHint}
+                        onBlur={() => {
+                          if (accountNumber.length >= accountNumberMinLength) {
+                            setIsAccountNumberReadyForVerification(true);
+                          }
+                        }}
                         className="h-12 rounded-2xl border-black/5 bg-gray-95 text-sm text-cryptoNight placeholder:text-gray-400 focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white dark:placeholder:text-gray-40"
                       />
                       {isVerifying ? (
                         <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary-60" />
                       ) : null}
                     </div>
-                    {accountNumber.length > 0 && accountNumber.length < 10 ? (
+                    {accountNumber.length > 0 &&
+                    accountNumber.length < accountNumberMinLength ? (
                       <p className="text-xs text-gray-30 dark:text-gray-40">
-                        Account number must be exactly 10 digits.
+                        {isKenyanPayout
+                          ? "Account number must be 8-16 digits."
+                          : "Account number must be exactly 10 digits."}
                       </p>
                     ) : null}
                     {verificationError ? (
