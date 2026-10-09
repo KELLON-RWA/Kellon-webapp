@@ -45,8 +45,12 @@ function normalizeStockCategory(value?: string): string {
 }
 
 export function isRwaStockListing(listing: StockListing): boolean {
-  return [listing.rwaCategory, listing.category].some((category) =>
-    RWA_CATEGORIES.has(normalizeStockCategory(category)),
+  return (
+    /^(GNT|GNTB)[bc]?$/i.test(listing.symbol) ||
+    /\btreasury bills?\b/i.test(listing.name) ||
+    [listing.rwaCategory, listing.category].some((category) =>
+      RWA_CATEGORIES.has(normalizeStockCategory(category)),
+    )
   );
 }
 

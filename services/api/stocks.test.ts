@@ -48,12 +48,36 @@ describe("stocks service routes", () => {
     ).toBe(false);
   });
 
-  it("only classifies explicit real-world asset categories as RWA", () => {
+  it("classifies explicit real-world asset categories as RWA", () => {
     expect(isRwaStockListing({ ...listing, category: "real_estate" })).toBe(
       true,
     );
     expect(isRwaStockListing({ ...listing, rwaCategory: "treasury" })).toBe(
       true,
     );
+  });
+
+  it("recognizes the treasury fund when legacy listings omit category metadata", () => {
+    expect(
+      isRwaStockListing({
+        ...listing,
+        symbol: "GNTb",
+        name: "GetEquity Nigerian Treasury Bills Fund",
+      }),
+    ).toBe(true);
+    expect(
+      isRwaStockListing({
+        ...listing,
+        symbol: "gNTB",
+        name: "Nigerian Treasury Bills Fund",
+      }),
+    ).toBe(true);
+    expect(
+      isRwaStockListing({
+        ...listing,
+        symbol: "DPRI",
+        name: "Dangote Petroleum Refinery IPO",
+      }),
+    ).toBe(false);
   });
 });

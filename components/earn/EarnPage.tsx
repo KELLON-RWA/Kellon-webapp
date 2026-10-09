@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Pagination from "@/components/Pagination";
+import { getRwaCategory, RWA_CATEGORIES } from "@/lib/rwa-category";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import { Button } from "@/components/ui/button";
 import {
@@ -249,26 +250,33 @@ function NetworkFilterMenu({
   value,
   onValueChange,
   iconOnly = false,
+  allValue = "all",
+  allLabel = "All networks",
+  filterLabel = "Filter by network",
 }: {
   networks: NetworkFilterOption[];
   value: string;
   onValueChange: (value: string) => void;
   iconOnly?: boolean;
+  allValue?: string;
+  allLabel?: string;
+  filterLabel?: string;
 }) {
   const selectedNetwork = networks.find((network) => network.id === value);
-  const label = selectedNetwork ? selectedNetwork.label : "All networks";
+  const label = selectedNetwork ? selectedNetwork.label : allLabel;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Filter opportunities by network"
+          aria-label={filterLabel}
+          title={filterLabel}
           className={cn(
             "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-80 bg-white/70 px-2 text-xs font-semibold text-gray-30 transition hover:border-primary-60 hover:text-primary-60 dark:border-white/10 dark:bg-secondary-50/65 dark:text-gray-40 dark:hover:border-primary-60 dark:hover:text-primary-60",
             iconOnly &&
               "w-8 rounded-full border-transparent bg-transparent px-0 hover:border-transparent dark:border-transparent dark:bg-transparent",
-            value !== "all" &&
+            value !== allValue &&
               "border-primary-60/50 bg-primary-70/10 text-primary-60 dark:border-primary-60/50 dark:bg-primary-70/10 dark:text-primary-60",
           )}
         >
@@ -283,15 +291,15 @@ function NetworkFilterMenu({
         className="min-w-52 rounded-xl border border-gray-80 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-secondary-50"
       >
         <DropdownMenuLabel className="text-xs text-gray-30 dark:text-gray-40">
-          Filter by network
+          {filterLabel}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="dark:bg-white/10" />
         <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
           <DropdownMenuRadioItem
-            value="all"
+            value={allValue}
             className="cursor-pointer rounded-lg border border-transparent py-2.5 pr-3 pl-10 text-sm font-semibold text-gray-30 hover:border-primary-60/40 hover:bg-primary-70/5 hover:text-primary-60 focus:border-primary-60/40 focus:bg-primary-70/5 focus:text-primary-60 data-[state=checked]:border-primary-60 data-[state=checked]:bg-primary-70/5 data-[state=checked]:text-primary-60 dark:text-gray-40 dark:hover:bg-primary-70/10 dark:hover:text-primary-60 dark:focus:bg-primary-70/10 dark:focus:text-primary-60 dark:data-[state=checked]:border-primary-60 dark:data-[state=checked]:bg-primary-70/10 dark:data-[state=checked]:text-primary-60 [&>span:first-child]:left-3"
           >
-            All networks
+            {allLabel}
           </DropdownMenuRadioItem>
           {networks.map((network) => (
             <DropdownMenuRadioItem
@@ -559,217 +567,6 @@ function StockListSkeleton({ category }: { category: "stocks" | "rwa" }) {
   );
 }
 
-const rwaPools = [
-  {
-    name: "US Treasury Yield Pool",
-    symbol: "USDY / TBILL",
-    network: "Base",
-    risk: "Conservative",
-    apy: "~5.15%",
-    protection: "Regulated custody",
-    yieldType: "Daily yield",
-  },
-  {
-    name: "Prime Real Estate Trust",
-    symbol: "RE-YIELD",
-    network: "Base",
-    risk: "Moderate",
-    apy: "~7.85%",
-    protection: "Rental income",
-    yieldType: "Asset-backed",
-  },
-  {
-    name: "Institutional Credit Pool",
-    symbol: "CREDIT-POOL",
-    network: "Ethereum",
-    risk: "Moderate",
-    apy: "~8.40%",
-    protection: "Over-collateralized",
-    yieldType: "Fixed term",
-  },
-] as const;
-
-function RwaComingSoon() {
-  return (
-    <div className="w-full">
-      <section className="relative mb-7 overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-5 shadow-sm shadow-primary-90/30 backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none md:mb-9 md:p-7">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
-        <div className="relative">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-gray-40 md:text-xs">
-            Real-world asset yields
-          </p>
-          <h1 className="mt-2 text-3xl font-extrabold text-cryptoNight dark:text-white md:text-4xl">
-            Coming soon
-          </h1>
-          <div className="mt-6 grid max-w-2xl grid-cols-2 border-t border-gray-80 pt-4 dark:border-white/10 md:mt-8 md:pt-5">
-            <div className="pr-4 md:pr-8">
-              <p className="text-[10px] text-gray-40 md:text-xs">
-                Asset protection
-              </p>
-              <p className="mt-1 text-sm font-bold text-primary-20 md:text-base">
-                Audited & regulated
-              </p>
-            </div>
-            <div className="border-l border-gray-80 pl-4 dark:border-white/10 md:pl-8">
-              <p className="text-[10px] text-gray-40 md:text-xs">
-                Target APY range
-              </p>
-              <p className="mt-1 text-sm font-bold text-emerald-400 md:text-base">
-                4.5% – 8.4%
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-              Curated asset pools
-            </h2>
-            <p className="mt-1 text-xs text-gray-30 dark:text-gray-40">
-              Coming soon
-            </p>
-          </div>
-          <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-            RWA
-          </span>
-        </div>
-
-        <div className="space-y-2 md:hidden">
-          {rwaPools.map((pool) => (
-            <article
-              key={pool.name}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 shadow-sm dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary-90/25 bg-primary-90/15 text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                  <Building2 className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-cryptoNight dark:text-white">
-                    {pool.name}
-                  </p>
-                  <p className="mt-0.5 truncate text-[11px] text-gray-30 dark:text-gray-40">
-                    {pool.symbol} · {pool.network}
-                  </p>
-                </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                  {pool.apy}
-                </p>
-                <span className="mt-1 inline-flex rounded-md bg-primary-90 px-2 py-0.5 text-[10px] font-bold text-white opacity-70 dark:bg-primary-70">
-                  Soon
-                </span>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
-          <table className="w-full min-w-[820px] border-collapse text-left">
-            <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
-              <tr>
-                <th className="px-5 py-3 font-semibold">Asset pool</th>
-                <th className="px-4 py-3 text-right font-semibold">Est. APY</th>
-                <th className="px-4 py-3 font-semibold">Protection</th>
-                <th className="px-4 py-3 font-semibold">Yield type</th>
-                <th className="px-5 py-3" aria-label="Action" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-80 dark:divide-white/10">
-              {rwaPools.map((pool) => (
-                <tr
-                  key={pool.name}
-                  className="transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
-                >
-                  <td className="px-5 py-3.5">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary-90/25 bg-primary-90/15 text-primary-90 shadow-sm dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                        <Building2 className="h-4 w-4" aria-hidden="true" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-bold text-cryptoNight dark:text-white">
-                          {pool.name}
-                        </p>
-                        <p className="mt-0.5 text-xs text-gray-30 dark:text-gray-40">
-                          {pool.symbol} · {pool.network}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 text-right font-normal tabular-nums text-emerald-600 dark:text-emerald-400">
-                    {pool.apy}
-                  </td>
-                  <td className="px-4 py-3.5 text-sm text-cryptoNight dark:text-white">
-                    {pool.protection}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                      {pool.yieldType}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled
-                      className="h-9 px-4"
-                    >
-                      Coming soon
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="mb-3 text-base font-bold text-cryptoNight dark:text-white">
-          Compliance & protection
-        </h2>
-        <div className="rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/65 md:grid md:grid-cols-3 md:gap-4 md:p-5">
-          {[
-            [
-              "Regulated institutional custody",
-              "Direct backing held with tier-1 regulated bank trusts.",
-            ],
-            [
-              "Real-time proof of reserves",
-              "On-chain transparency and verifiable collateral.",
-            ],
-            [
-              "Bankruptcy-remote SPVs",
-              "Assets legally separated and insulated from credit risk.",
-            ],
-          ].map(([title, description], index) => (
-            <div
-              key={title}
-              className={cn(
-                "py-3 first:pt-0 last:pb-0 md:py-0",
-                index > 0 &&
-                  "border-t border-gray-80 md:border-l md:border-t-0 dark:border-white/10",
-              )}
-            >
-              <p className="text-sm font-bold text-cryptoNight dark:text-white">
-                {title}
-              </p>
-              <p className="mt-1 text-xs leading-5 text-gray-30 dark:text-gray-40">
-                {description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 type BalanceSummaryStat = {
   label: string;
   value: string;
@@ -853,6 +650,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [yieldPage, setYieldPage] = useState(1);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
+  const [rwaCategory, setRwaCategory] = useState("All RWA");
   const [isYieldSearchOpen, setIsYieldSearchOpen] = useState(false);
   const [yieldSearchQuery, setYieldSearchQuery] = useState("");
   const [yieldChainFilter, setYieldChainFilter] = useState("all");
@@ -887,7 +685,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
       const response = await stocksService.getAvailableStocks("all");
       return response.data;
     },
-    enabled: activeTab === "stocks",
+    enabled: activeTab === "stocks" || activeTab === "rwa",
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
@@ -900,7 +698,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   } = useQuery({
     queryKey: ["stock-portfolio"],
     queryFn: async () => (await stocksService.getPortfolio()).data,
-    enabled: activeTab === "stocks",
+    enabled: activeTab === "stocks" || activeTab === "rwa",
     staleTime: 30_000,
   });
 
@@ -1105,16 +903,20 @@ export default function EarnPage({ profile }: EarnPageProps) {
   }, [categoryStocks]);
   const searchedStocks = useMemo(() => {
     const query = stockSearchQuery.trim().toLowerCase();
-    if (!query) return unifiedStocks;
+    const listings =
+      activeTab === "rwa" && rwaCategory !== "All RWA"
+        ? unifiedStocks.filter((stock) => getRwaCategory(stock) === rwaCategory)
+        : unifiedStocks;
+    if (!query) return listings;
 
-    return unifiedStocks.filter((stock) =>
+    return listings.filter((stock) =>
       [
         getDisplayStockSymbol(stock.symbol, stock.provider),
         getUnderlyingTicker(stock.symbol, stock.provider),
         getDisplayStockName(stock.name),
       ].some((value) => value.toLowerCase().includes(query)),
     );
-  }, [stockSearchQuery, unifiedStocks]);
+  }, [activeTab, rwaCategory, stockSearchQuery, unifiedStocks]);
   const sortedStocks = useMemo(() => {
     const multiplier = stockSort.direction === "asc" ? 1 : -1;
     return [...searchedStocks].sort((left, right) => {
@@ -1154,7 +956,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   );
   const chartSymbols = useMemo(
     () =>
-      activeTab !== "yield"
+      activeTab === "stocks"
         ? desktopStocks.map((stock) =>
             getUnderlyingTicker(stock.symbol, stock.provider),
           )
@@ -1279,18 +1081,35 @@ export default function EarnPage({ profile }: EarnPageProps) {
     };
   }, [categoryPortfolioHoldings]);
   const isYieldLoading = opportunitiesLoading || positionsLoading;
-  const isLoading =
-    activeTab === "yield"
-      ? isYieldLoading
-      : activeTab === "stocks"
-        ? stocksLoading
-        : false;
+  const isLoading = activeTab === "yield" ? isYieldLoading : stocksLoading;
   const error =
     activeTab === "yield"
       ? opportunitiesError || positionsError
-      : activeTab === "stocks"
-        ? stocksError || stockPortfolioError || marketIndicesError
-        : null;
+      : stocksError ||
+        stockPortfolioError ||
+        (activeTab === "stocks" ? marketIndicesError : null);
+  const assetCategoryLabel = activeTab === "rwa" ? "RWA" : "Stock";
+  const rwaFilter =
+    activeTab === "rwa" ? (
+      <NetworkFilterMenu
+        networks={RWA_CATEGORIES.map((label) => ({
+          id: label,
+          label,
+          count: unifiedStocks.filter(
+            (stock) => getRwaCategory(stock) === label,
+          ).length,
+        }))}
+        value={rwaCategory}
+        onValueChange={(value) => {
+          setRwaCategory(value);
+          setStockPage(1);
+        }}
+        allValue="All RWA"
+        allLabel="All RWA"
+        filterLabel="Filter RWA by category"
+        iconOnly
+      />
+    ) : null;
   const isSecureSessionError =
     error instanceof Error &&
     error.message === "Secure session missing. Please log in again.";
@@ -1304,7 +1123,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
     await Promise.all([
       refetchStocks(),
       refetchStockPortfolio(),
-      refetchMarketIndices(),
+      ...(activeTab === "stocks" ? [refetchMarketIndices()] : []),
     ]);
   };
 
@@ -1721,8 +1540,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
               </div>
             )}
           </>
-        ) : activeTab === "rwa" ? (
-          <RwaComingSoon />
         ) : (
           <div>
             {stockPortfolioLoading ? (
@@ -1730,7 +1547,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
             ) : (
               <>
                 <MobileBalanceSummary
-                  label="Stock portfolio value"
+                  label={`${assetCategoryLabel} portfolio value`}
                   value={formatMetricUsd(categoryPortfolio.totalPortfolioValue)}
                   stats={[
                     {
@@ -1756,8 +1573,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
 
                     <div className="relative">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
-                        Stock portfolio value
+                      <p className="text-xs font-semibold text-gray-30 dark:text-gray-40">
+                        {assetCategoryLabel} portfolio value
                       </p>
                       <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
                         {formatUsd(categoryPortfolio.totalPortfolioValue)}
@@ -1888,8 +1705,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             setStockSearchQuery("");
                           }
                         }}
-                        placeholder="Search stocks"
-                        aria-label="Search stock opportunities"
+                        placeholder={`Search ${assetCategoryLabel.toLowerCase()} opportunities`}
+                        aria-label={`Search ${assetCategoryLabel} opportunities`}
                         className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                       />
                       {stockSearchQuery ? (
@@ -1917,7 +1734,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
                   <div className="hidden items-center gap-4 pb-2 md:flex">
                     <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-                      Stock opportunities
+                      {assetCategoryLabel} opportunities
                     </h2>
                     <div className="ml-auto flex w-full max-w-sm items-center gap-3">
                       <div className="relative min-w-0 flex-1">
@@ -1937,8 +1754,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               setStockSearchQuery("");
                             }
                           }}
-                          placeholder="Search stocks"
-                          aria-label="Search stock opportunities"
+                          placeholder={`Search ${assetCategoryLabel.toLowerCase()} opportunities`}
+                          aria-label={`Search ${assetCategoryLabel} opportunities`}
                           className="h-8 w-full rounded-xl border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                         />
                         {stockSearchQuery ? (
@@ -1968,13 +1785,14 @@ export default function EarnPage({ profile }: EarnPageProps) {
               ) : (
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-base font-bold text-cryptoNight dark:text-white">
-                    Stock opportunities
+                    {assetCategoryLabel} opportunities
                   </h2>
                   <div className="flex items-center gap-1">
+                    {rwaFilter}
                     <button
                       type="button"
                       onClick={() => setIsStockSearchOpen(true)}
-                      aria-label="Search stock opportunities"
+                      aria-label={`Search ${assetCategoryLabel} opportunities`}
                       aria-expanded={isStockSearchOpen}
                       className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
                     >
@@ -1986,7 +1804,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
             </div>
 
             {stocksLoading ? (
-              <StockListSkeleton category="stocks" />
+              <StockListSkeleton
+                category={activeTab === "rwa" ? "rwa" : "stocks"}
+              />
             ) : sortedStocks.length ? (
               <>
                 <div className="md:hidden">
@@ -2216,7 +2036,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   </table>
                 </div>
                 <Pagination
-                  ariaLabel="Stock listing pages"
+                  ariaLabel={`${assetCategoryLabel} listing pages`}
                   currentPage={activeStockPage}
                   onPageChange={goToStockPage}
                   pageCount={stockPageCount}
@@ -2227,8 +2047,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
               <div className="flex min-h-36 items-center justify-center rounded-lg border border-gray-80 bg-white/65 px-4 text-center dark:border-white/10 dark:bg-secondary-50/55">
                 <p className="text-sm font-semibold text-cryptoNight dark:text-white">
                   {stockSearchQuery
-                    ? "No stocks match your search."
-                    : "No stocks are available yet."}
+                    ? `No ${assetCategoryLabel.toLowerCase()} opportunities match your search.`
+                    : `No ${assetCategoryLabel.toLowerCase()} opportunities are available in this category.`}
                 </p>
               </div>
             )}

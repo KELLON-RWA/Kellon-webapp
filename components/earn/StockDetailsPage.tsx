@@ -38,7 +38,7 @@ import {
   type FinnhubMarketData,
   type GoogleNewsArticle,
 } from "@/services/api/stock-research";
-import { stocksService } from "@/services/api/stocks";
+import { isRwaStockListing, stocksService } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import StockNairaPrice from "./StockNairaPrice";
@@ -466,6 +466,7 @@ export default function StockDetailsPage({
     [normalizedSymbol, stocks],
   );
   const stock = stockOptions[0];
+  const isRwa = Boolean(stock && isRwaStockListing(stock));
   const dexListing = stockOptions.find(
     (option) =>
       option.pairAddress ||
@@ -485,16 +486,17 @@ export default function StockDetailsPage({
     dexListing?.contractAddress ||
     dexListing?.address;
   const dexPairAddress = dexListing?.pairAddress || dexListing?.poolAddress;
-  const { data: finnhubMarketData, refetch: refetchFinnhubMarketData } =
+  const { data: exchangeMarketData, refetch: refetchFinnhubMarketData } =
     useQuery({
       queryKey: ["finnhub-stock-market-data", normalizedSymbol],
       queryFn: () =>
         stockResearchService.getFinnhubMarketData(normalizedSymbol),
-      enabled: Boolean(stock),
+      enabled: Boolean(stock) && !isRwa,
       staleTime: 60_000,
       refetchInterval: 60_000,
       refetchIntervalInBackground: false,
     });
+  const finnhubMarketData = isRwa ? undefined : exchangeMarketData;
   const {
     data: googleNewsData,
     isLoading: isGoogleNewsLoading,
@@ -589,7 +591,7 @@ export default function StockDetailsPage({
         stock ? [getUnderlyingTicker(stock.symbol, stock.provider)] : [],
         activeRange,
       ),
-    enabled: Boolean(stock),
+    enabled: Boolean(stock) && !isRwa,
     staleTime: 60_000,
     refetchInterval: activeRange === "1D" ? 60_000 : 5 * 60_000,
     refetchIntervalInBackground: false,
@@ -601,14 +603,15 @@ export default function StockDetailsPage({
         stock ? [getUnderlyingTicker(stock.symbol, stock.provider)] : [],
         "1D",
       ),
-    enabled: Boolean(stock),
+    enabled: Boolean(stock) && !isRwa,
     staleTime: 60_000,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
   });
-  const chartTicker = stock
-    ? getUnderlyingTicker(stock.symbol, stock.provider)
-    : undefined;
+  const chartTicker =
+    stock && !isRwa
+      ? getUnderlyingTicker(stock.symbol, stock.provider)
+      : undefined;
   const values = chartTicker ? chartData?.charts?.[chartTicker] : undefined;
   const timestamps = chartTicker
     ? chartData?.timestamps?.[chartTicker]
@@ -673,7 +676,9 @@ export default function StockDetailsPage({
   const price = Number(finnhubMarketData?.quote?.current || stock?.price || 0);
   const isPositive = (change || 0) >= 0;
   const description =
-    STOCK_DESCRIPTIONS[underlyingTicker] ||
+    (isRwa
+      ? `${name} is a tokenized real-world asset fund. Refer to the issuer's terms for its underlying assets, income distributions, and redemption conditions.`
+      : STOCK_DESCRIPTIONS[underlyingTicker]) ||
     `${name} is available as a tokenized stock on Kellon, with on-chain settlement and 24/7 access.`;
   const company = COMPANY_PROFILES[underlyingTicker];
   const settlementChain = stock
@@ -705,9 +710,13 @@ export default function StockDetailsPage({
           onClick={() =>
             void Promise.all([
               refetch(),
-              refetchChart(),
-              refetchDayChart(),
-              refetchFinnhubMarketData(),
+              ...(!isRwa
+                ? [
+                    refetchChart(),
+                    refetchDayChart(),
+                    refetchFinnhubMarketData(),
+                  ]
+                : []),
               refetchGoogleNews(),
               refetchDexScreener(),
             ])
@@ -754,7 +763,8 @@ export default function StockDetailsPage({
                     />
                   </h2>
                   <p className="truncate text-sm text-gray-30 dark:text-gray-40">
-                    {name} · Tokenized stock
+                    {name} ·{" "}
+                    {isRwa ? "Real-world asset fund" : "Tokenized stock"}
                   </p>
                 </div>
               </div>
@@ -1040,6 +1050,7 @@ export default function StockDetailsPage({
             activeTab={activeStockholderTab}
             onTabChange={setActiveStockholderTab}
             title={title}
+            isRwa={isRwa}
             holding={holding}
             activities={stockActivities}
             isActivitiesLoading={isStockActivitiesLoading}
@@ -1474,6 +1485,7 @@ function StockholderInformation({
   activeTab,
   onTabChange,
   title,
+  isRwa,
   holding,
   activities,
   isActivitiesLoading,
@@ -1483,6 +1495,7 @@ function StockholderInformation({
   activeTab: StockholderTab;
   onTabChange: (tab: StockholderTab) => void;
   title: string;
+  isRwa: boolean;
   holding: import("@/services/api/stocks").StockPortfolioHolding | null;
   activities: Transaction[];
   isActivitiesLoading: boolean;
@@ -1526,17 +1539,29 @@ function StockholderInformation({
               <RightItem
                 icon={<Scale className="h-5 w-5" />}
                 title="Economic exposure"
-                text={`Token holders receive market exposure to ${title} through the selected tokenized-stock provider.`}
+                text={
+                  isRwa
+                    ? `Token holders receive exposure to the underlying assets of ${title}, subject to the issuer's fund terms.`
+                    : `Token holders receive market exposure to ${title} through the selected tokenized-stock provider.`
+                }
               />
               <RightItem
                 icon={<WalletCards className="h-5 w-5" />}
-                title="Dividend treatment"
-                text="Dividend and corporate-action treatment is governed by the selected provider’s listing terms."
+                title={isRwa ? "Income distributions" : "Dividend treatment"}
+                text={
+                  isRwa
+                    ? "Distribution timing and any yield depend on the issuer's published fund terms."
+                    : "Dividend and corporate-action treatment is governed by the selected provider’s listing terms."
+                }
               />
               <RightItem
                 icon={<Vote className="h-5 w-5" />}
-                title="Voting rights disclosure"
-                text="Tokenized equities may not carry direct voting rights. Review provider disclosures before purchase."
+                title={isRwa ? "Redemption terms" : "Voting rights disclosure"}
+                text={
+                  isRwa
+                    ? "Review the fund's maturity, redemption windows, and fees before purchase."
+                    : "Tokenized equities may not carry direct voting rights. Review provider disclosures before purchase."
+                }
               />
               <RightItem
                 icon={<ShieldCheck className="h-5 w-5" />}
