@@ -41,6 +41,7 @@ import {
 import { stocksService } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
+import StockNairaPrice from "./StockNairaPrice";
 import {
   formatUsd,
   getStockProviderLabel,
@@ -806,6 +807,9 @@ export default function StockDetailsPage({
                   <p className="text-4xl font-semibold tabular-nums text-cryptoNight dark:text-white">
                     {formatUsd(price)}
                   </p>
+                  {underlyingTicker === "DPRI" ? (
+                    <StockNairaPrice usdPrice={price} className="mt-1" />
+                  ) : null}
                   {change !== undefined ? (
                     <p
                       className={cn(
@@ -896,9 +900,14 @@ export default function StockDetailsPage({
                 </div>
               </div>
               <div className="mt-4 flex items-end justify-between gap-4">
-                <p className="text-3xl font-semibold tabular-nums text-cryptoNight dark:text-white">
-                  {formatUsd(price)}
-                </p>
+                <div>
+                  <p className="text-3xl font-semibold tabular-nums text-cryptoNight dark:text-white">
+                    {formatUsd(price)}
+                  </p>
+                  {underlyingTicker === "DPRI" ? (
+                    <StockNairaPrice usdPrice={price} className="mt-1" />
+                  ) : null}
+                </div>
                 {change !== undefined ? (
                   <span
                     className={cn(

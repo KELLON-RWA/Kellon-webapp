@@ -71,6 +71,7 @@ import {
   getStockProviderLabel,
   getStockSettlementChain,
 } from "./earn-utils";
+import StockNairaPrice from "./StockNairaPrice";
 
 export type StockActionType = "buy" | "sell";
 
@@ -769,6 +770,12 @@ export default function StockActionDialog({
                     <p className="text-base font-bold text-primary-50 dark:text-primary-80">
                       ${stockPrice.toFixed(2)}
                     </p>
+                    {symbol === "DPRI" ? (
+                      <StockNairaPrice
+                        usdPrice={stockPrice}
+                        className="mt-0.5 text-[10px]"
+                      />
+                    ) : null}
                     <p className="text-[10px] font-semibold uppercase text-gray-30 dark:text-gray-40">
                       Per Share
                     </p>
