@@ -17,6 +17,12 @@ export interface StockListing {
   /** Backwards-compatible aliases used by provider integrations. */
   chain?: string;
   network?: string;
+  /** On-chain metadata used to look up live pool data when a provider supplies it. */
+  tokenAddress?: string;
+  contractAddress?: string;
+  address?: string;
+  poolAddress?: string;
+  pairAddress?: string;
   rwaCategory?: string;
 }
 

@@ -5,12 +5,15 @@ import { chainStatus } from "@/lib/chain-status";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useWallets } from "@privy-io/react-auth";
 import {
+  ArrowLeft,
   ArrowDownToLine,
   ArrowUpFromLine,
+  Check,
   CheckCircle2,
+  ChevronRight,
   Loader2,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -38,6 +41,7 @@ import {
   useSmartAccount,
 } from "@/hooks/useSmartAccount";
 import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
+import { getActiveChains } from "@/lib/chains";
 import {
   stocksService,
   type StockListing,
@@ -81,6 +85,7 @@ interface StockActionDialogProps {
   action: StockActionType;
   stock: StockListing | null;
   holding?: StockPortfolioHolding | null;
+  stockOptions?: StockListing[];
   profile: User;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -97,6 +102,22 @@ type StockOrderSuccess = {
 };
 
 const BALANCE_RECONCILIATION_DELAY_MS = 5_000;
+
+function getDisplayTicker(symbol: string, provider?: string): string {
+  const raw = symbol.trim();
+  const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
+  const withoutXStockSuffix =
+    provider?.toLowerCase().includes("xstock") &&
+    /x$/i.test(withoutProviderSuffix)
+      ? withoutProviderSuffix.slice(0, -1)
+      : withoutProviderSuffix;
+
+  return (
+    withoutXStockSuffix.startsWith("b")
+      ? withoutXStockSuffix.slice(1)
+      : withoutXStockSuffix
+  ).toUpperCase();
+}
 
 interface StockSmartAccountClient {
   account: { address: string };
@@ -126,6 +147,7 @@ export default function StockActionDialog({
   action,
   stock,
   holding,
+  stockOptions = [],
   profile,
   open,
   onOpenChange,
@@ -145,30 +167,113 @@ export default function StockActionDialog({
     useState<StockVerificationContext>("stocks");
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [orderSuccess, setOrderSuccess] =
-    useState<StockOrderSuccess | null>(null);
+  const [orderSuccess, setOrderSuccess] = useState<StockOrderSuccess | null>(
+    null,
+  );
+  const [selectedFundingChain, setSelectedFundingChain] = useState("");
+  const [fundingSymbol, setFundingSymbol] = useState<"USDC" | "USDT">("USDC");
+  const [isNetworkPickerOpen, setIsNetworkPickerOpen] = useState(false);
   const otpRequestInFlightRef = useRef(false);
   const lastOtpRequestAtRef = useRef(0);
 
-  const listingSymbol = stock?.symbol || holding?.symbol || "";
-  const symbol = listingSymbol
-    .replace(/[bc]$/i, "")
-    .replace(/^b/i, "")
-    .toUpperCase();
-  const stockLogoUrl =
-    stock?.logoUrl ||
-    `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(symbol)}.png`;
-  const stockPrice = Number(stock?.price || holding?.currentPrice || 0);
-  const stockProvider = stock?.provider || holding?.provider || "";
-  const targetStockChain = getStockSettlementChain(
-    stockProvider,
-    stock?.settlementChain || stock?.chain || stock?.network,
-  );
+  const stockRoutes = useMemo(() => {
+    const candidates =
+      action === "sell" && holding
+        ? stockOptions.filter(
+            (option) =>
+              option.provider.toLowerCase() === holding.provider.toLowerCase(),
+          )
+        : stockOptions.length
+          ? stockOptions
+          : stock
+            ? [stock]
+            : [];
+    const routesByChain = new Map<
+      ReturnType<typeof getStockSettlementChain>,
+      StockListing
+    >();
 
-  // Purchases can only spend USDC held on the provider's settlement chain.
-  const availableUsdc = getMaxUsableBalanceForChain(
+    candidates.forEach((option) => {
+      const chain = getStockSettlementChain(
+        option.provider,
+        option.settlementChain || option.chain || option.network,
+      );
+      if (!routesByChain.has(chain)) routesByChain.set(chain, option);
+    });
+
+    return [...routesByChain.entries()].map(([chain, option]) => ({
+      chain,
+      stock: option,
+    }));
+  }, [action, holding, stock, stockOptions]);
+  const selectedRoute =
+    stockRoutes.find((route) => route.chain === selectedFundingChain) ||
+    stockRoutes[0];
+  const currentStock =
+    selectedRoute?.stock ||
+    (action === "sell" && holding
+      ? {
+          symbol: holding.symbol,
+          name: holding.symbol,
+          price: holding.currentPrice,
+          currency: "USD",
+          provider: holding.provider,
+        }
+      : stock);
+  const targetStockChain =
+    selectedRoute?.chain ||
+    getStockSettlementChain(
+      currentStock?.provider || holding?.provider || "",
+      currentStock?.settlementChain ||
+        currentStock?.chain ||
+        currentStock?.network,
+    );
+  const supportedFundingSymbols = useMemo<Array<"USDC" | "USDT">>(() => {
+    const chain = getActiveChains()[targetStockChain];
+    const symbols = (["USDC", "USDT"] as const).filter((symbol) =>
+      Boolean(chain?.[symbol === "USDC" ? "usdcAddress" : "usdtAddress"]),
+    );
+    return symbols.length ? symbols : ["USDC"];
+  }, [targetStockChain]);
+
+  useEffect(() => {
+    if (!open || action === "sell" || !stockRoutes.length) return;
+
+    const preferredRoute = [...stockRoutes].sort((left, right) => {
+      const leftBalance =
+        getMaxUsableBalanceForChain(profile, "USDC", left.chain) +
+        getMaxUsableBalanceForChain(profile, "USDT", left.chain);
+      const rightBalance =
+        getMaxUsableBalanceForChain(profile, "USDC", right.chain) +
+        getMaxUsableBalanceForChain(profile, "USDT", right.chain);
+      return rightBalance - leftBalance;
+    })[0];
+    setSelectedFundingChain(preferredRoute.chain);
+  }, [action, open, profile, stockRoutes]);
+
+  useEffect(() => {
+    if (supportedFundingSymbols.includes(fundingSymbol)) return;
+    setFundingSymbol(supportedFundingSymbols[0]);
+  }, [fundingSymbol, supportedFundingSymbols]);
+
+  useEffect(() => {
+    if (!open) setIsNetworkPickerOpen(false);
+  }, [open]);
+
+  const listingSymbol = currentStock?.symbol || holding?.symbol || "";
+  const symbol = getDisplayTicker(
+    listingSymbol,
+    currentStock?.provider || holding?.provider,
+  );
+  const stockLogoUrl =
+    currentStock?.logoUrl ||
+    `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(symbol)}`;
+  const stockPrice = Number(currentStock?.price || holding?.currentPrice || 0);
+  const stockProvider = currentStock?.provider || holding?.provider || "";
+
+  const availableFundingBalance = getMaxUsableBalanceForChain(
     profile,
-    "USDC",
+    fundingSymbol,
     targetStockChain,
   );
 
@@ -192,16 +297,16 @@ export default function StockActionDialog({
           .refine(
             (val) => {
               if (action === "buy") {
-                return Number(val) <= availableUsdc;
+                return Number(val) <= availableFundingBalance;
               }
               return Number(val) <= availableShares;
             },
             action === "buy"
-              ? `Maximum available balance is $${availableUsdc.toFixed(2)} USDC`
+              ? `Maximum available balance is $${availableFundingBalance.toFixed(2)} ${fundingSymbol}`
               : `Maximum available shares: ${availableShares.toFixed(4)}`,
           ),
       }),
-    [action, availableUsdc, availableShares],
+    [action, availableFundingBalance, availableShares, fundingSymbol],
   );
 
   type FormSchema = z.infer<typeof schema>;
@@ -309,8 +414,8 @@ export default function StockActionDialog({
     values: FormSchema,
     verification?: StockActionVerification,
   ) => {
-    if (!stock && !holding) return;
-    const currentStock = stock || {
+    if (!currentStock && !holding) return;
+    const tradeStock = currentStock || {
       symbol: holding!.symbol,
       name: holding!.symbol,
       price: holding!.currentPrice,
@@ -346,10 +451,8 @@ export default function StockActionDialog({
           : {};
 
       const transactionChain = getStockSettlementChain(
-        currentStock.provider,
-        currentStock.settlementChain ||
-          currentStock.chain ||
-          currentStock.network,
+        tradeStock.provider,
+        tradeStock.settlementChain || tradeStock.chain || tradeStock.network,
       );
       const chainBlocked = chainStatus.blockedMessage(
         transactionChain,
@@ -382,16 +485,15 @@ export default function StockActionDialog({
       }
 
       const client = rawClient as unknown as StockSmartAccountClient;
-      const shares =
-        action === "sell" ? Number(values.value) : undefined;
+      const shares = action === "sell" ? Number(values.value) : undefined;
       const amountFiat =
         action === "sell" ? calculatedProceeds : Number(values.value);
       const buildRes = await stocksService.buildBuyTransaction({
-        symbol: currentStock.symbol,
+        symbol: tradeStock.symbol,
         amountFiat,
-        currency: currentStock.currency || "USD",
-        provider: currentStock.provider,
-        fundingSymbol: "USDC",
+        currency: tradeStock.currency || "USD",
+        provider: tradeStock.provider,
+        fundingSymbol,
         fundingChain: targetStockChain,
         userAddress: client.account.address,
         side: action,
@@ -432,15 +534,15 @@ export default function StockActionDialog({
       }
 
       const res = await stocksService.confirmTransaction({
-        symbol: currentStock.symbol,
+        symbol: tradeStock.symbol,
         amountFiat,
         shares:
           shares ||
           buildRes.data.quote?.shares ||
-          amountFiat / currentStock.price,
-        provider: currentStock.provider,
+          amountFiat / tradeStock.price,
+        provider: tradeStock.provider,
         txHash,
-        fundingSymbol: "USDC",
+        fundingSymbol,
         fundingChain: targetStockChain,
         side: action,
         ...verificationPayload,
@@ -450,21 +552,21 @@ export default function StockActionDialog({
         const purchase = res.data;
         setOrderSuccess({
           side: "buy",
-          symbol: purchase?.symbol || currentStock.symbol,
+          symbol: purchase?.symbol || tradeStock.symbol,
           shares:
             Number(purchase?.shares) ||
             buildRes.data.quote?.shares ||
-            amountFiat / currentStock.price,
-          price: Number(purchase?.price) || currentStock.price,
+            amountFiat / tradeStock.price,
+          price: Number(purchase?.price) || tradeStock.price,
           value: Number(purchase?.cost) || amountFiat,
         });
       } else {
         const sale = res.data as unknown as SellStockResponse | undefined;
         setOrderSuccess({
           side: "sell",
-          symbol: currentStock.symbol,
+          symbol: tradeStock.symbol,
           shares: shares || Number(values.value),
-          price: Number(sale?.price) || currentStock.price,
+          price: Number(sale?.price) || tradeStock.price,
           value: Number(sale?.proceeds) || amountFiat,
         });
       }
@@ -548,26 +650,95 @@ export default function StockActionDialog({
   const title = action === "buy" ? `Buy ${symbol}` : `Sell ${symbol}`;
   const ActionIcon = action === "buy" ? ArrowUpFromLine : ArrowDownToLine;
   const isAvailableZero =
-    action === "buy" ? availableUsdc <= 0 : availableShares <= 0;
+    action === "buy" ? availableFundingBalance <= 0 : availableShares <= 0;
+  const selectFundingRoute = (chain: string) => {
+    setSelectedFundingChain(chain);
+    form.reset({ value: "" });
+    setIsNetworkPickerOpen(false);
+  };
 
   return (
     <>
       <Dialog open={open} onOpenChange={closeDialog}>
         <DialogContent className="fixed inset-x-0 bottom-0 top-auto max-h-[90dvh] w-full max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-t-[32px] border-none bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 p-0 shadow-2xl outline-none data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom dark:bg-none dark:bg-black2 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[calc(100dvh-4rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[32px]">
           <div className="border-b border-gray-80 bg-transparent px-5 py-5 dark:border-white/10">
+            {isNetworkPickerOpen ? (
+              <button
+                type="button"
+                onClick={() => setIsNetworkPickerOpen(false)}
+                className="mb-4 flex h-9 w-9 items-center justify-center rounded-full border border-gray-80 text-cryptoNight transition hover:border-primary-60 dark:border-white/10 dark:text-white"
+                aria-label="Back to stock order"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            ) : null}
             <DialogHeader>
               <DialogTitle className="text-left text-lg text-cryptoNight dark:text-white">
-                {title}
+                {isNetworkPickerOpen ? "Select funding network" : title}
               </DialogTitle>
               <DialogDescription className="text-left text-xs text-gray-30 dark:text-gray-40">
-                {action === "buy"
-                  ? "Purchase 24/7 tokenized equity backed by live market oracle pricing."
-                  : "Liquidate tokenized stock shares directly back into your USDC balance."}
+                {isNetworkPickerOpen
+                  ? "Choose a network that supports this stock and holds your stablecoins."
+                  : action === "buy"
+                    ? "Purchase 24/7 tokenized equity backed by live market oracle pricing."
+                    : "Liquidate tokenized stock shares directly back into your USDC balance."}
               </DialogDescription>
             </DialogHeader>
           </div>
 
-          {stock || holding ? (
+          {isNetworkPickerOpen && action === "buy" ? (
+            <div className="min-h-0 space-y-3 overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:p-5">
+              {stockRoutes.map((route) => {
+                const chainName =
+                  getActiveChains()[route.chain]?.name ||
+                  route.chain.toUpperCase();
+                const usdcBalance = getMaxUsableBalanceForChain(
+                  profile,
+                  "USDC",
+                  route.chain,
+                );
+                const usdtBalance = getMaxUsableBalanceForChain(
+                  profile,
+                  "USDT",
+                  route.chain,
+                );
+                const isSelected = route.chain === targetStockChain;
+
+                return (
+                  <button
+                    key={route.chain}
+                    type="button"
+                    onClick={() => selectFundingRoute(route.chain)}
+                    className={
+                      isSelected
+                        ? "flex w-full items-center justify-between rounded-xl border border-primary-60 bg-primary-70/10 px-3 py-3 text-left"
+                        : "flex w-full items-center justify-between rounded-xl border border-gray-80 bg-white px-3 py-3 text-left transition hover:border-primary-60/60 dark:border-white/10 dark:bg-secondary-50"
+                    }
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <AssetNetworkIcon
+                        symbol="USDC"
+                        network={route.chain}
+                        size="sm"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-cryptoNight dark:text-white">
+                          {chainName}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-gray-30 dark:text-gray-40">
+                          {usdcBalance.toFixed(2)} USDC ·{" "}
+                          {usdtBalance.toFixed(2)} USDT
+                        </span>
+                      </span>
+                    </span>
+                    {isSelected ? (
+                      <Check className="h-5 w-5 shrink-0 text-primary-60" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : currentStock || holding ? (
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit((values) =>
@@ -602,6 +773,74 @@ export default function StockActionDialog({
                   </div>
                 </div>
 
+                {action === "buy" ? (
+                  <section aria-label="Funding network" className="space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold text-cryptoNight dark:text-white">
+                        Funding network
+                      </p>
+                      <p className="mt-1 text-[11px] text-gray-30 dark:text-gray-40">
+                        Only networks that support this stock are available.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsNetworkPickerOpen(true)}
+                      className="flex w-full items-center gap-3 rounded-xl border border-gray-80 bg-white px-3 py-3 text-left transition hover:border-primary-60/60 dark:border-white/10 dark:bg-secondary-50"
+                      aria-haspopup="dialog"
+                      aria-expanded={isNetworkPickerOpen}
+                    >
+                      <AssetNetworkIcon
+                        symbol="USDC"
+                        network={targetStockChain}
+                        size="sm"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-cryptoNight dark:text-white">
+                          {getActiveChains()[targetStockChain]?.name ||
+                            targetStockChain.toUpperCase()}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-gray-30 dark:text-gray-40">
+                          {getMaxUsableBalanceForChain(
+                            profile,
+                            "USDC",
+                            targetStockChain,
+                          ).toFixed(2)}{" "}
+                          USDC ·{" "}
+                          {getMaxUsableBalanceForChain(
+                            profile,
+                            "USDT",
+                            targetStockChain,
+                          ).toFixed(2)}{" "}
+                          USDT
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary-50 dark:text-primary-80">
+                        Change
+                        <ChevronRight className="h-4 w-4" />
+                      </span>
+                    </button>
+                    {supportedFundingSymbols.length > 1 ? (
+                      <div className="grid grid-cols-2 rounded-xl border border-gray-80 p-1 dark:border-white/10">
+                        {supportedFundingSymbols.map((symbolOption) => (
+                          <button
+                            key={symbolOption}
+                            type="button"
+                            onClick={() => setFundingSymbol(symbolOption)}
+                            className={
+                              fundingSymbol === symbolOption
+                                ? "rounded-lg bg-primary-60 py-2 text-xs font-semibold text-white"
+                                : "rounded-lg py-2 text-xs font-semibold text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
+                            }
+                          >
+                            Pay with {symbolOption}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+
                 <FormField
                   control={form.control}
                   name="value"
@@ -623,7 +862,7 @@ export default function StockActionDialog({
                               "value",
                               String(
                                 action === "buy"
-                                  ? availableUsdc
+                                  ? availableFundingBalance
                                   : availableShares,
                               ),
                               { shouldValidate: true },
@@ -654,12 +893,12 @@ export default function StockActionDialog({
                       <div className="flex items-center justify-between text-[11px] text-gray-30 dark:text-gray-40">
                         <span>
                           {action === "buy"
-                            ? "Available USDC"
+                            ? `Available ${fundingSymbol}`
                             : "Available Shares"}
                         </span>
                         <span>
                           {action === "buy"
-                            ? `$${availableUsdc.toFixed(2)} USDC`
+                            ? `${availableFundingBalance.toFixed(2)} ${fundingSymbol}`
                             : `${availableShares.toFixed(4)} Shares`}
                         </span>
                       </div>
@@ -707,7 +946,7 @@ export default function StockActionDialog({
                       ? "Processing..."
                       : isAvailableZero
                         ? action === "buy"
-                          ? "Insufficient USDC Balance"
+                          ? `Insufficient ${fundingSymbol} Balance`
                           : "No Shares Available"
                         : action === "buy"
                           ? `Buy ${symbol}`
@@ -783,7 +1022,9 @@ export default function StockActionDialog({
           </div>
           <DialogHeader className="mt-4 items-center">
             <DialogTitle className="text-xl text-cryptoNight dark:text-white">
-              {orderSuccess?.side === "sell" ? "Sale successful" : "Purchase successful"}
+              {orderSuccess?.side === "sell"
+                ? "Sale successful"
+                : "Purchase successful"}
             </DialogTitle>
             <DialogDescription className="max-w-[18rem] text-center text-sm leading-6 text-gray-30 dark:text-gray-40">
               Your {orderSuccess?.symbol} position has been updated.
@@ -792,7 +1033,9 @@ export default function StockActionDialog({
           <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-gray-80 bg-gray-80 text-left dark:border-white/10 dark:bg-white/10">
             <div className="bg-white p-3.5 dark:bg-secondary-50">
               <p className="text-[11px] text-gray-30 dark:text-gray-40">
-                {orderSuccess?.side === "sell" ? "Shares sold" : "Shares purchased"}
+                {orderSuccess?.side === "sell"
+                  ? "Shares sold"
+                  : "Shares purchased"}
               </p>
               <p className="mt-1 font-semibold tabular-nums text-cryptoNight dark:text-white">
                 {orderSuccess?.shares.toFixed(4)}

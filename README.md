@@ -107,6 +107,7 @@ Create `.env.local` for local development. Do not commit it.
 | `NEXT_PUBLIC_NETWORK_MODE` | Optional | Network mode used by chain-aware UI and transaction flows |
 | `LIFI_API_ID` | Optional | Server-side LI.FI API identifier |
 | `LIFI_API_KEY` | Optional | Server-side LI.FI credential |
+| `FINNHUB_API_KEY` | Required for stock research | Server-side Finnhub credential for exchange quotes, company profiles, and valuation metrics |
 | `ALCHEMY_RPC_KEY` | Optional | Server-side RPC configuration |
 | `ANKR_RPC_KEY` | Optional | Server-side RPC configuration |
 | `INFURA_RPC_KEY` | Optional | Server-side RPC configuration |

@@ -52,7 +52,6 @@ import {
   formatUsd,
   getPositionValue,
   getProtocolName,
-  getStockSettlementChain,
   toNumber,
 } from "./earn-utils";
 import { getStockCharts, StockSparkline } from "./StockSparkline";
@@ -206,13 +205,12 @@ export function getDisplayStockSymbolParts(
   return { base: raw.toUpperCase() };
 }
 
-/** Keep the provider-issued symbol visible while lookups use the underlying ticker. */
+/** Display the underlying ticker while retaining provider symbols for execution. */
 export function getDisplayStockSymbol(
   symbol: string,
   provider?: string,
 ): string {
-  const { base, suffix } = getDisplayStockSymbolParts(symbol, provider);
-  return `${base}${suffix || ""}`;
+  return getUnderlyingTicker(symbol, provider);
 }
 
 export function StockSymbol({
@@ -222,29 +220,18 @@ export function StockSymbol({
   symbol: string;
   provider?: string;
 }) {
-  const { base, suffix } = getDisplayStockSymbolParts(symbol, provider);
-
   return (
-    <span className="inline-flex items-baseline whitespace-nowrap">
-      {base}
-      {suffix ? (
-        <span className="relative -top-[0.12em] ml-px text-[0.75em] leading-none lowercase">
-          {suffix}
-        </span>
-      ) : null}
+    <span className="whitespace-nowrap">
+      {getDisplayStockSymbol(symbol, provider)}
     </span>
   );
 }
 
 export function getStockLogoUrl(symbol: string, logoUrl?: string): string {
-  // Prefer a known company mark to an inconsistent provider-supplied image.
-  if (STOCK_DOMAINS[getUnderlyingTicker(symbol)]) {
-    return getStockLogoFallbackUrl(symbol);
-  }
-
+  // Provider-supplied catalog artwork is preferred. The fallback only covers
+  // listings without an image.
   if (logoUrl) return logoUrl;
-
-  return `https://images.financialmodelingprep.com/symbol/${encodeURIComponent(getUnderlyingTicker(symbol))}.png`;
+  return getStockLogoFallbackUrl(symbol);
 }
 
 function NetworkFilterMenu({
@@ -348,13 +335,11 @@ export function StockLogo({
       )}
     >
       {symbol.slice(0, 2).toUpperCase()}
-      {/* Provider logos are preferred; market-ticker and generated image fallbacks
-          ensure every stock renders an image rather than a text-only placeholder. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src || fallbackSrc}
         alt={`${symbol} logo`}
-        className="absolute inset-0 h-full w-full bg-white object-contain p-1 dark:bg-secondary-60"
+        className="absolute inset-0 h-full w-full rounded-full bg-white object-cover dark:bg-secondary-60"
         data-fallback-src={fallbackSrc}
         onError={(event) => {
           const image = event.currentTarget;
@@ -841,7 +826,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [yieldPage, setYieldPage] = useState(1);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
-  const [stockNetworkFilter, setStockNetworkFilter] = useState("all");
   const [isYieldSearchOpen, setIsYieldSearchOpen] = useState(false);
   const [yieldSearchQuery, setYieldSearchQuery] = useState("");
   const [yieldChainFilter, setYieldChainFilter] = useState("all");
@@ -916,20 +900,15 @@ export default function EarnPage({ profile }: EarnPageProps) {
   }, [searchParams]);
 
   useEffect(() => {
-    // `provider` is used by the buy deep link. Do not turn an active purchase
-    // link into a network filter while it is being handled below.
-    if (searchParams.get("stock")) return;
-    setStockNetworkFilter(searchParams.get("network")?.toLowerCase() || "all");
-  }, [searchParams]);
-
-  useEffect(() => {
     const stockSymbol = searchParams.get("stock");
     const provider = searchParams.get("provider");
     if (!stockSymbol || !stocks.length) return;
 
     const stock = stocks.find(
       (item) =>
-        item.symbol.toLowerCase() === stockSymbol.toLowerCase() &&
+        (item.symbol.toLowerCase() === stockSymbol.toLowerCase() ||
+          getUnderlyingTicker(item.symbol, item.provider) ===
+            getUnderlyingTicker(stockSymbol, provider || undefined)) &&
         (!provider || item.provider.toLowerCase() === provider.toLowerCase()),
     );
     if (!stock) return;
@@ -1084,49 +1063,19 @@ export default function EarnPage({ profile }: EarnPageProps) {
       ),
     [activeTab, stocks],
   );
-  const stockNetworks = useMemo(() => {
-    const networks = new Map<
-      string,
-      { id: string; label: string; count: number }
-    >();
+  const unifiedStocks = useMemo(() => {
+    const listingsByTicker = new Map<string, StockListing>();
 
     categoryStocks.forEach((stock) => {
-      const id = getStockSettlementChain(
-        stock.provider,
-        stock.settlementChain || stock.chain || stock.network,
-      );
-      const existing = networks.get(id);
-      networks.set(id, {
-        id,
-        label: id.toUpperCase(),
-        count: (existing?.count || 0) + 1,
-      });
+      const ticker = getUnderlyingTicker(stock.symbol, stock.provider);
+
+      // A ticker is a single product in the catalog. Provider listings are
+      // retained for the trade flow, where the buyer chooses a supported route.
+      if (!listingsByTicker.has(ticker)) listingsByTicker.set(ticker, stock);
     });
 
-    return [...networks.values()].sort((left, right) =>
-      left.label.localeCompare(right.label),
-    );
+    return [...listingsByTicker.values()];
   }, [categoryStocks]);
-  const unifiedStocks = useMemo(() => {
-    const providerListings = new Map<string, StockListing>();
-    categoryStocks
-      .filter(
-        (stock) =>
-          stockNetworkFilter === "all" ||
-          getStockSettlementChain(
-            stock.provider,
-            stock.settlementChain || stock.chain || stock.network,
-          ) === stockNetworkFilter,
-      )
-      .forEach((stock) => {
-        // The same ticker can be offered by several providers. Keep each offer
-        // visible, while ignoring an accidental repeat from the same provider.
-        const key = `${stock.provider.toLowerCase()}:${stock.symbol.toLowerCase()}`;
-        if (!providerListings.has(key)) providerListings.set(key, stock);
-      });
-
-    return [...providerListings.values()];
-  }, [categoryStocks, stockNetworkFilter]);
   const searchedStocks = useMemo(() => {
     const query = stockSearchQuery.trim().toLowerCase();
     if (!query) return unifiedStocks;
@@ -1247,35 +1196,13 @@ export default function EarnPage({ profile }: EarnPageProps) {
     router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
   };
   const getStockDetailsHref = (stock: StockListing) => {
-    const network = getStockSettlementChain(
-      stock.provider,
-      stock.settlementChain || stock.chain || stock.network,
-    );
-    const params = new URLSearchParams({
-      provider: stock.provider,
-      network,
-    });
-
-    return `/earn/stocks/${encodeURIComponent(stock.symbol)}?${params.toString()}`;
+    return `/earn/stocks/${encodeURIComponent(getUnderlyingTicker(stock.symbol, stock.provider))}`;
   };
   const prefetchStockDetails = (stock: StockListing) => {
     router.prefetch(getStockDetailsHref(stock));
   };
   const openStockDetails = (stock: StockListing) => {
     router.push(getStockDetailsHref(stock));
-  };
-  const selectStockNetwork = (network: string) => {
-    setStockNetworkFilter(network);
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete("stock");
-    nextParams.delete("provider");
-    if (network === "all") {
-      nextParams.delete("network");
-    } else {
-      nextParams.set("network", network);
-    }
-    nextParams.set("category", activeTab);
-    router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
   };
   const marketEtfs = useMemo(() => {
     if (marketIndices.length) {
@@ -1729,7 +1656,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 size="sm"
                                 className="h-9 shrink-0 px-4"
                                 disabled={positionsLoading}
-                                onClick={() => openYieldOpportunity(opportunity)}
+                                onClick={() =>
+                                  openYieldOpportunity(opportunity)
+                                }
                               >
                                 <span className="relative z-10 flex items-center justify-center gap-1.5">
                                   Deposit
@@ -2015,16 +1944,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     Stock opportunities
                   </h2>
                   <div className="flex items-center gap-1">
-                    {stockNetworks.length > 1 ? (
-                      <span className="md:hidden">
-                        <NetworkFilterMenu
-                          networks={stockNetworks}
-                          value={stockNetworkFilter}
-                          onValueChange={selectStockNetwork}
-                          iconOnly
-                        />
-                      </span>
-                    ) : null}
                     <button
                       type="button"
                       onClick={() => setIsStockSearchOpen(true)}
@@ -2034,15 +1953,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                     >
                       <Search className="h-4 w-4" />
                     </button>
-                    {stockNetworks.length > 1 ? (
-                      <span className="hidden md:inline-flex">
-                        <NetworkFilterMenu
-                          networks={stockNetworks}
-                          value={stockNetworkFilter}
-                          onValueChange={selectStockNetwork}
-                        />
-                      </span>
-                    ) : null}
                   </div>
                 </div>
               )}
@@ -2056,7 +1966,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                   <div className="space-y-2">
                     {desktopStocks.map((stock) => (
                       <button
-                        key={`${stock.provider}_${stock.symbol}`}
+                        key={getUnderlyingTicker(stock.symbol, stock.provider)}
                         type="button"
                         onPointerEnter={() => prefetchStockDetails(stock)}
                         onFocus={() => prefetchStockDetails(stock)}
@@ -2117,7 +2027,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </div>
 
                 <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
-                  <table className="w-full min-w-[780px] border-collapse text-left">
+                  <table className="w-full min-w-[680px] border-collapse text-left">
                     <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
                       <tr>
                         <th className="px-5 py-3 font-semibold">
@@ -2163,7 +2073,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           </button>
                         </th>
                         <th className="px-4 py-3 font-semibold">Last 24h</th>
-                        <th className="px-4 py-3 font-semibold">Network</th>
                         <th className="px-5 py-3" aria-label="Action" />
                       </tr>
                     </thead>
@@ -2177,7 +2086,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         );
                         return (
                           <tr
-                            key={`${stock.provider}_${stock.symbol}`}
+                            key={getUnderlyingTicker(
+                              stock.symbol,
+                              stock.provider,
+                            )}
                             onPointerEnter={() => prefetchStockDetails(stock)}
                             onFocus={() => prefetchStockDetails(stock)}
                             onClick={() => openStockDetails(stock)}
@@ -2254,16 +2166,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 }
                               />
                             </td>
-                            <td className="px-4 py-3.5">
-                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                                {getStockSettlementChain(
-                                  stock.provider,
-                                  stock.settlementChain ||
-                                    stock.chain ||
-                                    stock.network,
-                                ).toUpperCase()}
-                              </span>
-                            </td>
                             <td className="px-5 py-3.5 text-right">
                               <Button
                                 type="button"
@@ -2324,6 +2226,19 @@ export default function EarnPage({ profile }: EarnPageProps) {
         action={selectedStockAction?.action || "buy"}
         stock={selectedStockAction?.stock || null}
         holding={selectedStockAction?.holding || null}
+        stockOptions={(() => {
+          const selectedStock = selectedStockAction?.stock;
+          return selectedStock
+            ? stocks.filter(
+                (option) =>
+                  getUnderlyingTicker(option.symbol, option.provider) ===
+                  getUnderlyingTicker(
+                    selectedStock.symbol,
+                    selectedStock.provider,
+                  ),
+              )
+            : [];
+        })()}
         profile={profile}
         open={Boolean(selectedStockAction)}
         onOpenChange={(open) => {

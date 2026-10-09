@@ -18,8 +18,8 @@ import {
   Vote,
   WalletCards,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
@@ -33,17 +33,18 @@ import {
 import { getActivityRefetchInterval } from "@/lib/transaction-polling";
 import { transactionService } from "@/services/api/transactions";
 import {
-  stocksService,
-  type StockListing,
-  type StockPortfolioHolding,
-} from "@/services/api/stocks";
+  stockResearchService,
+  type DexScreenerPool,
+  type FinnhubMarketData,
+  type GoogleNewsArticle,
+} from "@/services/api/stock-research";
+import { stocksService } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import {
   formatUsd,
   getStockProviderLabel,
   getStockSettlementChain,
-  normalizeChainKey,
 } from "./earn-utils";
 import {
   getDisplayStockName,
@@ -66,35 +67,6 @@ function getListingSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
 }
 
-function matchesStockContext(
-  item: Pick<
-    StockListing,
-    "provider" | "settlementChain" | "chain" | "network"
-  >,
-  provider?: string,
-  network?: string,
-): boolean {
-  return (
-    (!provider || item.provider.toLowerCase() === provider) &&
-    (!network ||
-      getStockSettlementChain(
-        item.provider,
-        item.settlementChain || item.chain || item.network,
-      ) === network)
-  );
-}
-
-function matchesHoldingContext(
-  item: Pick<StockPortfolioHolding, "provider">,
-  provider?: string,
-  network?: string,
-): boolean {
-  return (
-    (!provider || item.provider.toLowerCase() === provider) &&
-    (!network || getStockSettlementChain(item.provider) === network)
-  );
-}
-
 const STOCK_DESCRIPTIONS: Record<string, string> = {
   AAPL: "Apple Inc. is an American multinational technology company known for the iPhone, Mac, iPad, Apple Watch, and services including the App Store and Apple Music.",
   AMZN: "Amazon.com, Inc. is a multinational technology company focused on e-commerce, cloud computing, digital streaming, and artificial intelligence.",
@@ -114,6 +86,39 @@ type CompanyProfile = {
   founded?: string;
   employees?: string;
 };
+
+function toMetricNumber(value: number | string | null | undefined) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatMetricUsd(value: number | string | null | undefined) {
+  const number = toMetricNumber(value);
+  return number === undefined ? "Not available" : formatUsd(number);
+}
+
+function formatMetricNumber(value: number | string | null | undefined) {
+  const number = toMetricNumber(value);
+  return number === undefined ? "Not available" : formatCompactNumber(number);
+}
+
+function formatMetricRange(
+  low: number | string | null | undefined,
+  high: number | string | null | undefined,
+) {
+  const lowValue = toMetricNumber(low);
+  const highValue = toMetricNumber(high);
+  return lowValue === undefined || highValue === undefined
+    ? "Not available"
+    : `${formatUsd(lowValue)} - ${formatUsd(highValue)}`;
+}
 
 const COMPANY_PROFILES: Record<string, CompanyProfile> = {
   AAPL: {
@@ -428,36 +433,13 @@ export default function StockDetailsPage({
   symbol: string;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const requestedProviderParam = searchParams.get("provider");
-  const requestedProvider = requestedProviderParam?.trim().toLowerCase();
-  const requestedNetworkParam = searchParams.get("network");
-  const requestedNetwork = requestedNetworkParam
-    ? normalizeChainKey(requestedNetworkParam)
-    : undefined;
-  useEffect(() => {
-    if (!requestedProvider || requestedNetwork) return;
-
-    const network = getStockSettlementChain(requestedProvider);
-    router.replace(
-      `/earn/stocks/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(requestedProviderParam || requestedProvider)}&network=${network}`,
-      { scroll: false },
-    );
-  }, [
-    requestedNetwork,
-    requestedProvider,
-    requestedProviderParam,
-    router,
-    symbol,
-  ]);
   const [activeRange, setActiveRange] =
     useState<(typeof TIME_RANGES)[number]>("1M");
   const [stockAction, setStockAction] = useState<StockActionType | null>(null);
   const [activeTab, setActiveTab] = useState<StockPageTab>("Charts");
   const [activeStockholderTab, setActiveStockholderTab] =
     useState<StockholderTab>("Tokenholder rights");
-  const requestedListingSymbol = getListingSymbol(symbol);
-  const normalizedSymbol = getUnderlyingTicker(symbol, requestedProvider);
+  const normalizedSymbol = getUnderlyingTicker(symbol);
   const {
     data: stocks = [],
     dataUpdatedAt: stocksUpdatedAt,
@@ -473,29 +455,81 @@ export default function StockDetailsPage({
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
   });
-  const stock = useMemo(() => {
-    const matchesContext = (item: StockListing) =>
-      matchesStockContext(item, requestedProvider, requestedNetwork);
-
-    return (
-      stocks.find(
+  const stockOptions = useMemo(
+    () =>
+      stocks.filter(
         (item) =>
-          getListingSymbol(item.symbol) === requestedListingSymbol &&
-          matchesContext(item),
-      ) ||
-      stocks.find(
-        (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) ===
-            normalizedSymbol && matchesContext(item),
+          getListingSymbol(item.symbol) === normalizedSymbol ||
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol,
+      ),
+    [normalizedSymbol, stocks],
+  );
+  const stock = stockOptions[0];
+  const dexListing = stockOptions.find(
+    (option) =>
+      option.pairAddress ||
+      option.poolAddress ||
+      option.tokenAddress ||
+      option.contractAddress ||
+      option.address,
+  );
+  const dexChain = dexListing
+    ? getStockSettlementChain(
+        dexListing.provider,
+        dexListing.settlementChain || dexListing.chain || dexListing.network,
       )
-    );
-  }, [
-    normalizedSymbol,
-    requestedListingSymbol,
-    requestedNetwork,
-    requestedProvider,
-    stocks,
-  ]);
+    : undefined;
+  const dexTokenAddress =
+    dexListing?.tokenAddress ||
+    dexListing?.contractAddress ||
+    dexListing?.address;
+  const dexPairAddress = dexListing?.pairAddress || dexListing?.poolAddress;
+  const { data: finnhubMarketData, refetch: refetchFinnhubMarketData } =
+    useQuery({
+      queryKey: ["finnhub-stock-market-data", normalizedSymbol],
+      queryFn: () =>
+        stockResearchService.getFinnhubMarketData(normalizedSymbol),
+      enabled: Boolean(stock),
+      staleTime: 60_000,
+      refetchInterval: 60_000,
+      refetchIntervalInBackground: false,
+    });
+  const {
+    data: googleNewsData,
+    isLoading: isGoogleNewsLoading,
+    refetch: refetchGoogleNews,
+  } = useQuery({
+    queryKey: ["google-news", normalizedSymbol],
+    queryFn: () => stockResearchService.getGoogleNews(normalizedSymbol),
+    enabled: Boolean(stock) && activeTab === "Company",
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
+  });
+  const {
+    data: dexScreenerData,
+    isLoading: isDexScreenerLoading,
+    refetch: refetchDexScreener,
+  } = useQuery({
+    queryKey: [
+      "dexscreener-stock-pool",
+      dexChain,
+      dexTokenAddress,
+      dexPairAddress,
+    ],
+    queryFn: () =>
+      stockResearchService.getDexScreenerPool({
+        chain: dexChain || "",
+        tokenAddress: dexTokenAddress,
+        pairAddress: dexPairAddress,
+      }),
+    enabled:
+      activeTab === "Data" &&
+      Boolean(dexChain && (dexTokenAddress || dexPairAddress)),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  });
   const { data: stockPortfolio, refetch: refetchPortfolio } = useQuery({
     queryKey: ["stock-portfolio"],
     queryFn: async () => (await stocksService.getPortfolio()).data,
@@ -518,29 +552,14 @@ export default function StockDetailsPage({
   });
   const holding = useMemo(() => {
     const holdings = stockPortfolio?.holdings || [];
-    const matchesContext = (item: StockPortfolioHolding) =>
-      matchesHoldingContext(item, requestedProvider, requestedNetwork);
-
     return (
       holdings.find(
         (item) =>
-          getListingSymbol(item.symbol) === requestedListingSymbol &&
-          matchesContext(item),
-      ) ||
-      holdings.find(
-        (item) =>
-          getUnderlyingTicker(item.symbol, item.provider) ===
-            normalizedSymbol && matchesContext(item),
-      ) ||
-      null
+          getListingSymbol(item.symbol) === normalizedSymbol ||
+          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol,
+      ) || null
     );
-  }, [
-    normalizedSymbol,
-    requestedListingSymbol,
-    requestedNetwork,
-    requestedProvider,
-    stockPortfolio?.holdings,
-  ]);
+  }, [normalizedSymbol, stockPortfolio?.holdings]);
   const canSell = Number(holding?.shares || 0) > 0;
   const stockActivities = useMemo(
     () =>
@@ -551,7 +570,7 @@ export default function StockDetailsPage({
                 transaction,
                 stock.symbol,
                 normalizedSymbol,
-                stock.provider,
+                undefined,
               )
             : false,
         )
@@ -596,20 +615,31 @@ export default function StockDetailsPage({
   const liveChart = mergeLiveStockQuote(
     values,
     timestamps,
-    Number(stock?.price || 0),
-    stocksUpdatedAt,
+    Number(finnhubMarketData?.quote?.current || stock?.price || 0),
+    finnhubMarketData?.quote?.timestamp
+      ? finnhubMarketData.quote.timestamp * 1_000
+      : stocksUpdatedAt,
   );
-  const change = stock
+  const catalogChange = stock
     ? getListingChange(
         stock,
         chartTicker ? dayChartData?.changes?.[chartTicker] : undefined,
       )
     : undefined;
+  const change = Number.isFinite(finnhubMarketData?.quote?.percentChange)
+    ? finnhubMarketData?.quote?.percentChange
+    : catalogChange;
   const chartStats = chartTicker
     ? dayChartData?.stats?.[chartTicker]
     : undefined;
-  const chartHigh = chartStats?.high24h || Number(stock?.price || 0);
-  const chartLow = chartStats?.low24h || Number(stock?.price || 0);
+  const chartHigh =
+    finnhubMarketData?.quote?.high ||
+    chartStats?.high24h ||
+    Number(stock?.price || 0);
+  const chartLow =
+    finnhubMarketData?.quote?.low ||
+    chartStats?.low24h ||
+    Number(stock?.price || 0);
 
   if (!isLoading && !stock) {
     return (
@@ -638,7 +668,8 @@ export default function StockDetailsPage({
     : normalizedSymbol;
   const displayStockSymbol = stock?.symbol || title;
   const name = stock ? getDisplayStockName(stock.name) : "Loading stock";
-  const price = Number(stock?.price || 0);
+  const stockLogoUrl = getStockLogoUrl(stock?.symbol || title, stock?.logoUrl);
+  const price = Number(finnhubMarketData?.quote?.current || stock?.price || 0);
   const isPositive = (change || 0) >= 0;
   const description =
     STOCK_DESCRIPTIONS[underlyingTicker] ||
@@ -671,7 +702,14 @@ export default function StockDetailsPage({
         <button
           type="button"
           onClick={() =>
-            void Promise.all([refetch(), refetchChart(), refetchDayChart()])
+            void Promise.all([
+              refetch(),
+              refetchChart(),
+              refetchDayChart(),
+              refetchFinnhubMarketData(),
+              refetchGoogleNews(),
+              refetchDexScreener(),
+            ])
           }
           aria-label="Refresh stock data"
           className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-gray-100 text-slate-600 transition-colors hover:bg-gray-200 dark:border-transparent dark:bg-secondary-60/50 dark:text-white dark:hover:bg-secondary-60"
@@ -706,14 +744,7 @@ export default function StockDetailsPage({
           <div className="hidden md:block">
             <div className="mb-5 flex items-center justify-between gap-6">
               <div className="flex min-w-0 items-center gap-4">
-                <StockLogo
-                  symbol={title}
-                  src={
-                    stock
-                      ? getStockLogoUrl(stock.symbol, stock.logoUrl)
-                      : undefined
-                  }
-                />
+                <StockLogo symbol={title} src={stockLogoUrl} />
                 <div className="min-w-0">
                   <h2 className="text-xl font-bold text-cryptoNight dark:text-white">
                     <StockSymbol
@@ -851,14 +882,7 @@ export default function StockDetailsPage({
           <div className="md:hidden">
             <section className="rounded-2xl border border-gray-80 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/60 md:col-start-2 md:row-start-1 md:sticky md:top-28 md:p-6">
               <div className="flex items-center gap-3 border-b border-gray-80 pb-3 dark:border-white/10">
-                <StockLogo
-                  symbol={title}
-                  src={
-                    stock
-                      ? getStockLogoUrl(stock.symbol, stock.logoUrl)
-                      : undefined
-                  }
-                />
+                <StockLogo symbol={title} src={stockLogoUrl} />
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold text-cryptoNight dark:text-white">
                     <StockSymbol
@@ -1015,8 +1039,7 @@ export default function StockDetailsPage({
               if (!stock) return;
 
               const query = new URLSearchParams({
-                stock: stock.symbol,
-                provider: stock.provider,
+                stock: normalizedSymbol,
               });
               router.push(`/transactions?${query.toString()}`);
             }}
@@ -1028,11 +1051,19 @@ export default function StockDetailsPage({
           title={title}
           description={description}
           company={company}
+          finnhubMarketData={finnhubMarketData}
+          googleNews={googleNewsData?.articles || []}
+          isGoogleNewsLoading={isGoogleNewsLoading}
           provider={providerName}
           settlementChain={settlementChain}
           price={price}
           chartHigh={chartHigh}
           chartLow={chartLow}
+          dexPool={dexScreenerData?.pair || null}
+          isDexScreenerLoading={isDexScreenerLoading}
+          hasDexPoolMetadata={Boolean(
+            dexChain && (dexTokenAddress || dexPairAddress),
+          )}
         />
       )}
 
@@ -1075,6 +1106,7 @@ export default function StockDetailsPage({
         action={stockAction || "buy"}
         stock={stock || null}
         holding={holding}
+        stockOptions={stockOptions}
         profile={profile}
         open={Boolean(stockAction)}
         onOpenChange={(open) => {
@@ -1094,72 +1126,161 @@ function StockResearchContent({
   title,
   description,
   company,
+  finnhubMarketData,
+  googleNews,
+  isGoogleNewsLoading,
   provider,
   settlementChain,
   price,
   chartHigh,
   chartLow,
+  dexPool,
+  isDexScreenerLoading,
+  hasDexPoolMetadata,
 }: {
   tab: Exclude<StockPageTab, "Charts">;
   title: string;
   description: string;
   company?: CompanyProfile;
+  finnhubMarketData?: FinnhubMarketData;
+  googleNews: GoogleNewsArticle[];
+  isGoogleNewsLoading: boolean;
   provider: string;
   settlementChain: string;
   price: number;
   chartHigh: number;
   chartLow: number;
+  dexPool: DexScreenerPool | null;
+  isDexScreenerLoading: boolean;
+  hasDexPoolMetadata: boolean;
 }) {
+  const officialProfile = finnhubMarketData?.profile;
+  const metric = (key: string) => finnhubMarketData?.metrics?.[key];
+  const hasFinnhubData = Boolean(
+    finnhubMarketData?.quote ||
+      officialProfile ||
+      Object.keys(finnhubMarketData?.metrics || {}).length,
+  );
+
   if (tab === "Company") {
     return (
-      <section className="rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="mr-2 text-xl font-bold text-cryptoNight dark:text-white">
-            {title}
-          </h2>
-          <span className="rounded-full border border-primary-60/40 bg-primary-70/5 px-2.5 py-1 text-xs font-semibold text-primary-60 dark:bg-primary-70/10 dark:text-primary-60">
-            {company?.sector || "Public equity"}
-          </span>
-          <span className="rounded-full border border-primary-60/40 bg-primary-70/5 px-2.5 py-1 text-xs font-semibold text-primary-60 dark:bg-primary-70/10 dark:text-primary-60">
-            {company?.industry || "Tokenized stock"}
-          </span>
-        </div>
-        <p className="mt-5 max-w-3xl text-sm leading-6 text-gray-30 dark:text-gray-40">
-          {description}
-        </p>
-        {company?.website ? (
-          <a
-            href={company.website}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 text-sm font-semibold text-primary-60 transition hover:bg-primary-70/10 dark:border-primary-60/40 dark:text-primary-60 sm:w-auto sm:px-6"
-          >
-            Visit official website <ExternalLink className="h-4 w-4" />
-          </a>
-        ) : null}
-        <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-gray-80 bg-gray-80 sm:grid-cols-2 dark:border-white/10 dark:bg-white/10">
-          <CompanyFact
-            icon={<Building2 className="h-4 w-4" />}
-            label="Chief executive"
-            value={company?.ceo || "Not available"}
-          />
-          <CompanyFact
-            icon={<MapPin className="h-4 w-4" />}
-            label="Headquarters"
-            value={company?.headquarters || "Not available"}
-          />
-          <CompanyFact
-            icon={<Landmark className="h-4 w-4" />}
-            label="Founded"
-            value={company?.founded || "Not available"}
-          />
-          <CompanyFact
-            icon={<Users className="h-4 w-4" />}
-            label="Employees"
-            value={company?.employees || "Not available"}
-          />
-        </div>
-      </section>
+      <div className="space-y-5">
+        <section className="rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="mr-2 text-xl font-bold text-cryptoNight dark:text-white">
+              {officialProfile?.name || title}
+            </h2>
+            <span className="rounded-full border border-primary-60/40 bg-primary-70/5 px-2.5 py-1 text-xs font-semibold text-primary-60 dark:bg-primary-70/10 dark:text-primary-60">
+              {officialProfile?.industry || company?.sector || "Public equity"}
+            </span>
+          </div>
+          <p className="mt-5 max-w-3xl text-sm leading-6 text-gray-30 dark:text-gray-40">
+            {description}
+          </p>
+          {officialProfile?.website || company?.website ? (
+            <a
+              href={officialProfile?.website || company?.website}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 text-sm font-semibold text-primary-60 transition hover:bg-primary-70/10 dark:border-primary-60/40 dark:text-primary-60 sm:w-auto sm:px-6"
+            >
+              Visit official website <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : null}
+          <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-gray-80 bg-gray-80 sm:grid-cols-2 dark:border-white/10 dark:bg-white/10">
+            <CompanyFact
+              icon={<Building2 className="h-4 w-4" />}
+              label={officialProfile ? "Exchange" : "Chief executive"}
+              value={
+                officialProfile?.exchange || company?.ceo || "Not available"
+              }
+            />
+            <CompanyFact
+              icon={<MapPin className="h-4 w-4" />}
+              label="Headquarters"
+              value={
+                officialProfile?.country ||
+                company?.headquarters ||
+                "Not available"
+              }
+            />
+            <CompanyFact
+              icon={<Landmark className="h-4 w-4" />}
+              label={officialProfile?.ipo ? "IPO date" : "Founded"}
+              value={
+                officialProfile?.ipo || company?.founded || "Not available"
+              }
+            />
+            <CompanyFact
+              icon={<Users className="h-4 w-4" />}
+              label={officialProfile ? "Shares outstanding" : "Employees"}
+              value={
+                officialProfile?.sharesOutstanding
+                  ? formatCompactNumber(
+                      officialProfile.sharesOutstanding * 1_000_000,
+                    )
+                  : company?.employees || "Not available"
+              }
+            />
+          </div>
+          <p className="mt-4 text-xs text-gray-30 dark:text-gray-40">
+            Official company profile data from Finnhub.
+          </p>
+        </section>
+
+        <section className="rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-cryptoNight dark:text-white">
+                Latest news
+              </h2>
+              <p className="mt-1 text-sm text-gray-30 dark:text-gray-40">
+                Headlines from Google News.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-gray-30 dark:text-gray-40">
+              Google News
+            </span>
+          </div>
+          {isGoogleNewsLoading ? (
+            <div className="mt-5 space-y-3" aria-label="Loading company news">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-16 animate-pulse rounded-xl bg-gray-90 dark:bg-white/5"
+                />
+              ))}
+            </div>
+          ) : googleNews.length ? (
+            <div className="mt-5 divide-y divide-gray-80 overflow-hidden rounded-xl border border-gray-80 dark:divide-white/10 dark:border-white/10">
+              {googleNews.map((article) => (
+                <a
+                  key={article.url}
+                  href={article.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-start justify-between gap-4 p-4 transition hover:bg-gray-90 dark:hover:bg-white/5"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold leading-5 text-cryptoNight dark:text-white">
+                      {article.title}
+                    </span>
+                    <span className="mt-1 block text-xs text-gray-30 dark:text-gray-40">
+                      {article.source}
+                      {article.publishedAt ? ` · ${article.publishedAt}` : ""}
+                    </span>
+                  </span>
+                  <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-primary-60" />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-5 text-sm text-gray-30 dark:text-gray-40">
+              No recent stories are available right now.
+            </p>
+          )}
+        </section>
+      </div>
     );
   }
 
@@ -1215,36 +1336,126 @@ function StockResearchContent({
               Market & valuation data
             </h2>
             <p className="mt-1 text-sm text-gray-30 dark:text-gray-40">
-              Live data available for this tokenized listing.
+              Official exchange and valuation data from Finnhub.
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+              hasFinnhubData
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                : "bg-gray-90 text-gray-30 dark:bg-white/10 dark:text-gray-40",
+            )}
+          >
             <span className="h-1.5 w-1.5 rounded-full bg-current" />
-            Live
+            {hasFinnhubData ? "Live" : "Unavailable"}
           </span>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
-          <DataMetric label="Current price" value={formatUsd(price)} />
+          <DataMetric
+            label={hasFinnhubData ? "Official price" : "Listing price"}
+            value={formatUsd(price)}
+          />
           <DataMetric label="24h high" value={formatUsd(chartHigh)} />
           <DataMetric label="24h low" value={formatUsd(chartLow)} />
-          <DataMetric label="Market cap" value="From market-data feed" />
-          <DataMetric label="Trading volume" value="From market-data feed" />
-          <DataMetric label="52-week range" value="From market-data feed" />
+          <DataMetric
+            label="Market cap"
+            value={formatMetricUsd(
+              officialProfile?.marketCap
+                ? officialProfile.marketCap * 1_000_000
+                : metric("marketCapitalization"),
+            )}
+          />
+          <DataMetric
+            label="Trading volume"
+            value={formatMetricNumber(metric("10DayAverageTradingVolume"))}
+          />
+          <DataMetric
+            label="52-week range"
+            value={formatMetricRange(metric("52WeekLow"), metric("52WeekHigh"))}
+          />
+          <DataMetric
+            label="P/E ratio"
+            value={formatMetricNumber(metric("peAnnual"))}
+          />
+          <DataMetric
+            label="Price to book"
+            value={formatMetricNumber(metric("pbAnnual"))}
+          />
+          <DataMetric
+            label="EPS"
+            value={formatMetricUsd(metric("epsAnnual"))}
+          />
         </div>
       </section>
       <section className="rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7">
-        <div className="flex gap-3">
-          <Activity className="mt-0.5 h-5 w-5 shrink-0 text-primary-60 dark:text-primary-60" />
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="font-bold text-cryptoNight dark:text-white">
-              On-chain holder analytics
+              On-chain DEX pool
             </h2>
-            <p className="mt-1 text-sm leading-6 text-gray-30 dark:text-gray-40">
-              Holder concentration, wallet distribution, and inflows will appear
-              here when they are supplied by the selected provider.
+            <p className="mt-1 text-sm text-gray-30 dark:text-gray-40">
+              Live price and liquidity from DexScreener.
             </p>
           </div>
+          {dexPool ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              Live
+            </span>
+          ) : null}
         </div>
+        {isDexScreenerLoading ? (
+          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-20 animate-pulse rounded-xl bg-gray-90 dark:bg-white/5"
+              />
+            ))}
+          </div>
+        ) : dexPool ? (
+          <>
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <DataMetric
+                label="Pool price"
+                value={formatMetricUsd(dexPool.priceUsd)}
+              />
+              <DataMetric
+                label="Liquidity"
+                value={formatMetricUsd(dexPool.liquidityUsd)}
+              />
+              <DataMetric
+                label="24h volume"
+                value={formatMetricUsd(dexPool.volume24hUsd)}
+              />
+              <DataMetric
+                label="24h change"
+                value={
+                  dexPool.change24hPercentage === undefined
+                    ? "Not available"
+                    : `${dexPool.change24hPercentage >= 0 ? "+" : ""}${dexPool.change24hPercentage.toFixed(2)}%`
+                }
+              />
+            </div>
+            {dexPool.url ? (
+              <a
+                href={dexPool.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary-60 hover:text-primary-50 dark:text-primary-80"
+              >
+                View pool on DexScreener <ExternalLink className="h-4 w-4" />
+              </a>
+            ) : null}
+          </>
+        ) : (
+          <p className="mt-5 text-sm leading-6 text-gray-30 dark:text-gray-40">
+            {hasDexPoolMetadata
+              ? "No active DexScreener pool was found for this listing."
+              : "This listing has not supplied a token or pool address for on-chain market data."}
+          </p>
+        )}
       </section>
     </div>
   );
