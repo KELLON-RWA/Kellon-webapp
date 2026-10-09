@@ -212,6 +212,57 @@ function getProviderName(transaction: Transaction): string | null {
     : null;
 }
 
+function isLikelyTransactionHash(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+
+  const normalized = value.trim();
+  return (
+    /^0x[\da-f]{64}$/i.test(normalized) ||
+    /^[\da-f]{64}$/i.test(normalized) ||
+    /^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(normalized)
+  );
+}
+
+/**
+ * Resolves the on-chain transaction hash from both current and legacy records.
+ * Blockchain webhook records persist their hash in `providerReference`, whereas
+ * initiated smart-account actions use `userOpHash` or metadata.
+ */
+export function getTransactionHash(transaction: Transaction): string | null {
+  const transactionRecord = transaction as Transaction & {
+    hash?: unknown;
+    txHash?: unknown;
+    transactionHash?: unknown;
+  };
+  const directCandidates = [
+    transactionRecord.txHash,
+    transactionRecord.transactionHash,
+    transactionRecord.hash,
+    transaction.userOpHash,
+    transaction.providerReference,
+  ];
+
+  for (const candidate of directCandidates) {
+    if (isLikelyTransactionHash(candidate)) return candidate.trim();
+  }
+
+  const metadataHash = getDeepMetadataValue(transaction.metadata, [
+    "txHash",
+    "transactionHash",
+    "transaction_hash",
+    "tx_hash",
+    "bridgeTxHash",
+    "sourceTxHash",
+    "destinationTxHash",
+    "onChainTxHash",
+    "fundingTxHash",
+    "originalTxHash",
+    "hash",
+  ]);
+
+  return isLikelyTransactionHash(metadataHash) ? metadataHash.trim() : null;
+}
+
 export function getTransactionSymbol(transaction: Transaction): string {
   const metadata = transaction.metadata;
   const provider = getProviderName(transaction);
@@ -414,6 +465,34 @@ function getExplicitCryptoAmount(transaction: Transaction): number | null {
   return null;
 }
 
+function isOnChainWebhookTransaction(transaction: Transaction): boolean {
+  const source = getDeepMetadataValue(transaction.metadata, [
+    "source",
+    "sourceType",
+  ]);
+
+  return (
+    typeof source === "string" &&
+    /alchemy|blockchain|onchain/.test(source.toLowerCase())
+  );
+}
+
+function getOnChainWebhookAmount(transaction: Transaction): number | null {
+  if (!isOnChainWebhookTransaction(transaction)) return null;
+
+  const amount = getDeepMetadataNumberValue(transaction.metadata, [
+    "tokenValue",
+    "token_value",
+    "transferAmount",
+    "transfer_amount",
+    "receivedAmount",
+    "received_amount",
+    "value",
+  ]);
+
+  return amount !== null && amount >= 0 ? amount : null;
+}
+
 function getOnrampDerivedCryptoAmount(
   transaction: Transaction,
 ): number | null {
@@ -442,13 +521,27 @@ export function getTransactionFiatAmount(
   const stockFiatAmount = getStockTransactionFiatAmount(transaction);
   if (stockFiatAmount !== null) return stockFiatAmount;
 
-  return getDeepMetadataNumberValue(transaction.metadata, [
+  const metadataAmount = getDeepMetadataNumberValue(transaction.metadata, [
     "fiatAmount",
     "paidAmount",
     "amountPaid",
     "purchaseAmount",
     "amountToTransfer",
   ]);
+  if (metadataAmount !== null) return metadataAmount;
+
+  // Older on-ramp records only persisted the local-currency payment in
+  // `amount`. Keep it distinct from the delivered asset amount.
+  if (
+    ["BUY", "DEPOSIT"].includes(transaction.type) &&
+    !isYieldTransaction(transaction) &&
+    !isOnChainWebhookTransaction(transaction) &&
+    hasOnrampMetadata(transaction)
+  ) {
+    return parseTransactionAmount(transaction.amount);
+  }
+
+  return null;
 }
 
 function hasOnrampMetadata(transaction: Transaction): boolean {
@@ -483,6 +576,9 @@ export function getTransactionDisplayAmount(
   const derivedOnrampAmount = getOnrampDerivedCryptoAmount(transaction);
   if (derivedOnrampAmount !== null) return derivedOnrampAmount;
 
+  const onChainWebhookAmount = getOnChainWebhookAmount(transaction);
+  if (onChainWebhookAmount !== null) return onChainWebhookAmount;
+
   const transactionAmount = parseTransactionAmount(transaction.amount);
   const fiatAmount = getTransactionFiatAmount(transaction);
 
@@ -491,6 +587,7 @@ export function getTransactionDisplayAmount(
   if (
     ["BUY", "DEPOSIT"].includes(transaction.type) &&
     !isYieldTransaction(transaction) &&
+    !isOnChainWebhookTransaction(transaction) &&
     hasOnrampMetadata(transaction) &&
     (fiatAmount === null || transactionAmount === fiatAmount)
   ) {

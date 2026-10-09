@@ -3,6 +3,8 @@ import type { Transaction } from "@/types/db";
 import {
   getTransactionAmountLabel,
   getTransactionDisplayAmount,
+  getTransactionFiatAmount,
+  getTransactionHash,
   getTransactionOperation,
   getStockTransactionFiatLabel,
   getTransactionTitle,
@@ -157,6 +159,59 @@ describe("transaction display amounts", () => {
 
     expect(getTransactionDisplayAmount(transaction)).toBeNull();
     expect(getTransactionAmountLabel(transaction)).toBe("-- USDC");
+  });
+
+  it("treats a legacy provider amount as the local-currency payment", () => {
+    const transaction = makeTransaction({
+      type: "DEPOSIT" as Transaction["type"],
+      amount: "5000",
+      metadata: { provider: "legacy-provider" },
+    });
+
+    expect(getTransactionDisplayAmount(transaction)).toBeNull();
+    expect(getTransactionFiatAmount(transaction)).toBe(5_000);
+    expect(getTransactionAmountLabel(transaction)).toBe("-- USDC");
+  });
+
+  it("uses the on-chain webhook value when the persisted amount is unavailable", () => {
+    const transaction = makeTransaction({
+      type: "DEPOSIT" as Transaction["type"],
+      amount: 0,
+      metadata: {
+        source: "alchemy_webhook",
+        fiatAmount: 3_000,
+        raw: { value: "2.17" },
+      },
+    });
+
+    expect(getTransactionDisplayAmount(transaction)).toBe(2.17);
+    expect(getTransactionAmountLabel(transaction)).toBe("+2.17 USDC");
+  });
+});
+
+describe("transaction hash resolution", () => {
+  it("uses the persisted blockchain provider reference", () => {
+    const hash = "0x" + "a".repeat(64);
+    const transaction = makeTransaction({ providerReference: hash });
+
+    expect(getTransactionHash(transaction)).toBe(hash);
+  });
+
+  it("resolves legacy hashes from nested metadata", () => {
+    const hash = "b".repeat(64);
+    const transaction = makeTransaction({
+      metadata: { payload: { transaction_hash: hash } },
+    });
+
+    expect(getTransactionHash(transaction)).toBe(hash);
+  });
+
+  it("does not present a provider order reference as a blockchain hash", () => {
+    const transaction = makeTransaction({
+      providerReference: "order_12345",
+    });
+
+    expect(getTransactionHash(transaction)).toBeNull();
   });
 });
 

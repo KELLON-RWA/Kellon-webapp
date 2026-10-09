@@ -11,9 +11,7 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
-  RotateCcw,
   Share2,
-  Wallet,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
@@ -40,6 +38,7 @@ import { shouldReturnHomeFromTransaction } from "@/lib/transaction-navigation";
 import {
   getTransactionDisplayAmount,
   getTransactionFiatAmount,
+  getTransactionHash,
   getTransactionOperation,
   getTransactionSymbol,
   getTransactionTitle,
@@ -301,21 +300,6 @@ function getTransactionNetwork(transaction: Transaction): string {
   }
 }
 
-function getTransactionHash(transaction: Transaction): string | null {
-  const metadata = getTransactionMetadata(transaction);
-
-  return (
-    getStringMetadataValue(metadata, [
-      "txHash",
-      "transactionHash",
-      "bridgeTxHash",
-      "sourceTxHash",
-      "onChainTxHash",
-      "hash",
-    ]) || transaction.userOpHash || null
-  );
-}
-
 function getTransactionMetadata(
   transaction: Transaction,
 ): Record<string, unknown> {
@@ -445,11 +429,15 @@ function buildTransactionDetailSections(
       : `${formatAssetAmount(amountValue)} ${symbol}`;
   const operation = getTransactionOperation(transaction);
   const methodLabel = getTransactionTitle(transaction);
+  const paidAmount = formatPaidAmount(transaction);
 
-  const baseRows: DetailRow[] = [
-    { label: "Method", value: methodLabel },
-    { label: "Amount", value: amountText },
-  ];
+  const baseRows: DetailRow[] = [{ label: "Method", value: methodLabel }];
+
+  if (amountValue === null && paidAmount) {
+    baseRows.push({ label: "Amount paid", value: paidAmount });
+  } else {
+    baseRows.push({ label: "Amount", value: amountText });
+  }
 
   if (operation === "withdraw" && fiatReceived !== null) {
     baseRows.push({
@@ -457,8 +445,7 @@ function buildTransactionDetailSections(
       value: formatFiatAmount(fiatReceived, fiatCurrency),
     });
   } else if (["buy", "deposit"].includes(operation)) {
-    const paidAmount = formatPaidAmount(transaction);
-    if (paidAmount) {
+    if (paidAmount && amountValue !== null) {
       baseRows.push({ label: "Amount Paid", value: paidAmount });
     }
   } else if (transaction.type === "SELL" && fiatReceived !== null) {
@@ -490,6 +477,16 @@ function buildTransactionDetailSections(
     baseRows.push({
       label: "Rate",
       value: `${formatFiatAmount(rate, fiatCurrency)} / ${symbol}`,
+    });
+  }
+
+  const transactionHash = getTransactionHash(transaction);
+  if (transactionHash) {
+    baseRows.push({
+      label: "Transaction hash",
+      value: transactionHash,
+      copyable: true,
+      mono: true,
     });
   }
 
@@ -614,15 +611,15 @@ export default function TransactionDetails({
     return getTransactionSymbol(transaction);
   }, [transaction]);
 
+  const paidAmountLabel = transaction ? formatPaidAmount(transaction) : null;
   const amountLabel = useMemo(() => {
     if (!transaction) return "";
-    if (amountValue === null) return `-- ${symbol}`;
+    if (amountValue === null) return paidAmountLabel || `-- ${symbol}`;
     const isPositive = isPositiveTransaction(transaction.type);
     const prefix = isPositive ? "+" : "-";
     return `${prefix}${formatAssetAmount(amountValue)} ${symbol}`;
-  }, [transaction, amountValue, symbol]);
+  }, [transaction, amountValue, paidAmountLabel, symbol]);
 
-  const paidAmountLabel = transaction ? formatPaidAmount(transaction) : null;
   const transactionTitle = transaction ? getTransactionTitle(transaction) : "";
   const transactionNetwork = transaction
     ? getTransactionNetwork(transaction)
@@ -655,7 +652,9 @@ export default function TransactionDetails({
     getTransactionOperation(transaction) === "withdraw" &&
     fiatReceivedAmount !== null
       ? formatFiatAmount(fiatReceivedAmount, fiatCurrency)
-      : paidAmountLabel;
+      : amountValue === null
+        ? null
+        : paidAmountLabel;
 
   const copyValue = async (value: string) => {
     await navigator.clipboard.writeText(value);
@@ -1029,7 +1028,7 @@ export default function TransactionDetails({
       />
 
       <div className="mx-auto max-w-2xl px-4">
-        {isOnrampTracking && transaction ? (
+        {isOnrampTracking && transaction.status !== "COMPLETED" ? (
           <OnrampProgress status={transaction.status} />
         ) : null}
 
@@ -1230,30 +1229,6 @@ export default function TransactionDetails({
           </DialogContent>
         </Dialog>
 
-        {isOnramp && transaction.status === "COMPLETED" ? (
-          <div className="mt-3 flex gap-3">
-            <Button
-              type="button"
-              variant="flow"
-              size="action"
-              onClick={() => router.push("/")}
-              className="flex-1"
-            >
-              <Wallet className="h-4 w-4" />
-              Go to wallet
-            </Button>
-            <Button
-              type="button"
-              variant="flowSecondary"
-              size="action"
-              onClick={() => router.push("/buy")}
-              className="flex-1"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Buy more
-            </Button>
-          </div>
-        ) : null}
       </div>
     </div>
   );
