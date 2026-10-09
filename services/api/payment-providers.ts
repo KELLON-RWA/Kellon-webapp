@@ -61,6 +61,13 @@ export interface PaymentProvider {
   name: string;
   slug: string;
   isEnabled: boolean;
+  logo?: string;
+  processingTime?: string;
+  features?: string[];
+  metadata?: {
+    isRecommended?: boolean;
+    [key: string]: unknown;
+  };
   fees?: ProviderFee;
   health?: {
     state: string;

@@ -1,24 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { supportsProviderNetwork } from "@/lib/provider-network-support";
+import {
+  supportsProviderAsset,
+  supportsProviderNetwork,
+} from "@/lib/provider-network-support";
 
 describe("supportsProviderNetwork", () => {
-  it("allows Paycrest on every active Kellon network", () => {
-    for (const network of [
-      "Stellar",
-      "Base",
-      "Solana",
-      "Polygon",
-      "Celo",
-      "Arc",
-      "BNB",
-    ]) {
-      expect(supportsProviderNetwork("Paycrest", network)).toBe(true);
+  it("limits Paycrest to its supported networks for both on- and off-ramp", () => {
+    for (const flow of ["buy", "sell"] as const) {
+      for (const network of ["Base", "BNB", "Celo", "Polygon", "Solana"]) {
+        expect(supportsProviderNetwork("Paycrest", network, flow)).toBe(true);
+      }
+
+      for (const network of ["Arc", "Stellar"]) {
+        expect(supportsProviderNetwork("Paycrest", network, flow)).toBe(false);
+      }
     }
   });
 
-  it("allows Centiiv on every active network except Celo", () => {
-    expect(supportsProviderNetwork("Centiiv", "Celo")).toBe(false);
-    expect(supportsProviderNetwork("Centiiv", "Base")).toBe(true);
-    expect(supportsProviderNetwork("Centiiv", "BNB Smart Chain")).toBe(true);
+  it("limits Paycrest to USDC and USDT", () => {
+    expect(supportsProviderAsset("Paycrest", "USDC")).toBe(true);
+    expect(supportsProviderAsset("Paycrest", "USDT")).toBe(true);
+    expect(supportsProviderAsset("Paycrest", "XLM")).toBe(false);
+  });
+
+  it("limits Centiiv on-ramp support to Arc, Solana, and Stellar", () => {
+    for (const network of ["Arc", "Solana", "Stellar"]) {
+      expect(supportsProviderNetwork("Centiiv", network, "buy")).toBe(true);
+    }
+
+    for (const network of ["Base", "BNB Smart Chain", "Celo", "Polygon"]) {
+      expect(supportsProviderNetwork("Centiiv", network, "buy")).toBe(false);
+    }
+  });
+
+  it("leaves Centiiv off-ramp availability to the provider service", () => {
+    expect(supportsProviderNetwork("Centiiv", "Base", "sell")).toBe(true);
   });
 });

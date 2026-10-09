@@ -5,9 +5,23 @@ import { getActiveChainKey } from "@/lib/chains";
  * source of provider records, while this prevents an outdated response from
  * exposing a provider on a network it cannot serve.
  */
-const PROVIDER_NETWORK_EXCLUSIONS: Record<string, readonly string[]> = {
-  centiiv: ["celo"],
-  paycrest: [],
+type ProviderFlow = "buy" | "sell";
+
+const PROVIDER_FLOW_NETWORKS: Record<
+  string,
+  Partial<Record<ProviderFlow, readonly string[]>>
+> = {
+  centiiv: {
+    buy: ["arc", "solana", "stellar"],
+  },
+  paycrest: {
+    buy: ["base", "bnb", "celo", "polygon", "solana"],
+    sell: ["base", "bnb", "celo", "polygon", "solana"],
+  },
+};
+
+const PROVIDER_ASSETS: Record<string, readonly string[]> = {
+  paycrest: ["usdc", "usdt"],
 };
 
 function normalizeProviderName(providerName: string): string {
@@ -20,13 +34,27 @@ function normalizeProviderName(providerName: string): string {
 export function supportsProviderNetwork(
   providerName: string,
   networkName: string | null | undefined,
+  flow: ProviderFlow = "buy",
 ): boolean {
   const providerKey = normalizeProviderName(providerName);
-  const exclusions = PROVIDER_NETWORK_EXCLUSIONS[providerKey];
+  const supportedNetworks = PROVIDER_FLOW_NETWORKS[providerKey]?.[flow];
 
   // The service determines support for providers without an explicit policy.
-  if (!exclusions) return true;
+  if (!supportedNetworks) return true;
 
   const chainKey = getActiveChainKey(networkName);
-  return chainKey !== null && !exclusions.includes(chainKey);
+  return chainKey !== null && supportedNetworks.includes(chainKey);
+}
+
+export function supportsProviderAsset(
+  providerName: string,
+  asset: string | null | undefined,
+): boolean {
+  const supportedAssets = PROVIDER_ASSETS[normalizeProviderName(providerName)];
+
+  // The service determines support for providers without an explicit policy.
+  if (!supportedAssets) return true;
+
+  if (!asset) return false;
+  return supportedAssets.includes(asset.toLowerCase());
 }

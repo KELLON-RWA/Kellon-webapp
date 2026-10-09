@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { supportsProviderNetwork } from "@/lib/provider-network-support";
-import { providerService } from "@/services/api/payment-providers";
+import {
+  supportsProviderAsset,
+  supportsProviderNetwork,
+} from "@/lib/provider-network-support";
+import {
+  providerService,
+  type PaymentProvider,
+} from "@/services/api/payment-providers";
 
 interface Provider {
   id: string;
@@ -49,12 +55,16 @@ export function useProviders(
         if (cancelled) return;
 
         if (response.success && response.data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mapped = response.data
-            .filter((p: any) =>
-              supportsProviderNetwork(p.slug || p.name || "", networkName),
+            .filter(
+              (p: PaymentProvider) =>
+                supportsProviderNetwork(
+                  p.slug || p.name || "",
+                  networkName,
+                  type,
+                ) && supportsProviderAsset(p.slug || p.name || "", asset),
             )
-            .map((p: any) => {
+            .map((p: PaymentProvider) => {
               const providerKey = String(p.slug || p.name || "").toLowerCase();
               const fees = p.fees || feesResponse?.data?.[providerKey];
               const percentage = Number(fees?.percentage || 0);
@@ -67,8 +77,8 @@ export function useProviders(
               return {
                 id: p.id,
                 name: p.name,
-                logo: p.logo,
-                deliveryTime: p.processingTime,
+                logo: p.logo || "",
+                deliveryTime: p.processingTime || "Instant",
                 fee: feeParts.length ? feeParts.join(" + ") : "No fee",
                 features: p.features || [],
                 isRecommended: p.metadata?.isRecommended || false,
