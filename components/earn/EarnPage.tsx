@@ -923,19 +923,6 @@ export default function EarnPage({ profile }: EarnPageProps) {
   }, [searchParams]);
 
   useEffect(() => {
-    const opportunityId = searchParams.get("opportunity");
-    if (!opportunityId || !opportunities.length) return;
-
-    const opportunity = opportunities.find((item) => item.id === opportunityId);
-    if (!opportunity) return;
-
-    setSelectedAction({ action: "supply", opportunity });
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete("opportunity");
-    router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
-  }, [opportunities, router, searchParams]);
-
-  useEffect(() => {
     const stockSymbol = searchParams.get("stock");
     const provider = searchParams.get("provider");
     if (!stockSymbol || !stocks.length) return;
@@ -973,6 +960,39 @@ export default function EarnPage({ profile }: EarnPageProps) {
       positions.filter((position) => position.status !== PositionStatus.CLOSED),
     [positions],
   );
+  const openYieldOpportunity = (opportunity: YieldOpportunity) => {
+    const existingPosition = activePositions.find(
+      (position) => position.opportunityId === opportunity.id,
+    );
+
+    if (existingPosition) {
+      router.push(`/earn/positions/${existingPosition.id}`);
+      return;
+    }
+
+    setSelectedAction({ action: "supply", opportunity });
+  };
+
+  useEffect(() => {
+    const opportunityId = searchParams.get("opportunity");
+    if (!opportunityId || !opportunities.length || positionsLoading) return;
+
+    const opportunity = opportunities.find((item) => item.id === opportunityId);
+    if (!opportunity) return;
+
+    const existingPosition = activePositions.find(
+      (position) => position.opportunityId === opportunity.id,
+    );
+    if (existingPosition) {
+      router.push(`/earn/positions/${existingPosition.id}`);
+      return;
+    }
+
+    setSelectedAction({ action: "supply", opportunity });
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("opportunity");
+    router.replace(`/earn?${nextParams.toString()}`, { scroll: false });
+  }, [activePositions, opportunities, positionsLoading, router, searchParams]);
   const yieldChains = useMemo(
     () =>
       Object.entries(getActiveChains()).map(([id, chain]) => ({
@@ -1601,9 +1621,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         <button
                           key={opportunity.id}
                           type="button"
-                          onClick={() =>
-                            setSelectedAction({ action: "supply", opportunity })
-                          }
+                          onClick={() => openYieldOpportunity(opportunity)}
+                          disabled={positionsLoading}
                           className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                         >
                           <div className="flex min-w-0 items-center gap-3">
@@ -1709,12 +1728,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 variant="flow"
                                 size="sm"
                                 className="h-9 shrink-0 px-4"
-                                onClick={() =>
-                                  setSelectedAction({
-                                    action: "supply",
-                                    opportunity,
-                                  })
-                                }
+                                disabled={positionsLoading}
+                                onClick={() => openYieldOpportunity(opportunity)}
                               >
                                 <span className="relative z-10 flex items-center justify-center gap-1.5">
                                   Deposit
@@ -2302,6 +2317,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
           if (!open) setSelectedAction(null);
         }}
         onComplete={refresh}
+        onFullWithdrawal={() => router.push("/")}
       />
 
       <StockActionDialog

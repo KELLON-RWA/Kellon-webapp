@@ -308,6 +308,7 @@ export default function YieldPositionDetailsPage({
           setActiveAction(null);
           refresh();
         }}
+        onFullWithdrawal={() => router.push("/")}
       />
     </main>
   );
