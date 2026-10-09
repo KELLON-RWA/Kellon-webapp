@@ -35,6 +35,7 @@ export default function AssetNetworkIcon({
   imageSrc,
 }: AssetNetworkIconProps) {
   const sizes = iconSizes[size];
+  const isMicrosoft = symbol.trim().toUpperCase() === "MSFT";
 
   return (
     <div className={cn("relative shrink-0", className)}>
@@ -44,14 +45,25 @@ export default function AssetNetworkIcon({
           sizes.asset,
         )}
       >
-        {imageSrc ? (
+        {isMicrosoft ? (
+          <span
+            aria-label="Microsoft"
+            className="grid grid-cols-2 gap-0.5"
+            role="img"
+          >
+            <span className="h-3 w-3 bg-[#f25022]" />
+            <span className="h-3 w-3 bg-[#7fba00]" />
+            <span className="h-3 w-3 bg-[#00a4ef]" />
+            <span className="h-3 w-3 bg-[#ffb900]" />
+          </span>
+        ) : imageSrc ? (
           // Stock logo hosts are provider-dependent, so render them directly and
           // retain an initials image if a provider image is unavailable.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imageSrc}
             alt={symbol}
-            className="h-full w-full rounded-full object-cover"
+            className="h-full w-full object-contain p-1"
             onError={(event) => {
               const image = event.currentTarget;
               if (image.dataset.fallbackApplied) {

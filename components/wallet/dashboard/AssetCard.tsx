@@ -67,7 +67,7 @@ const AssetCard: FC<AssetCardProps> = ({
             <img
               src={iconUrl}
               alt={`${symbol} logo`}
-              className="absolute inset-0 h-full w-full rounded-full bg-white object-cover dark:bg-secondary-60"
+              className="absolute inset-0 h-full w-full rounded-full bg-white object-contain p-1 dark:bg-secondary-60"
               onError={(event) => {
                 event.currentTarget.hidden = true;
               }}
@@ -78,7 +78,7 @@ const AssetCard: FC<AssetCardProps> = ({
               alt={symbol}
               width={40}
               height={40}
-              className="absolute inset-0 h-full w-full rounded-full object-cover"
+              className="absolute inset-0 h-full w-full rounded-full object-contain p-1"
             />
           )}
         </div>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AddFundsModal from "@/components/modals/AddFundsModal";
 import WalletServicesModal from "@/components/modals/WalletServicesModal";
 import { getGreeting } from "@/lib/utils";
+import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import type { User } from "@/types/db";
 import ActivityPanel from "./ActivityPanel";
 import AssetsPanel from "./AssetsPanel";
@@ -43,6 +44,7 @@ function getStockLogo(symbol: string, logoUrl?: string) {
   const ticker = getStockTicker(symbol);
 
   return (
+    getCompanyLogoUrl(ticker) ||
     logoUrl ||
     `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker)}`
   );

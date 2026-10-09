@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, CreditCard } from "lucide-react";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
+import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import type { StockListing } from "@/services/api/stocks";
 import type { YieldOpportunity } from "@/types/db";
 import { formatApy, getProtocolName } from "@/components/earn/earn-utils";
@@ -21,6 +22,7 @@ function ticker(symbol: string) {
 
 function stockLogo(stock: StockListing) {
   return (
+    getCompanyLogoUrl(ticker(stock.symbol)) ||
     stock.logoUrl ||
     `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker(stock.symbol))}`
   );
@@ -56,7 +58,7 @@ export default function MobileFeaturedOpportunities({
                     <img
                       src={stockLogo(stock)}
                       alt={`${ticker(stock.symbol)} logo`}
-                      className="absolute inset-0 h-full w-full rounded-full bg-white object-cover"
+                      className="absolute inset-0 h-full w-full rounded-full bg-white object-contain p-0.5"
                       onError={(event) => {
                         event.currentTarget.hidden = true;
                       }}

@@ -42,6 +42,7 @@ import {
 } from "@/hooks/useSmartAccount";
 import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
 import { getActiveChains } from "@/lib/chains";
+import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import {
   stocksService,
   type StockListing,
@@ -266,6 +267,7 @@ export default function StockActionDialog({
     currentStock?.provider || holding?.provider,
   );
   const stockLogoUrl =
+    getCompanyLogoUrl(symbol) ||
     currentStock?.logoUrl ||
     `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(symbol)}`;
   const stockPrice = Number(currentStock?.price || holding?.currentPrice || 0);

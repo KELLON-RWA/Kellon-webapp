@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getActiveChainKey, getActiveChains } from "@/lib/chains";
+import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import { cn } from "@/lib/utils";
 import { yieldService, type YieldActionType } from "@/services/api/yield";
 import {
@@ -228,8 +229,17 @@ export function StockSymbol({
 }
 
 export function getStockLogoUrl(symbol: string, logoUrl?: string): string {
-  // Provider-supplied catalog artwork is preferred. The fallback only covers
-  // listings without an image.
+  const ticker = getUnderlyingTicker(symbol);
+  const companyLogoUrl = getCompanyLogoUrl(ticker);
+
+  if (companyLogoUrl) return companyLogoUrl;
+
+  // Prefer a known company domain over inconsistent provider artwork while
+  // keeping the logo's original form inside the circular icon frame.
+  if (STOCK_DOMAINS[ticker]) {
+    return getStockLogoFallbackUrl(symbol);
+  }
+
   if (logoUrl) return logoUrl;
   return getStockLogoFallbackUrl(symbol);
 }
@@ -326,6 +336,8 @@ export function StockLogo({
   size?: "sm" | "md";
 }) {
   const fallbackSrc = getStockLogoFallbackUrl(symbol);
+  const ticker = getUnderlyingTicker(symbol);
+  const isMicrosoft = ticker === "MSFT";
 
   return (
     <span
@@ -334,23 +346,38 @@ export function StockLogo({
         size === "sm" ? "h-10 w-10 text-xs" : "h-12 w-12 text-sm",
       )}
     >
-      {symbol.slice(0, 2).toUpperCase()}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src || fallbackSrc}
-        alt={`${symbol} logo`}
-        className="absolute inset-0 h-full w-full rounded-full bg-white object-cover dark:bg-secondary-60"
-        data-fallback-src={fallbackSrc}
-        onError={(event) => {
-          const image = event.currentTarget;
-          const fallback = image.dataset.fallbackSrc;
-          if (fallback && image.src !== fallback) {
-            image.src = fallback;
-            return;
-          }
-          image.hidden = true;
-        }}
-      />
+      {isMicrosoft ? (
+        <span
+          aria-label="Microsoft"
+          className="grid grid-cols-2 gap-0.5"
+          role="img"
+        >
+          <span className="h-3 w-3 bg-[#f25022]" />
+          <span className="h-3 w-3 bg-[#7fba00]" />
+          <span className="h-3 w-3 bg-[#00a4ef]" />
+          <span className="h-3 w-3 bg-[#ffb900]" />
+        </span>
+      ) : (
+        <>
+          {symbol.slice(0, 2).toUpperCase()}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src || fallbackSrc}
+            alt={`${symbol} logo`}
+            className="absolute inset-0 h-full w-full bg-white object-contain p-1 dark:bg-secondary-60"
+            data-fallback-src={fallbackSrc}
+            onError={(event) => {
+              const image = event.currentTarget;
+              const fallback = image.dataset.fallbackSrc;
+              if (fallback && image.src !== fallback) {
+                image.src = fallback;
+                return;
+              }
+              image.hidden = true;
+            }}
+          />
+        </>
+      )}
     </span>
   );
 }

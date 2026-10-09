@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getStockCharts } from "@/components/earn/StockSparkline";
+import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import type { StockListing } from "@/services/api/stocks";
 import { TopMoversListSkeleton } from "./DashboardSkeletons";
 
@@ -18,6 +19,7 @@ function ticker(symbol: string) {
 
 function assetLogo(listing: StockListing) {
   return (
+    getCompanyLogoUrl(ticker(listing.symbol)) ||
     listing.logoUrl ||
     `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker(listing.symbol))}`
   );
@@ -80,7 +82,7 @@ export default function TopMoversPanel({
                     <img
                       src={assetLogo(listing)}
                       alt=""
-                      className="absolute inset-0 h-full w-full rounded-full bg-white object-cover"
+                      className="absolute inset-0 h-full w-full rounded-full bg-white object-contain p-0.5"
                       onError={(event) => {
                         event.currentTarget.hidden = true;
                       }}
