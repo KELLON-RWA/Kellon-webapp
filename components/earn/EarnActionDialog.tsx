@@ -87,11 +87,13 @@ type EarnVerification = {
 
 type EarnVerificationContext = "transfer" | "withdrawal" | "submitUserOp" | "yield";
 
-type YieldDepositSuccess = {
+type YieldActionSuccess = {
+  action: YieldActionType;
   amount: number;
   symbol: string;
   protocol: string;
   apy: number;
+  returnToWallet: boolean;
 };
 
 interface EarnActionDialogProps {
@@ -192,8 +194,8 @@ export default function EarnActionDialog({
   >([]);
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [depositSuccess, setDepositSuccess] =
-    useState<YieldDepositSuccess | null>(null);
+  const [actionSuccess, setActionSuccess] =
+    useState<YieldActionSuccess | null>(null);
   const otpRequestInFlightRef = useRef(false);
   const lastOtpRequestAtRef = useRef(0);
   const [verificationContext, setVerificationContext] =
@@ -492,17 +494,14 @@ export default function EarnActionDialog({
       form.reset();
       onOpenChange(false);
       await onComplete();
-      if (action === "supply") {
-        setDepositSuccess({
-          amount: Number(values.amount),
-          symbol,
-          protocol: getProtocolName(opportunity.protocol),
-          apy: Number(opportunity.apy),
-        });
-      } else {
-        toast.success(`${symbol} withdrawal submitted`);
-        if (isFullWithdrawal) onFullWithdrawal?.();
-      }
+      setActionSuccess({
+        action,
+        amount: Number(values.amount),
+        symbol,
+        protocol: getProtocolName(opportunity.protocol),
+        apy: Number(opportunity.apy),
+        returnToWallet: isFullWithdrawal,
+      });
     } catch (error) {
       const verificationError = findTransferVerificationRequiredError(error);
       if (verificationError) {
@@ -578,6 +577,11 @@ export default function EarnActionDialog({
   const title = action === "supply" ? "Start earning" : "Withdraw position";
   const ActionIcon =
     action === "supply" ? ArrowDownToLine : ArrowUpFromLine;
+  const closeSuccess = () => {
+    const shouldReturnToWallet = actionSuccess?.returnToWallet;
+    setActionSuccess(null);
+    if (shouldReturnToWallet) onFullWithdrawal?.();
+  };
 
   return (
     <>
@@ -761,9 +765,9 @@ export default function EarnActionDialog({
       />
 
       <Dialog
-        open={Boolean(depositSuccess)}
+        open={Boolean(actionSuccess)}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen) setDepositSuccess(null);
+          if (!nextOpen) closeSuccess();
         }}
       >
         <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl border-gray-80 bg-white p-6 text-center dark:border-white/10 dark:bg-secondary-50 sm:p-7">
@@ -772,29 +776,39 @@ export default function EarnActionDialog({
           </div>
           <DialogHeader className="mt-4 items-center">
             <DialogTitle className="text-xl text-cryptoNight dark:text-white">
-              Deposit successful
+              {actionSuccess?.action === "withdraw"
+                ? "Withdrawal successful"
+                : "Deposit successful"}
             </DialogTitle>
             <DialogDescription className="max-w-[18rem] text-center text-sm leading-6 text-gray-30 dark:text-gray-40">
-              Your {depositSuccess?.symbol} is now earning with {depositSuccess?.protocol}.
+              {actionSuccess?.action === "withdraw"
+                ? `Your ${actionSuccess?.symbol} has been returned from ${actionSuccess?.protocol}.`
+                : `Your ${actionSuccess?.symbol} is now earning with ${actionSuccess?.protocol}.`}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-gray-80 bg-gray-80 text-left dark:border-white/10 dark:bg-white/10">
             <div className="bg-white p-3.5 dark:bg-secondary-50">
               <p className="text-[11px] text-gray-30 dark:text-gray-40">
-                Amount deposited
+                {actionSuccess?.action === "withdraw"
+                  ? "Amount withdrawn"
+                  : "Amount deposited"}
               </p>
               <p className="mt-1 font-semibold tabular-nums text-cryptoNight dark:text-white">
-                {depositSuccess
-                  ? `${formatTokenAmount(depositSuccess.amount)} ${depositSuccess.symbol}`
+                {actionSuccess
+                  ? `${formatTokenAmount(actionSuccess.amount)} ${actionSuccess.symbol}`
                   : "--"}
               </p>
             </div>
             <div className="bg-white p-3.5 dark:bg-secondary-50">
               <p className="text-[11px] text-gray-30 dark:text-gray-40">
-                Live APY
+                {actionSuccess?.action === "withdraw" ? "Destination" : "Live APY"}
               </p>
-              <p className="mt-1 font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                {depositSuccess ? formatApy(depositSuccess.apy) : "--"}
+              <p className="mt-1 font-semibold tabular-nums text-cryptoNight dark:text-white">
+                {actionSuccess?.action === "withdraw"
+                  ? "Kellon wallet"
+                  : actionSuccess
+                    ? formatApy(actionSuccess.apy)
+                    : "--"}
               </p>
             </div>
           </div>
@@ -802,14 +816,16 @@ export default function EarnActionDialog({
             type="button"
             variant="flow"
             className="mt-5 h-12 w-full"
-            onClick={() => setDepositSuccess(null)}
+            onClick={closeSuccess}
           >
-            <span className="relative z-10">View my position</span>
+            <span className="relative z-10">
+              {actionSuccess?.returnToWallet ? "Go to wallet" : "View my position"}
+            </span>
           </Button>
           <button
             type="button"
             className="mt-3 w-full text-sm font-semibold text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
-            onClick={() => setDepositSuccess(null)}
+            onClick={closeSuccess}
           >
             Done
           </button>
