@@ -106,6 +106,29 @@ export interface BuildStockBuyTransactionParams extends BuyStockParams {
   userAddress: string;
   side?: "buy" | "sell";
   shares?: number;
+  sellAll?: boolean;
+}
+
+export interface StockSweepPlan {
+  kind: "permit" | "transfer";
+  chain: string;
+  from: string;
+  to: string;
+  amount: string;
+  typedData?: {
+    domain: Record<string, unknown>;
+    types: Record<string, unknown>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  };
+  deadline?: string;
+}
+
+export interface StockSweepExecution {
+  chain: string;
+  from: string;
+  to: string;
+  calls: StockTransactionCall[];
 }
 
 export interface BuildStockBuyTransactionResponse extends StockTransactionCall {
@@ -165,6 +188,31 @@ export interface MarketIndex {
 }
 
 export const stocksService = {
+  async planSweep(params: {
+    symbol: string;
+    provider: string;
+  }): Promise<ApiResponse<StockSweepPlan>> {
+    const res = await apiFetch("/api/v1/stocks/sweep/plan", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+    return handleTransferResponse<StockSweepPlan>(res);
+  },
+
+  async buildSweep(params: {
+    symbol: string;
+    provider: string;
+    holder: string;
+    amount: string;
+    deadline: string;
+    signature: string;
+  }): Promise<ApiResponse<StockSweepExecution>> {
+    const res = await apiFetch("/api/v1/stocks/sweep", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+    return handleTransferResponse<StockSweepExecution>(res);
+  },
   async getAvailableStocks(
     provider = "all",
   ): Promise<ApiResponse<StockListing[]>> {

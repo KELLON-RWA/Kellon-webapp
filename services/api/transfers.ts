@@ -310,7 +310,7 @@ export async function handleTransferResponse<T>(
       )
     }
 
-    throw new Error(message)
+    throw Object.assign(new Error(message), { code })
   }
 
   return {

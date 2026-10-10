@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isRwaStockListing, stocksService } from "./stocks";
+import { handleTransferResponse } from "./transfers";
 
 const listing = {
   symbol: "AAPL",
@@ -46,6 +47,25 @@ describe("stocks service routes", () => {
     expect(
       isRwaStockListing({ ...listing, rwaCategory: "tokenized_stock" }),
     ).toBe(false);
+  });
+
+  it("preserves the backend stranded-shares code for recovery", async () => {
+    await expect(
+      handleTransferResponse(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "STOCK_SHARES_STRANDED",
+              message: "Move shares first",
+            },
+          }),
+          { status: 400 },
+        ),
+      ),
+    ).rejects.toMatchObject({
+      code: "STOCK_SHARES_STRANDED",
+      message: "Move shares first",
+    });
   });
 
   it("classifies explicit real-world asset categories as RWA", () => {

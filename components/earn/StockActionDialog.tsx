@@ -41,6 +41,7 @@ import {
   useSmartAccount,
 } from "@/hooks/useSmartAccount";
 import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
+import { sweepStrandedShares } from "@/services/stock-sweep";
 import { getActiveChains } from "@/lib/chains";
 import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import {
@@ -491,18 +492,56 @@ export default function StockActionDialog({
       const shares = action === "sell" ? Number(values.value) : undefined;
       const amountFiat =
         action === "sell" ? calculatedProceeds : Number(values.value);
-      const buildRes = await stocksService.buildBuyTransaction({
-        symbol: tradeStock.symbol,
-        amountFiat,
-        currency: tradeStock.currency || "USD",
-        provider: tradeStock.provider,
-        fundingSymbol,
-        fundingChain: targetStockChain,
-        userAddress: client.account.address,
-        side: action,
-        shares,
-        ...verificationPayload,
-      });
+      const buildTrade = (includeVerification = true) =>
+        stocksService.buildBuyTransaction({
+          symbol: tradeStock.symbol,
+          amountFiat,
+          currency: tradeStock.currency || "USD",
+          provider: tradeStock.provider,
+          fundingSymbol,
+          fundingChain: targetStockChain,
+          userAddress: client.account.address,
+          side: action,
+          shares,
+          ...(action === "sell"
+            ? {
+                sellAll:
+                  availableShares > 0 && Number(shares) >= availableShares,
+              }
+            : {}),
+          ...(includeVerification ? verificationPayload : {}),
+        });
+      let buildRes;
+      try {
+        buildRes = await buildTrade();
+      } catch (buildError) {
+        if (
+          action !== "sell" ||
+          targetStockChain === "solana" ||
+          (buildError as { code?: string })?.code !== "STOCK_SHARES_STRANDED"
+        )
+          throw buildError;
+        toast.info("Moving your shares to your wallet before selling...");
+        await sweepStrandedShares({
+          signerFor: (address) =>
+            wallets.find(
+              (wallet) =>
+                wallet.address.toLowerCase() === address.toLowerCase(),
+            ),
+          smartAccountAddress: client.account.address,
+          symbol: tradeStock.symbol,
+          provider: tradeStock.provider,
+          sendCalls: (calls) =>
+            client.sendTransaction({
+              account: client.account,
+              chain: client.chain,
+              calls,
+            }),
+        });
+        // A fresh backend challenge is handled by the existing verification modal;
+        // do not reuse a code consumed by the initial build request.
+        buildRes = await buildTrade(false);
+      }
 
       const batchedCalls = (buildRes.data?.calls || []).map((call) => ({
         to: call.to as `0x${string}`,
