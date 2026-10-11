@@ -441,9 +441,22 @@ function buildTransactionDetailSections(
 
   if (operation === "withdraw" && fiatReceived !== null) {
     baseRows.push({
-      label: metadata.settledFiat ? "Bank payout confirmed" : "Expected bank payout",
+      label: metadata.settledFiat
+        ? "Bank payout confirmed"
+        : "Expected bank payout",
       value: formatFiatAmount(fiatReceived, fiatCurrency),
     });
+    const quoted = getNumericMetadataValue(metadata, ["quotedNetFiat"]);
+    if (
+      quoted !== null &&
+      quoted > 0 &&
+      Math.abs(quoted - fiatReceived) >= 0.01
+    ) {
+      baseRows.push({
+        label: "Originally quoted",
+        value: formatFiatAmount(quoted, fiatCurrency),
+      });
+    }
   } else if (["buy", "deposit"].includes(operation)) {
     if (paidAmount && amountValue !== null) {
       baseRows.push({ label: "Amount Paid", value: paidAmount });
@@ -625,7 +638,10 @@ export default function TransactionDetails({
     ? getTransactionNetwork(transaction)
     : "";
   const explorerUrl = transaction
-    ? getExplorerTransactionUrl(transactionNetwork, getTransactionHash(transaction))
+    ? getExplorerTransactionUrl(
+        transactionNetwork,
+        getTransactionHash(transaction),
+      )
     : null;
   const detailSections = useMemo(() => {
     if (!transaction) return [];
@@ -1190,7 +1206,10 @@ export default function TransactionDetails({
           ) : null}
         </div>
 
-        <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+        <Dialog
+          open={isReceiptDialogOpen}
+          onOpenChange={setIsReceiptDialogOpen}
+        >
           <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[24px] border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-black2">
             <DialogHeader>
               <DialogTitle>Share receipt</DialogTitle>
@@ -1228,7 +1247,6 @@ export default function TransactionDetails({
             </div>
           </DialogContent>
         </Dialog>
-
       </div>
     </div>
   );
