@@ -22,11 +22,22 @@ import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries";
 import { ExitConfirmation } from "@/components/modals/ExitComfirmationModal";
 import { bankService } from "@/services/api/bank";
 import {
+  OfframpApiError,
   OfframpVerificationRequiredError,
   offrampService,
   type OfframpInitRequest,
   type OfframpResponse,
+  type OfframpTermsSide,
 } from "@/services/api/off-ramp";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
 import BridgeFundingOverlay, {
   type BridgeFundingRequest,
@@ -237,7 +248,12 @@ export default function WithdrawFlow({
     Number.isFinite(amountValue) &&
     amountValue >= MIN_STABLECOIN_AMOUNT &&
     isStablecoinAmountWithinBalance(amountValue, selectedAssetBalance);
-  const { rates: providerRates, isLoadingRates, refreshQuotes } = useProviderRates({
+  const {
+    rates: providerRates,
+    isLoadingRates,
+    refreshQuotes,
+    applyQuote,
+  } = useProviderRates({
     providers,
     asset,
     amount: amountValue,
@@ -277,6 +293,29 @@ export default function WithdrawFlow({
     order: OfframpResponse;
   } | null>(null);
 
+  const [termsChange, setTermsChange] = useState<null | {
+    transactionId: string;
+    quoted: OfframpTermsSide;
+    updated: OfframpTermsSide;
+    request: { providerName: string; payload: OfframpInitRequest };
+  }>(null);
+  const [isResolvingTerms, setIsResolvingTerms] = useState(false);
+  const termsActionInFlightRef = useRef(false);
+  const [requoteNotice, setRequoteNotice] = useState<string | null>(null);
+  const [retryAfterAt, setRetryAfterAt] = useState<number | null>(null);
+  const [retryCountdown, setRetryCountdown] = useState(0);
+  useEffect(() => {
+    if (!retryAfterAt) return;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((retryAfterAt - Date.now()) / 1000));
+      setRetryCountdown(left);
+      if (left === 0) setRetryAfterAt(null);
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAfterAt]);
+
   const goBack = () => {
     if (step === "amount") setStep("asset");
     else if (step === "provider") setStep("amount");
@@ -297,14 +336,20 @@ export default function WithdrawFlow({
     },
     retryOrder?: OfframpResponse,
   ) => {
-    if (withdrawalInFlightRef.current) return;
+    if (
+      withdrawalInFlightRef.current ||
+      (retryAfterAt && Date.now() < retryAfterAt)
+    )
+      return;
     if (
       !selectedProvider ||
       !selectedBank ||
       !asset ||
       !networkName ||
       !amountValue ||
-      !hasSelectedProviderRate
+      (!hasSelectedProviderRate &&
+        !retryOrder &&
+        !pendingOrderRef.current?.order)
     ) {
       if (!hasSelectedProviderRate) {
         toast.error(
@@ -317,6 +362,7 @@ export default function WithdrawFlow({
     const selectedNetworkKey = selectedAssetDetails?.network.key || networkName;
 
     withdrawalInFlightRef.current = true;
+    setRequoteNotice(null);
     setIsSubmitting(true);
     const identity = JSON.stringify([
       normalizeProviderKey(selectedProvider.name),
@@ -353,7 +399,9 @@ export default function WithdrawFlow({
         ) {
           setStep("provider");
           refreshQuotes();
-          throw new Error("Your withdrawal quote expired. Review the refreshed payout before confirming.");
+          throw new Error(
+            "Your withdrawal quote expired. Review the refreshed payout before confirming.",
+          );
         }
         const providerName = normalizeProviderKey(selectedProvider.name);
         const rate = selectedProviderRawRate
@@ -552,6 +600,76 @@ export default function WithdrawFlow({
         return;
       }
 
+      if (!createdOrder && error instanceof OfframpApiError) {
+        const body = error.body;
+        if (
+          error.code === "OFFRAMP_TERMS_CHANGED" &&
+          typeof body.transactionId === "string" &&
+          request &&
+          body.quoted &&
+          body.updated
+        ) {
+          pendingOrderRef.current = null;
+          setVerificationRequest(null);
+          endOperation();
+          setTermsChange({
+            transactionId: body.transactionId,
+            quoted: body.quoted as OfframpTermsSide,
+            updated: body.updated as OfframpTermsSide,
+            request,
+          });
+          return;
+        }
+        if (error.code === "OFFRAMP_REQUOTE_REQUIRED") {
+          pendingOrderRef.current = null;
+          setVerificationRequest(null);
+          endOperation();
+          const fresh = body.requote as
+            | {
+                quoteId?: string;
+                expiresAt?: string;
+                maxCryptoDebit?: string;
+                netFiat?: string;
+                rate?: string;
+              }
+            | undefined;
+          if (
+            fresh?.quoteId &&
+            fresh.expiresAt &&
+            Number(fresh.netFiat) > 0 &&
+            selectedProviderId
+          ) {
+            applyQuote(selectedProviderId, {
+              quoteId: fresh.quoteId,
+              expiresAt: fresh.expiresAt,
+              maxCryptoDebit: fresh.maxCryptoDebit,
+              fiatAmount: Number(fresh.netFiat),
+              ...(Number(fresh.rate) > 0
+                ? { rawRate: Number(fresh.rate) }
+                : {}),
+            });
+          } else {
+            setStep("provider");
+            refreshQuotes();
+          }
+          setRequoteNotice(
+            "The rate moved while you were confirming. Review the updated amount and confirm again.",
+          );
+          return;
+        }
+        if (error.code === "OFFRAMP_DUPLICATE_WAIT") {
+          pendingOrderRef.current = null;
+          setVerificationRequest(null);
+          endOperation();
+          const seconds = Number(body.retryAfterSeconds);
+          setRetryAfterAt(
+            Date.now() +
+              (Number.isFinite(seconds) && seconds > 0 ? seconds : 60) * 1000,
+          );
+          return;
+        }
+      }
+
       // Keep the key when an order exists so the retry replays it instead of duplicating.
       if (!createdOrder) {
         pendingOrderRef.current = null;
@@ -573,6 +691,50 @@ export default function WithdrawFlow({
     } finally {
       withdrawalInFlightRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const acceptChangedTerms = async () => {
+    if (!termsChange || termsActionInFlightRef.current) return;
+    const change = termsChange;
+    termsActionInFlightRef.current = true;
+    setIsResolvingTerms(true);
+    try {
+      const response = await offrampService.acceptTerms(change.transactionId);
+      setTermsChange(null);
+      // Reuse main's existing order-funding and MFA retry path, not a new initiation.
+      await initiateWithdrawal(undefined, change.request, response.data);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not accept the updated amount. Please try again.",
+      );
+    } finally {
+      termsActionInFlightRef.current = false;
+      setIsResolvingTerms(false);
+    }
+  };
+
+  const declineChangedTerms = async () => {
+    if (!termsChange || termsActionInFlightRef.current) return;
+    termsActionInFlightRef.current = true;
+    setIsResolvingTerms(true);
+    try {
+      await offrampService.declineTerms(termsChange.transactionId);
+      setTermsChange(null);
+      endOperation();
+      setStep("provider");
+      refreshQuotes();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not cancel the updated withdrawal. Please try again.",
+      );
+    } finally {
+      termsActionInFlightRef.current = false;
+      setIsResolvingTerms(false);
     }
   };
 
@@ -599,7 +761,14 @@ export default function WithdrawFlow({
   };
 
   const prepareWithdrawalVerification = async () => {
-    if (isSubmitting || withdrawalInFlightRef.current) return;
+    if (
+      isSubmitting ||
+      withdrawalInFlightRef.current ||
+      termsChange ||
+      termsActionInFlightRef.current ||
+      (retryAfterAt && Date.now() < retryAfterAt)
+    )
+      return;
 
     setIsSubmitting(true);
     try {
@@ -817,6 +986,23 @@ export default function WithdrawFlow({
             />
           ) : null}
 
+          {requoteNotice ? (
+            <p
+              role="status"
+              className="mb-3 rounded-xl bg-primary/10 p-3 text-sm text-black dark:text-white"
+            >
+              {requoteNotice}
+            </p>
+          ) : null}
+          {step === "review" && retryCountdown > 0 ? (
+            <p
+              role="status"
+              className="mb-3 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300"
+            >
+              Finishing your previous attempt. You can confirm again in{" "}
+              {retryCountdown}s.
+            </p>
+          ) : null}
           {step === "review" ? (
             <WithdrawReviewStep
               netFiat={estimatedFiatAmount}
@@ -828,7 +1014,12 @@ export default function WithdrawFlow({
               selectedChain={selectedChain}
               selectedProvider={selectedProvider}
               selectedBank={selectedBank}
-              isSubmitting={isSubmitting}
+              isSubmitting={
+                isSubmitting ||
+                retryCountdown > 0 ||
+                Boolean(termsChange) ||
+                isResolvingTerms
+              }
               paymentRail={ACTIVE_PAYMENT_RAIL}
               onConfirm={prepareWithdrawalVerification}
             />
@@ -866,6 +1057,73 @@ export default function WithdrawFlow({
         stayLabel="Continue withdrawal"
         leaveLabel="Cancel withdrawal"
       />
+
+      <Dialog
+        open={Boolean(termsChange)}
+        onOpenChange={(open) => {
+          if (!open && !isResolvingTerms) void declineChangedTerms();
+        }}
+      >
+        <DialogContent
+          className="bg-gray-90 bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-secondary dark:bg-none"
+          showCloseButton={!isResolvingTerms}
+        >
+          <DialogHeader>
+            <DialogTitle>Rate updated</DialogTitle>
+            <DialogDescription>
+              The provider&apos;s final amount changed while your withdrawal was
+              being set up. Review the new amount before continuing.
+            </DialogDescription>
+          </DialogHeader>
+          {termsChange ? (
+            <div className="space-y-3 rounded-xl bg-white p-4 text-sm dark:bg-secondary-60">
+              <div className="flex justify-between gap-4">
+                <span>You receive</span>
+                <span className="text-right font-semibold">
+                  {Number(termsChange.updated.payout).toLocaleString(
+                    undefined,
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}{" "}
+                  {termsChange.updated.currency}
+                  <span className="ml-2 text-xs text-slate-500 line-through">
+                    {Number(termsChange.quoted.payout).toLocaleString(
+                      undefined,
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                    )}{" "}
+                    {termsChange.quoted.currency}
+                  </span>
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span>You send</span>
+                <span className="text-right font-semibold">
+                  {termsChange.updated.debit} {asset}
+                  {termsChange.updated.debit !== termsChange.quoted.debit ? (
+                    <span className="ml-2 text-xs text-slate-500 line-through">
+                      {termsChange.quoted.debit} {asset}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter className="grid grid-cols-1 sm:grid-cols-2">
+            <Button
+              variant="ghost"
+              disabled={isResolvingTerms}
+              onClick={() => void declineChangedTerms()}
+            >
+              Cancel withdrawal
+            </Button>
+            <Button
+              disabled={isResolvingTerms}
+              onClick={() => void acceptChangedTerms()}
+            >
+              {isResolvingTerms ? "Confirming..." : "Accept new amount"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <TransferVerificationModal
         isOpen={Boolean(verificationRequest)}

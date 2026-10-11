@@ -53,7 +53,10 @@ export function useProviderRates({
   const [isLoadingRates, setIsLoadingRates] = useState(false);
   const requestIdRef = useRef(0);
   const [revision, setRevision] = useState(0);
-  const refreshQuotes = useCallback(() => setRevision(value => value + 1), []);
+  const refreshQuotes = useCallback(
+    () => setRevision((value) => value + 1),
+    [],
+  );
 
   useEffect(() => {
     if (
@@ -120,7 +123,9 @@ export function useProviderRates({
                     : res.data?.buy?.price,
                 );
 
-              quoteId = res.data?.quoteId; expiresAt = res.data?.expiresAt; maxCryptoDebit = res.data?.maxCryptoDebit;
+              quoteId = res.data?.quoteId;
+              expiresAt = res.data?.expiresAt;
+              maxCryptoDebit = res.data?.maxCryptoDebit;
               if (res.success && paycrestRate) {
                 rawRate = paycrestRate;
                 if (rawRate > 0) {
@@ -147,7 +152,9 @@ export function useProviderRates({
                 abortController.signal,
               );
 
-              quoteId = res.data?.quoteId; expiresAt = res.data?.expiresAt; maxCryptoDebit = res.data?.maxCryptoDebit;
+              quoteId = res.data?.quoteId;
+              expiresAt = res.data?.expiresAt;
+              maxCryptoDebit = res.data?.maxCryptoDebit;
               if (res.success) {
                 rawRate = res.data?.rate ? parseFloat(res.data.rate) : null;
                 const estimatedAmount = res.data?.estimatedReceivableAmount
@@ -166,7 +173,14 @@ export function useProviderRates({
 
             newRates[provider.id] =
               cryptoAmount !== null || fiatAmount !== null || rawRate !== null
-                ? { cryptoAmount, fiatAmount, rawRate, quoteId, expiresAt, maxCryptoDebit }
+                ? {
+                    cryptoAmount,
+                    fiatAmount,
+                    rawRate,
+                    quoteId,
+                    expiresAt,
+                    maxCryptoDebit,
+                  }
                 : null;
           } catch (error) {
             if (isAbortError(error)) return;
@@ -213,5 +227,24 @@ export function useProviderRates({
     revision,
   ]);
 
-  return { rates, isLoadingRates, refreshQuotes };
+  const applyQuote = useCallback(
+    (providerId: string, details: Partial<ProviderRateDetails>) => {
+      // Invalidate any in-flight response that could overwrite this newer backend quote.
+      requestIdRef.current += 1;
+      setIsLoadingRates(false);
+      setRates((prev) => ({
+        ...prev,
+        [providerId]: {
+          cryptoAmount: null,
+          fiatAmount: null,
+          rawRate: null,
+          ...(prev[providerId] ?? {}),
+          ...details,
+        },
+      }));
+    },
+    [],
+  );
+
+  return { rates, isLoadingRates, refreshQuotes, applyQuote };
 }

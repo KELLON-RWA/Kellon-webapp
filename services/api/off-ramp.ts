@@ -133,7 +133,33 @@ export class OfframpVerificationRequiredError extends Error {
 /**
  * --- Offramp Service ---
  */
+export class OfframpApiError extends Error {
+  constructor(
+    message: string,
+    public code: string | undefined,
+    public status: number,
+    public body: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "OfframpApiError";
+  }
+}
+
+export interface OfframpTermsSide {
+  debit: string;
+  payout: string;
+  currency: string;
+}
+
 export const offrampService = {
+  acceptTerms: (transactionId: string) =>
+    postAction(
+      `/api/offramp/${encodeURIComponent(transactionId)}/accept-terms`,
+    ),
+  declineTerms: (transactionId: string) =>
+    postAction(
+      `/api/offramp/${encodeURIComponent(transactionId)}/decline-terms`,
+    ),
   initiatePaychant: (body: OfframpInitRequest) =>
     post("/api/offramp/paychant", body),
 
@@ -264,7 +290,10 @@ async function handleOfframpResponse(
       );
     }
 
-    throw new Error(message);
+    throw new OfframpApiError(message, code, response.status, {
+      ...(nestedError || {}),
+      ...body,
+    });
   }
 
   return {
@@ -272,6 +301,21 @@ async function handleOfframpResponse(
     data: json?.data !== undefined ? json.data : json,
     message: json?.message,
   };
+}
+
+async function postAction(
+  endpoint: string,
+): Promise<ApiResponse<OfframpResponse>> {
+  const res = await apiFetch(
+    endpoint,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+    { signed: true },
+  );
+  return handleOfframpResponse(res);
 }
 
 function sanitizeOfframpPayload(
