@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getActiveChainKey, getActiveChains } from "@/lib/chains";
 import { getCompanyLogoUrl } from "@/lib/stock-branding";
+import { getUnderlyingTicker } from "@/lib/stock-catalog";
+export { getUnderlyingTicker } from "@/lib/stock-catalog";
 import { cn } from "@/lib/utils";
 import { yieldService, type YieldActionType } from "@/services/api/yield";
 import {
@@ -171,22 +173,6 @@ const STOCK_DOMAINS: Record<string, string> = {
   TSLA: "tesla.com",
   TSM: "tsmc.com",
 };
-
-export function getUnderlyingTicker(symbol: string, provider?: string): string {
-  const raw = symbol.trim();
-  const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
-  const withoutXStockSuffix =
-    provider?.toLowerCase().includes("xstock") &&
-    /x$/i.test(withoutProviderSuffix)
-      ? withoutProviderSuffix.slice(0, -1)
-      : withoutProviderSuffix;
-
-  return (
-    withoutXStockSuffix.startsWith("b")
-      ? withoutXStockSuffix.slice(1)
-      : withoutXStockSuffix
-  ).toUpperCase();
-}
 
 export function getDisplayStockSymbolParts(
   symbol: string,

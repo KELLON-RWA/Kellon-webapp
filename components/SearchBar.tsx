@@ -18,7 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { yieldService } from "@/services/api/yield";
-import { isRwaStockListing, stocksService } from "@/services/api/stocks";
+import { stocksService } from "@/services/api/stocks";
+import { getStockSearchResults } from "@/lib/stock-search";
 import { transferService } from "@/services/api/transfers";
 import { transactionService } from "@/services/api/transactions";
 import {
@@ -155,18 +156,6 @@ function formatAmount(amount: Asset["amount"] | Transaction["amount"]): string {
 
 function normalize(value: unknown): string {
   return String(value || "").toLowerCase();
-}
-
-function getStockPageSymbol(symbol: string): string {
-  const raw = symbol.trim();
-  const withoutProviderSuffix = /[bc]$/i.test(raw)
-    ? raw.slice(0, -1)
-    : raw;
-
-  return (withoutProviderSuffix.startsWith("b")
-    ? withoutProviderSuffix.slice(1)
-    : withoutProviderSuffix
-  ).toUpperCase();
 }
 
 const SearchBar = ({
@@ -422,31 +411,7 @@ const SearchBar = ({
         type: "yield" as const,
       }));
 
-    const securityResults = stockListings
-      .filter((stock) =>
-        [
-          stock.symbol,
-          stock.name,
-          stock.provider,
-          stock.category,
-          stock.rwaCategory,
-        ]
-          .map(normalize)
-          .join(" ")
-          .includes(lowerQuery),
-      )
-      .slice(0, 6)
-      .map((stock) => {
-        const isRwa = isRwaStockListing(stock);
-
-        return {
-          id: `${isRwa ? "rwa" : "stock"}:${stock.provider}:${stock.symbol}`,
-          label: stock.symbol,
-          description: `${stock.name} · ${stock.provider}`,
-          href: `/earn/stocks/${encodeURIComponent(getStockPageSymbol(stock.symbol))}?provider=${encodeURIComponent(stock.provider)}`,
-          type: (isRwa ? "rwa" : "stock") as "rwa" | "stock",
-        };
-      });
+    const securityResults = getStockSearchResults(stockListings, lowerQuery);
 
     return [...opportunityResults, ...securityResults];
   }, [lowerQuery, stockListings, yieldOpportunities]);
