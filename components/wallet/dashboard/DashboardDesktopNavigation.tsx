@@ -100,7 +100,7 @@ export default function DashboardDesktopNavigation({
               priority
             />
             {!collapsed && (
-              <span className="text-xl font-semibold tracking-tight text-cryptoNight dark:text-white">
+              <span className="text-xl font-semibold tracking-[-0.025em] text-cryptoNight dark:text-white">
                 Kellon
               </span>
             )}
