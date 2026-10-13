@@ -134,15 +134,16 @@ export default function DashboardDesktopNavigation({
               <Link
                 key={label}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center rounded-lg py-2.5 text-sm font-medium transition",
+                  "flex items-center rounded-lg py-2.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-secondary-50 motion-reduce:transition-none",
                   collapsed ? "justify-center px-0" : "gap-3 px-3",
                   active
-                    ? "bg-primary-70/15 text-primary-50 shadow-[inset_0_0_0_1px_rgba(214,100,190,0.18)] dark:text-white"
-                    : "text-gray-500 hover:bg-primary-99 hover:text-cryptoNight dark:text-gray-40 dark:hover:bg-white/5 dark:hover:text-white",
+                    ? "bg-primary-70/15 text-primary-50 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)] dark:bg-primary-70/25 dark:text-primary-70"
+                    : "text-gray-500 hover:bg-primary-99 hover:text-primary-50 dark:text-gray-40 dark:hover:bg-primary-70/10 dark:hover:text-primary-70",
                 )}
               >
-                <Icon className="h-[18px] w-[18px]" />
+                <Icon className="h-[18px] w-[18px] shrink-0 text-current" aria-hidden="true" />
                 <span className={collapsed ? "sr-only" : undefined}>
                   {label}
                 </span>
