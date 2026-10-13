@@ -32,9 +32,9 @@ export const ActionToolTip: FC<ActionTooltipProps> = ({
         <TooltipContent
           side={side}
           align={align}
-          className="mt-2 border border-black/10 bg-cryptoNight px-2 py-1 shadow-sm dark:border-white/10 dark:bg-secondary-60"
+          className="mt-2 px-2 py-1"
         >
-          <p className="text-[10px] font-semibold leading-none text-white">
+          <p className="text-[10px] font-semibold leading-none">
             {label}
           </p>
         </TooltipContent>
