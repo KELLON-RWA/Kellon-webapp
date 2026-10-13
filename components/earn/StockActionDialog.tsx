@@ -708,7 +708,7 @@ export default function StockActionDialog({
               <button
                 type="button"
                 onClick={() => setIsNetworkPickerOpen(false)}
-                className="mb-4 flex h-9 w-9 items-center justify-center rounded-full border border-gray-80 text-cryptoNight transition hover:border-primary-60 dark:border-white/10 dark:text-white"
+                className="mb-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-gray-80 text-cryptoNight transition hover:border-primary-60 dark:border-white/10 dark:text-white"
                 aria-label="Back to stock order"
               >
                 <ArrowLeft className="h-4 w-4" />
