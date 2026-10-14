@@ -27,7 +27,7 @@ interface BankFormProps {
   isSubmitting: boolean;
 }
 
-const DEFAULT_CURRENCY = "NGN";
+const DEFAULT_COUNTRY = "NG";
 const DEFAULT_PROVIDER = "centiiv";
 
 const BankForm = ({
@@ -48,7 +48,7 @@ const BankForm = ({
           accountNumber: initialData.accountNumber,
           bankCode: initialData.bankCode || "",
           provider: initialData.provider || DEFAULT_PROVIDER,
-          country: initialData.country || DEFAULT_CURRENCY,
+          country: initialData.country || DEFAULT_COUNTRY,
         }
       : null,
   );
@@ -127,7 +127,7 @@ const BankForm = ({
           accountNumber: response.data.accountNumber || accountNumber,
           bankCode: response.data.bankCode || activeBank.value,
           provider: DEFAULT_PROVIDER,
-          country: DEFAULT_CURRENCY,
+          country: DEFAULT_COUNTRY,
         });
       } catch (error) {
         if (!cancelled) {

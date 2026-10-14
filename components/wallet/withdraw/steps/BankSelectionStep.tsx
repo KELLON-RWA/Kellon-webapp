@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   ArrowRight,
   ChevronRight,
@@ -22,6 +22,10 @@ import {
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import { Button } from "@/components/ui/button";
 import { bankService } from "@/services/api/bank";
+import {
+  accountNumberRule,
+  isCompleteAccountNumber,
+} from "@/lib/account-number";
 import { providerService } from "@/services/api/payment-providers";
 
 interface BankSelectionStepProps {
@@ -81,11 +85,22 @@ export function WithdrawBankSelectionStep({
       : "centiiv";
   const usesVerifiedBankFlow = true;
   const isKenyanPayout = country?.toUpperCase() === "KE";
-  const accountNumberMinLength = isKenyanPayout ? 8 : 10;
-  const accountNumberMaxLength = isKenyanPayout ? 16 : 10;
-  const accountNumberHint = isKenyanPayout
-    ? "Enter an 8-16 digit account number"
-    : "Enter 10-digit account number";
+  const accountRule = useMemo(
+    () =>
+      isKenyanPayout
+        ? {
+            ...accountNumberRule(fiatCurrency),
+            min: 8,
+            max: 16,
+            placeholder: "Enter an 8-16 digit account number",
+            tooShort: "Account number must be 8-16 digits.",
+          }
+        : accountNumberRule(fiatCurrency),
+    [fiatCurrency, isKenyanPayout],
+  );
+  const accountNumberMinLength = accountRule.min;
+  const accountNumberMaxLength = accountRule.max;
+  const accountNumberHint = accountRule.placeholder;
 
   useEffect(() => {
     setAccountNumber("");
@@ -96,12 +111,14 @@ export function WithdrawBankSelectionStep({
   }, [selectedProviderBank?.value]);
 
   useEffect(() => {
-    const hasValidAccountNumber = new RegExp(
-      `^\\d{${accountNumberMinLength},${accountNumberMaxLength}}$`,
-    ).test(accountNumber);
+    const hasValidAccountNumber = isCompleteAccountNumber(
+      accountNumber,
+      accountRule,
+    );
     const shouldVerify =
       hasValidAccountNumber &&
-      (!isKenyanPayout || isAccountNumberReadyForVerification);
+      (accountRule.min === accountRule.max ||
+        isAccountNumberReadyForVerification);
 
     if (!selectedProviderBank || !shouldVerify) {
       setVerifiedAccount(null);
@@ -175,10 +192,16 @@ export function WithdrawBankSelectionStep({
       }
     };
 
-    verifyBank();
+    const timer = window.setTimeout(
+      verifyBank,
+
+      accountRule.min === accountRule.max ? 0 : 700,
+    );
 
     return () => {
       cancelled = true;
+
+      window.clearTimeout(timer);
     };
   }, [
     accountNumber,
@@ -192,6 +215,7 @@ export function WithdrawBankSelectionStep({
     isRamphub,
     verificationSource,
     selectedProviderBank,
+    accountRule,
   ]);
 
   const handleAccountNumberChange = (value: string) => {
@@ -376,9 +400,7 @@ export function WithdrawBankSelectionStep({
                     {accountNumber.length > 0 &&
                     accountNumber.length < accountNumberMinLength ? (
                       <p className="text-xs text-gray-30 dark:text-gray-40">
-                        {isKenyanPayout
-                          ? "Account number must be 8-16 digits."
-                          : "Account number must be exactly 10 digits."}
+                        {accountRule.tooShort}
                       </p>
                     ) : null}
                     {verificationError ? (

@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { ArrowRight, Landmark, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { bankService } from "@/services/api/bank";
+import {
+  accountNumberRule,
+  isCompleteAccountNumber,
+} from "@/lib/account-number";
 import { providerService } from "@/services/api/payment-providers";
 import type { BankDetail } from "@/types/db";
 import type { SelectableBank } from "@/components/modals/SelectBankModal";
@@ -22,6 +26,7 @@ interface BuyBankSelectionStepProps {
   asset: string | null;
   amount: string;
   fiatCurrency: string;
+  country: string | null;
   selectedChain?: { name: string } | null;
   selectedBank: BankDetail | null;
   savedBanks: BankDetail[];
@@ -38,6 +43,7 @@ export function BuyBankSelectionStep({
   asset,
   amount,
   fiatCurrency,
+  country,
   selectedChain,
   selectedBank,
   savedBanks,
@@ -50,6 +56,11 @@ export function BuyBankSelectionStep({
   onContinue,
 }: BuyBankSelectionStepProps) {
   const [accountNumber, setAccountNumber] = useState("");
+  const payoutCountry = country || "NG";
+  const accountRule = useMemo(
+    () => accountNumberRule(fiatCurrency),
+    [fiatCurrency],
+  );
   const [verifiedAccount, setVerifiedAccount] = useState<BankDetail | null>(
     null,
   );
@@ -69,7 +80,10 @@ export function BuyBankSelectionStep({
   }, [selectedProviderBank?.value]);
 
   useEffect(() => {
-    const hasValidAccountNumber = /^\d{10}$/.test(accountNumber);
+    const hasValidAccountNumber = isCompleteAccountNumber(
+      accountNumber,
+      accountRule,
+    );
 
     if (!selectedProviderBank || !hasValidAccountNumber) {
       setVerifiedAccount(null);
@@ -115,7 +129,7 @@ export function BuyBankSelectionStep({
             bankCode: response.data.bankCode || selectedProviderBank.value,
             accountNumber: response.data.accountNumber || accountNumber,
             accountName,
-            country: fiatCurrency,
+            country: payoutCountry,
             provider: "paycrest",
           });
         } else {
@@ -142,7 +156,7 @@ export function BuyBankSelectionStep({
             bankCode: response.data.bankCode || selectedProviderBank.value,
             accountNumber: response.data.accountNumber || accountNumber,
             accountName,
-            country: fiatCurrency,
+            country: payoutCountry,
             provider: "centiiv",
           });
         }
@@ -160,19 +174,32 @@ export function BuyBankSelectionStep({
       }
     };
 
-    verifyBank();
+    const timer = window.setTimeout(
+      verifyBank,
+
+      accountRule.min === accountRule.max ? 0 : 700,
+    );
 
     return () => {
       cancelled = true;
+
+      window.clearTimeout(timer);
     };
-  }, [accountNumber, fiatCurrency, isPaycrest, selectedProviderBank]);
+  }, [
+    accountNumber,
+    fiatCurrency,
+    payoutCountry,
+    isPaycrest,
+    selectedProviderBank,
+    accountRule,
+  ]);
 
   const handleAccountNumberChange = (value: string) => {
-    if (!/^\d{0,10}$/.test(value)) return;
+    if (!new RegExp(`^\\d{0,${accountRule.max}}$`).test(value)) return;
 
     setAccountNumber(value);
 
-    if (value.length !== 10) {
+    if (!isCompleteAccountNumber(value, accountRule)) {
       setVerifiedAccount(null);
       setVerificationError("");
     }
@@ -189,7 +216,7 @@ export function BuyBankSelectionStep({
           bankCode: verifiedAccount.bankCode,
           accountNumber: verifiedAccount.accountNumber,
           accountName: verifiedAccount.accountName,
-          country: verifiedAccount.country || fiatCurrency,
+          country: verifiedAccount.country || payoutCountry,
           provider: verifiedAccount.provider,
         });
 
@@ -330,17 +357,18 @@ export function BuyBankSelectionStep({
                       handleAccountNumberChange(event.target.value)
                     }
                     inputMode="numeric"
-                    maxLength={10}
-                    placeholder="Enter 10-digit account number"
+                    maxLength={accountRule.max}
+                    placeholder={accountRule.placeholder}
                     className="h-12 rounded-2xl border-black/5 bg-gray-95 text-sm text-cryptoNight placeholder:text-gray-400 focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white dark:placeholder:text-gray-40"
                   />
                   {isVerifying ? (
                     <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary-60" />
                   ) : null}
                 </div>
-                {accountNumber.length > 0 && accountNumber.length < 10 ? (
+                {accountNumber.length > 0 &&
+                accountNumber.length < accountRule.min ? (
                   <p className="text-xs text-gray-30 dark:text-gray-40">
-                    Account number must be exactly 10 digits.
+                    {accountRule.tooShort}
                   </p>
                 ) : null}
                 {verificationError ? (

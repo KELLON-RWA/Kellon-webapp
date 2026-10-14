@@ -743,6 +743,7 @@ export default function BuyCryptoFlow({
             asset={asset}
             amount={amount}
             fiatCurrency={fiatCurrency}
+            country={country}
             selectedChain={selectedChain}
             selectedBank={selectedBank}
             savedBanks={savedBanks}
