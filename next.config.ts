@@ -244,12 +244,18 @@ const nextConfig: NextConfig = {
   async rewrites() {
     if (!backendApiUrl) return []
 
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${backendApiUrl}/:path*`,
-      },
-    ]
+    // Local dynamic handlers (e.g. /api/market/news/[symbol]) must resolve
+    // before unmatched API requests are forwarded to the backend.
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: "/api/:path*",
+          destination: `${backendApiUrl}/:path*`,
+        },
+      ],
+    }
   },
 }
 
