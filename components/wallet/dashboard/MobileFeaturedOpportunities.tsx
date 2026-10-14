@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, CreditCard } from "lucide-react";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
-import { getCompanyLogoUrl } from "@/lib/stock-branding";
+import { getFeaturedStocks } from "@/lib/featured-stocks";
 import type { StockListing } from "@/services/api/stocks";
 import type { YieldOpportunity } from "@/types/db";
 import { formatApy, getProtocolName } from "@/components/earn/earn-utils";
@@ -11,61 +11,42 @@ interface MobileFeaturedOpportunitiesProps {
   yieldOpportunities: YieldOpportunity[];
 }
 
-function ticker(symbol: string) {
-  const withoutProviderSuffix = symbol.trim().replace(/[bc]$/i, "");
-  return (
-    withoutProviderSuffix.startsWith("b")
-      ? withoutProviderSuffix.slice(1)
-      : withoutProviderSuffix
-  ).toUpperCase();
-}
-
-function stockLogo(stock: StockListing) {
-  return (
-    getCompanyLogoUrl(ticker(stock.symbol)) ||
-    stock.logoUrl ||
-    `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(ticker(stock.symbol))}`
-  );
-}
-
 export default function MobileFeaturedOpportunities({
   stockListings,
   yieldOpportunities,
 }: MobileFeaturedOpportunitiesProps) {
-  const featuredStocks = Array.from(
-    new Map(
-      stockListings.map((stock) => [ticker(stock.symbol), stock]),
-    ).values(),
-  ).slice(0, 5);
+  const featuredStocks = getFeaturedStocks(stockListings);
   const featuredYield = yieldOpportunities.slice(0, 5);
 
   return (
     <>
       {featuredStocks.length ? (
         <section className="order-4 min-[1024px]:hidden">
-          <SectionHeading href="/earn?category=stocks" title="Stock" />
+          <SectionHeading href="/earn?category=stocks" title="Stocks" />
           <div className="mr-[calc(50%_-_50vw)] flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {featuredStocks.map((stock) => (
               <Link
-                key={`${stock.provider}:${stock.symbol}`}
-                href={`/earn/stocks/${encodeURIComponent(ticker(stock.symbol))}?provider=${encodeURIComponent(stock.provider)}`}
+                key={stock.ticker}
+                href={stock.href}
                 className="flex min-h-[100px] w-[39%] min-w-[142px] shrink-0 snap-start flex-col rounded-xl border border-black/10 bg-white/60 p-2.5 transition-colors hover:bg-primary-99/80 dark:border-white/10 dark:bg-secondary-50/50 dark:hover:bg-secondary-60/60"
               >
                 <div className="flex items-center gap-2">
                   <span className="relative grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full border border-black/10 bg-white text-[8px] font-bold text-primary-70 dark:border-white/10 dark:bg-secondary-60">
-                    {ticker(stock.symbol).slice(0, 2)}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={stockLogo(stock)}
-                      alt={`${ticker(stock.symbol)} logo`}
-                      className="absolute inset-0 h-full w-full rounded-full bg-white object-contain p-0.5"
-                      onError={(event) => {
-                        event.currentTarget.hidden = true;
-                      }}
-                    />
+                    {stock.ticker.slice(0, 2)}
+                    {stock.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={stock.logoUrl}
+                        alt={`${stock.name} logo`}
+                        className="absolute inset-0 h-full w-full rounded-full bg-white object-contain p-0.5"
+                        onError={(event) => {
+                          event.currentTarget.hidden = true;
+                        }}
+                      />
+                    ) : null}
                   </span>
                   <span className="min-w-0 truncate text-xs font-bold text-cryptoNight dark:text-white">
-                    {ticker(stock.symbol)}
+                    {stock.ticker}
                   </span>
                 </div>
                 <p className="mt-2 line-clamp-2 flex-1 text-[9px] leading-[0.875rem] text-gray-500 dark:text-gray-40">
