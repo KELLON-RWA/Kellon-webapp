@@ -33,7 +33,9 @@ import {
   isPositiveTransaction,
 } from "@/lib/dashboard-utils";
 
-type NotificationCategory = "Announcement" | "Transactions" | "System";
+import { isSystemNotificationType } from "@/lib/notification-category";
+
+type NotificationCategory = "Transactions" | "System";
 type NotificationCategoryFilter = "All" | NotificationCategory;
 
 type NotificationDisplay = NotificationDetailDisplay & {
@@ -63,7 +65,6 @@ const CATEGORY_FILTERS: NotificationCategoryFilter[] = [
   "All",
   "Transactions",
   "System",
-  "Announcement",
 ];
 
 function getNotificationSearchText(notification: Notification): string {
@@ -303,6 +304,7 @@ function getNotificationAmountLabel(
 function getNotificationCategory(
   notification: Notification,
 ): NotificationCategory {
+  if (isSystemNotificationType(notification.type)) return "System";
   const text = getNotificationSearchText(notification);
 
   if (
@@ -311,7 +313,7 @@ function getNotificationCategory(
     text.includes("update") ||
     text.includes("campaign")
   ) {
-    return "Announcement";
+    return "System";
   }
 
   if (
@@ -336,6 +338,11 @@ function getNotificationDisplay(
   const category = getNotificationCategory(notification);
   const rawTitle = notification.subject || notification.type || "Notification";
   const rawContent = notification.content || null;
+  // Promotional copy can mention buying, deposits, or asset symbols. Its
+  // explicit backend type must win over transaction keyword/metadata matching.
+  if (isSystemNotificationType(notification.type)) {
+    return { category: "System", icon: "✓", title: rawTitle, content: rawContent };
+  }
   const transaction = getNotificationTransaction(notification, transactionById);
 
   if (transaction) {
@@ -449,15 +456,6 @@ function getNotificationDisplay(
     return {
       category,
       icon: "✓",
-      title: rawTitle,
-      content: rawContent,
-    };
-  }
-
-  if (category === "Announcement") {
-    return {
-      category,
-      icon: "!",
       title: rawTitle,
       content: rawContent,
     };
