@@ -34,6 +34,7 @@ import {
 } from "@/lib/dashboard-utils";
 
 import { isSystemNotificationType } from "@/lib/notification-category";
+import NotificationCategoryIcon from "./NotificationCategoryIcon";
 
 type NotificationCategory = "Transactions" | "System";
 type NotificationCategoryFilter = "All" | NotificationCategory;
@@ -341,7 +342,12 @@ function getNotificationDisplay(
   // Promotional copy can mention buying, deposits, or asset symbols. Its
   // explicit backend type must win over transaction keyword/metadata matching.
   if (isSystemNotificationType(notification.type)) {
-    return { category: "System", icon: "✓", title: rawTitle, content: rawContent };
+    return {
+      category: "System",
+      icon: "✓",
+      title: rawTitle,
+      content: rawContent,
+    };
   }
   const transaction = getNotificationTransaction(notification, transactionById);
 
@@ -525,7 +531,7 @@ function NotificationItem({
             : "bg-gray-90 text-gray-20 dark:bg-secondary-60 dark:text-gray-40",
         )}
       >
-        {display.icon}
+        <NotificationCategoryIcon category={display.category} />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -562,7 +568,11 @@ function NotificationItem({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function NotificationsPage({ initialCategory = "All" }: { initialCategory?: NotificationCategoryFilter }) {
+export default function NotificationsPage({
+  initialCategory = "All",
+}: {
+  initialCategory?: NotificationCategoryFilter;
+}) {
   const router = useRouter();
   const [isMarkAllModalOpen, setIsMarkAllModalOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<{
@@ -674,12 +684,16 @@ export default function NotificationsPage({ initialCategory = "All" }: { initial
               onClick={() => setActiveCategory(category)}
               className={cn(
                 "cursor-pointer",
-                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                "inline-flex items-center gap-2 shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
                 isActive
                   ? "border-primary-90 bg-primary-95 text-primary-50 dark:border-primary-70/20 dark:bg-primary-70/15 dark:text-primary-80"
                   : "border-gray-80 bg-white/80 text-gray-20 hover:text-cryptoNight dark:border-white/10 dark:bg-secondary-50/70 dark:text-gray-40 dark:hover:text-white",
               )}
             >
+              <NotificationCategoryIcon
+                category={category}
+                className="h-4 w-4"
+              />
               {category}
             </button>
           );
