@@ -9,6 +9,7 @@ interface ProviderRateDetails {
   cryptoAmount: number | null; // Calculated crypto amount
   fiatAmount: number | null; // Calculated fiat amount
   rawRate: number | null; // Raw rate from backend
+  routeProvider?: string; // For an aggregator: the partner the route settles through
 }
 
 type ProviderRatesMap = Record<string, ProviderRateDetails | null>;
@@ -92,6 +93,7 @@ export function useProviderRates({
             let quoteId: string | undefined;
             let expiresAt: string | undefined;
             let maxCryptoDebit: string | undefined;
+            let routeProvider: string | undefined;
 
             if (provider.name.toLowerCase() === "paycrest") {
               // Paycrest's amount parameter is denominated in the token, while
@@ -141,6 +143,30 @@ export function useProviderRates({
                   }
                 }
               }
+            } else if (
+              provider.name.toLowerCase() === "ramphub" &&
+              side === "sell"
+            ) {
+              const res = await providerService.getRamphubQuote(
+                {
+                  token: asset,
+                  amount,
+                  currency,
+                  network: networkName,
+                },
+                abortController.signal,
+              );
+              if (res.success && res.data?.available) {
+                quoteId = res.data.quoteId;
+                expiresAt = res.data.expiresAt;
+                maxCryptoDebit = res.data.maxCryptoDebit;
+                routeProvider = res.data.provider;
+                rawRate = parseNumber(res.data.rate);
+                cryptoAmount = amount;
+                fiatAmount =
+                  parseNumber(res.data.receiveAmount) ??
+                  parseNumber(res.data.fiatAmount);
+              }
             } else if (provider.name.toLowerCase() === "centiiv") {
               const res = await providerService.getCentiivQuote(
                 {
@@ -180,6 +206,7 @@ export function useProviderRates({
                     quoteId,
                     expiresAt,
                     maxCryptoDebit,
+                    routeProvider,
                   }
                 : null;
           } catch (error) {

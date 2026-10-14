@@ -180,6 +180,9 @@ export const offrampService = {
   initiateQuidax: (body: OfframpInitRequest) =>
     post("/api/offramp/quidax", body),
 
+  initiateRamphub: (body: OfframpInitRequest) =>
+    post("/api/offramp/ramphub", body),
+
   /**
    * Specialized MoneyGram Offramp (Uses Stellar Network)
    */

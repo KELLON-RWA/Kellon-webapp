@@ -25,6 +25,7 @@ interface SelectBankModalProps {
   onClose: () => void;
   currency: string;
   providerName: string | null;
+  routeProvider?: string | null;
   selectedBankCode?: string | null;
   onSelectBank: (bank: SelectableBank) => void;
 }
@@ -74,6 +75,7 @@ export default function SelectBankModal({
   onClose,
   currency,
   providerName,
+  routeProvider,
   selectedBankCode,
   onSelectBank,
 }: SelectBankModalProps) {
@@ -83,6 +85,7 @@ export default function SelectBankModal({
   const [isLoadingBanks, setIsLoadingBanks] = useState(false);
   const providerKey = providerName?.toLowerCase() || "";
   const isPaycrest = providerKey === "paycrest";
+  const isRamphub = providerKey === "ramphub";
 
   useEffect(() => {
     if (!isOpen) {
@@ -95,7 +98,21 @@ export default function SelectBankModal({
     const loadBanks = async () => {
       setIsLoadingBanks(true);
       try {
-        if (isPaycrest) {
+        if (isRamphub) {
+          if (!routeProvider) {
+            setBankOptions([]);
+            return;
+          }
+          const response = await providerService.getRamphubBanks(routeProvider);
+          if (cancelled) return;
+          setBankOptions(
+            (response.data || []).map((bank) => ({
+              label: bank.name,
+              value: bank.code,
+              image: null,
+            })),
+          );
+        } else if (isPaycrest) {
           const response =
             await providerService.getPaycrestInstitutions(currency);
           if (cancelled) return;
@@ -138,7 +155,7 @@ export default function SelectBankModal({
     return () => {
       cancelled = true;
     };
-  }, [currency, isOpen, isPaycrest]);
+  }, [currency, isOpen, isPaycrest, isRamphub, routeProvider]);
 
   const filteredBanks = useMemo(() => {
     const query = bankSearch.trim().toLowerCase();

@@ -478,6 +478,9 @@ export default function WithdrawFlow({
         if (providerName === "quidax") {
           return (await offrampService.initiateQuidax(payload)).data;
         }
+        if (providerName === "ramphub") {
+          return (await offrampService.initiateRamphub(payload)).data;
+        }
         return (await offrampService.initiateRamp(payload)).data;
       });
 
@@ -1042,6 +1045,7 @@ export default function WithdrawFlow({
         onClose={() => setIsBankModalOpen(false)}
         currency={fiatCurrency}
         providerName={selectedProvider?.name || null}
+        routeProvider={selectedProviderRate?.routeProvider || null}
         selectedBankCode={
           selectedProviderBank?.value || selectedBank?.bankCode || null
         }

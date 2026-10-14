@@ -44,6 +44,38 @@ export interface PaycrestAccountVerificationRequest {
   accountName?: string;
 }
 
+export interface RamphubQuoteParams {
+  token: string;
+  amount: number;
+  currency: string;
+  network: string;
+}
+
+export interface RamphubQuoteResponse {
+  available: boolean;
+  provider?: string;
+  rate?: number;
+  fiatAmount?: number;
+  receiveAmount?: number;
+  receiveCurrency?: string;
+  quoteId?: string;
+  expiresAt?: string;
+  maxCryptoDebit?: string;
+  validationError?: string;
+}
+
+export interface RamphubBank {
+  code: string;
+  name: string;
+}
+
+export interface RamphubAccountVerificationRequest {
+  bankCode: string;
+  accountNumber: string;
+  bankName?: string;
+  save?: boolean;
+}
+
 export interface PaycrestWebhookDeliveriesQuery {
   status?: string;
   event?: string;
@@ -392,6 +424,77 @@ export const providerService = {
       signal,
     });
     return handleResponse(res);
+  },
+
+  /**
+   * GET /api/providers/ramphub/quote
+   * controller: getRamphubQuote
+   */
+  getRamphubQuote: async (
+    params: RamphubQuoteParams,
+    signal?: AbortSignal,
+  ): Promise<ApiResponse<RamphubQuoteResponse>> => {
+    const query = buildQuery({
+      token: params.token,
+      amount: params.amount,
+      currency: params.currency,
+      network: params.network,
+    });
+    const res = await fetch(`/api/providers/ramphub/quote?${query}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal,
+    });
+    return handleResponse(res);
+  },
+
+  /**
+   * GET /api/providers/ramphub/banks?provider=
+   * controller: getRamphubBanksHandler
+   */
+  getRamphubBanks: async (
+    provider: string,
+  ): Promise<ApiResponse<RamphubBank[]>> => {
+    return getCachedApiResponse(
+      `providers:ramphub:banks:${provider}`,
+      BANK_DIRECTORY_TTL,
+      async () => {
+        const res = await fetch(
+          `/api/providers/ramphub/banks?${buildQuery({ provider })}`,
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+          },
+        );
+        return handleResponse(res);
+      },
+    );
+  },
+
+  /**
+   * POST /api/providers/ramphub/verify-account
+   * controller: verifyRamphubAccountHandler
+   */
+  verifyRamphubAccount: async (
+    body: RamphubAccountVerificationRequest,
+  ): Promise<ApiResponse<BankAccountData>> => {
+    const res = await fetch("/api/providers/ramphub/verify-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const response = await handleResponse<unknown>(res);
+    return {
+      ...response,
+      data: normalizeBankVerificationResponse(response.data, {
+        accountNumber: body.accountNumber,
+        bankCode: body.bankCode,
+        bankName: body.bankName,
+      }),
+    };
   },
 
   /**

@@ -60,8 +60,10 @@ export function WithdrawBankSelectionStep({
   onContinue,
 }: BankSelectionStepProps) {
   const [accountNumber, setAccountNumber] = useState("");
-  const [isAccountNumberReadyForVerification, setIsAccountNumberReadyForVerification] =
-    useState(false);
+  const [
+    isAccountNumberReadyForVerification,
+    setIsAccountNumberReadyForVerification,
+  ] = useState(false);
   const [verifiedAccount, setVerifiedAccount] = useState<BankDetail | null>(
     null,
   );
@@ -71,6 +73,12 @@ export function WithdrawBankSelectionStep({
   const [isSaving, setIsSaving] = useState(false);
   const lastVerificationKeyRef = useRef("");
   const isPaycrest = providerName?.toLowerCase() === "paycrest";
+  const isRamphub = providerName?.toLowerCase() === "ramphub";
+  const verificationSource = isPaycrest
+    ? "paycrest"
+    : isRamphub
+      ? "ramphub"
+      : "centiiv";
   const usesVerifiedBankFlow = true;
   const isKenyanPayout = country?.toUpperCase() === "KE";
   const accountNumberMinLength = isKenyanPayout ? 8 : 10;
@@ -114,20 +122,27 @@ export function WithdrawBankSelectionStep({
       setVerificationError("");
 
       try {
-        const response = isPaycrest
-          ? await providerService.verifyPaycrestAccount({
-              institution: selectedProviderBank.value,
-              accountIdentifier: accountNumber,
-              currency: fiatCurrency || "NGN",
-              save: false,
-              bankName: selectedProviderBank.label,
-            })
-          : await providerService.verifyBank({
+        const response = isRamphub
+          ? await providerService.verifyRamphubAccount({
               bankCode: selectedProviderBank.value,
               accountNumber,
-              save: false,
               bankName: selectedProviderBank.label,
-            });
+              save: false,
+            })
+          : isPaycrest
+            ? await providerService.verifyPaycrestAccount({
+                institution: selectedProviderBank.value,
+                accountIdentifier: accountNumber,
+                currency: fiatCurrency || "NGN",
+                save: false,
+                bankName: selectedProviderBank.label,
+              })
+            : await providerService.verifyBank({
+                bankCode: selectedProviderBank.value,
+                accountNumber,
+                save: false,
+                bankName: selectedProviderBank.label,
+              });
 
         if (cancelled) return;
 
@@ -140,13 +155,13 @@ export function WithdrawBankSelectionStep({
         }
 
         setVerifiedAccount({
-          id: `${isPaycrest ? "paycrest" : "centiiv"}:${selectedProviderBank.value}:${accountNumber}`,
+          id: `${verificationSource}:${selectedProviderBank.value}:${accountNumber}`,
           bankName: response.data.bankName || selectedProviderBank.label,
           bankCode: response.data.bankCode || selectedProviderBank.value,
           accountNumber: response.data.accountNumber || accountNumber,
           accountName,
           country: country || "NG",
-          provider: isPaycrest ? "paycrest" : "centiiv",
+          provider: verificationSource,
         });
       } catch (error) {
         if (!cancelled) {
@@ -174,6 +189,8 @@ export function WithdrawBankSelectionStep({
     isAccountNumberReadyForVerification,
     isKenyanPayout,
     isPaycrest,
+    isRamphub,
+    verificationSource,
     selectedProviderBank,
   ]);
 
