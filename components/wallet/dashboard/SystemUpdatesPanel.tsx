@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useNotifications, useMarkAsRead } from "@/hooks/use-notifications";
 import { getFeaturedSystemNotifications } from "@/lib/featured-system-notifications";
@@ -101,9 +100,6 @@ export default function SystemUpdatesPanel() {
                       });
                   }}
                 >
-                  <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-95 text-primary-60 dark:bg-primary-70/15 dark:text-primary-80">
-                    <Bell className="h-5 w-5" aria-hidden="true" />
-                  </span>
                   <span className="relative z-10 min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="line-clamp-2 text-sm font-semibold leading-5 text-cryptoNight dark:text-white">
