@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
+import { IdentityDetailsCard } from "@/components/kyc/IdentityDetailsCard";
 import BankAccountModal from "./BankAccountModal";
 import { bankService } from "@/services/api/bank";
 import { BankDetail, User } from "@/types/db";
@@ -291,6 +292,10 @@ const ProfilePage: FC<ProfilePageProps> = ({ initialProfile }) => {
               </form>
             </Form>
           )}
+        </div>
+
+        <div className="mb-4">
+          <IdentityDetailsCard />
         </div>
 
         {/* Bank Component now receives data from parent */}

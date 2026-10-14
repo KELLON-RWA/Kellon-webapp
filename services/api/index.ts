@@ -73,12 +73,31 @@ export async function handleResponse<T>(
       .filter(Boolean)
       .join(", ");
 
-    throw new Error(
+    const thrown = new Error(
       validationMessage ||
         error.message ||
         nestedMessage ||
         "Something went wrong",
-    );
+    ) as Error & {
+      status?: number;
+      code?: string;
+      action?: string;
+      availableMethods?: string[];
+      body?: unknown;
+    };
+    thrown.status = res.status;
+    thrown.body = error;
+    if (typeof (error as Record<string, unknown>).code === "string") {
+      thrown.code = (error as Record<string, unknown>).code as string;
+    }
+    if (typeof (error as Record<string, unknown>).action === "string") {
+      thrown.action = (error as Record<string, unknown>).action as string;
+    }
+    if (Array.isArray((error as Record<string, unknown>).availableMethods)) {
+      thrown.availableMethods = (error as Record<string, unknown>)
+        .availableMethods as string[];
+    }
+    throw thrown;
   }
 
   const json = await res.json().catch(() => null);

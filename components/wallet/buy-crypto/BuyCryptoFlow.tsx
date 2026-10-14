@@ -19,6 +19,8 @@ import { MIN_STABLECOIN_AMOUNT } from "@/lib/stablecoin-amounts";
 import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
 import { ACTIVE_PAYMENT_RAIL, getPaymentRailConfig } from "@/lib/payment-rails";
 import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal";
+import { KycDialog } from "@/components/kyc/KycDialog";
+import { kycRequiredFrom } from "@/services/api/kyc";
 import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries";
 import { useExchangeRate } from "@/hooks/use-exchange-rate";
 import { useProviders } from "@/hooks/use-provider";
@@ -185,6 +187,7 @@ export default function BuyCryptoFlow({
   const [selectedProviderBank, setSelectedProviderBank] =
     useState<SelectableBank | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [kycPrompt, setKycPrompt] = useState<{ country: string } | null>(null);
   const [initializedOrder, setInitializedOrder] =
     useState<OnrampResponse | null>(null);
   const [isCompletingOrder, setIsCompletingOrder] = useState(false);
@@ -507,6 +510,11 @@ export default function BuyCryptoFlow({
 
       toast.success(successMessage);
     } catch (error) {
+      const kyc = kycRequiredFrom(error);
+      if (kyc) {
+        setKycPrompt({ country: kyc.country || country || "" });
+        return;
+      }
       toast.error(
         error instanceof Error ? error.message : "Unable to initialize payment",
       );
@@ -805,6 +813,14 @@ export default function BuyCryptoFlow({
           setSelectedProviderBank(bank);
           setBankId(null);
         }}
+      />
+      <KycDialog
+        open={kycPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setKycPrompt(null);
+        }}
+        country={kycPrompt?.country}
+        reason={`${selectedProvider?.name || "This provider"} needs your identity details before this purchase. Save them, then confirm again.`}
       />
     </div>
   );
