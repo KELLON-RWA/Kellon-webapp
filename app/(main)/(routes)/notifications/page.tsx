@@ -9,10 +9,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function page() {
+export default async function page({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { category } = await searchParams;
   return (
     <div className="min-h-[100dvh]">
-      <NotificationsPage />
+      <NotificationsPage
+        initialCategory={category === "system" ? "System" : "All"}
+      />
     </div>
   );
 }

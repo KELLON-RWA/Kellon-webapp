@@ -562,7 +562,7 @@ function NotificationItem({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function NotificationsPage() {
+export default function NotificationsPage({ initialCategory = "All" }: { initialCategory?: NotificationCategoryFilter }) {
   const router = useRouter();
   const [isMarkAllModalOpen, setIsMarkAllModalOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<{
@@ -570,7 +570,7 @@ export default function NotificationsPage() {
     display: NotificationDisplay;
   } | null>(null);
   const [activeCategory, setActiveCategory] =
-    useState<NotificationCategoryFilter>("All");
+    useState<NotificationCategoryFilter>(initialCategory);
   const { data: notifications = [], isLoading, error } = useNotifications();
   const { data: serverUnreadCount } = useUnreadCount();
   const { data: transactions = [] } = useQuery({

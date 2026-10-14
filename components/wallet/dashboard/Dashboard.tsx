@@ -9,6 +9,7 @@ import { getGreeting } from "@/lib/utils";
 import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import type { User } from "@/types/db";
 import ActivityPanel from "./ActivityPanel";
+import SystemUpdatesPanel from "./SystemUpdatesPanel";
 import AssetsPanel from "./AssetsPanel";
 import DashboardHeader from "./DashboardHeader";
 import MobileFeaturedOpportunities from "./MobileFeaturedOpportunities";
@@ -264,6 +265,7 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
               onMore={() => setIsWalletServicesOpen(true)}
             />
           </div>
+          <SystemUpdatesPanel />
           <AssetsPanel
             activeCurrency={dashboard.activeCurrency}
             displayCurrency={dashboard.displayCurrency}
