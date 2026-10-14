@@ -26,12 +26,7 @@ export type FinnhubMarketData = {
   source: "Finnhub";
 };
 
-export type GoogleNewsArticle = {
-  title: string;
-  url: string;
-  source: string;
-  publishedAt: string;
-};
+import type { CompanyNewsArticle, CompanyNewsSource } from "@/lib/company-news";
 
 export type DexScreenerPool = {
   chain?: string;
@@ -59,9 +54,12 @@ export const stockResearchService = {
       `/api/market/stocks/${encodeURIComponent(symbol)}`,
     );
   },
-  getGoogleNews(symbol: string) {
-    return getJson<{ articles: GoogleNewsArticle[]; source: "Google News" }>(
-      `/api/market/news/${encodeURIComponent(symbol)}`,
+  getCompanyNews(symbol: string, name: string) {
+    return getJson<{
+      articles: CompanyNewsArticle[];
+      source: CompanyNewsSource;
+    }>(
+      `/api/market/news/${encodeURIComponent(symbol)}?${new URLSearchParams({ name })}`,
     );
   },
   getDexScreenerPool({

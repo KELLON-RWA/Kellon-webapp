@@ -36,8 +36,9 @@ import {
   stockResearchService,
   type DexScreenerPool,
   type FinnhubMarketData,
-  type GoogleNewsArticle,
 } from "@/services/api/stock-research";
+import type { CompanyNewsArticle, CompanyNewsSource } from "@/lib/company-news";
+import { getCompanyNewsName } from "@/lib/company-news";
 import { isRwaStockListing, stocksService } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
@@ -497,14 +498,16 @@ export default function StockDetailsPage({
       refetchIntervalInBackground: false,
     });
   const finnhubMarketData = isRwa ? undefined : exchangeMarketData;
+  const companyNewsName = getCompanyNewsName(stock?.name || "");
   const {
-    data: googleNewsData,
-    isLoading: isGoogleNewsLoading,
-    refetch: refetchGoogleNews,
+    data: companyNewsData,
+    isLoading: isCompanyNewsLoading,
+    isError: isCompanyNewsError,
+    refetch: refetchCompanyNews,
   } = useQuery({
-    queryKey: ["google-news", normalizedSymbol],
-    queryFn: () => stockResearchService.getGoogleNews(normalizedSymbol),
-    enabled: Boolean(stock) && activeTab === "Company",
+    queryKey: ["company-news", normalizedSymbol, companyNewsName],
+    queryFn: () => stockResearchService.getCompanyNews(normalizedSymbol, companyNewsName),
+    enabled: Boolean(stock) && Boolean(companyNewsName) && activeTab === "Company",
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
     refetchIntervalInBackground: false,
@@ -717,7 +720,7 @@ export default function StockDetailsPage({
                     refetchFinnhubMarketData(),
                   ]
                 : []),
-              refetchGoogleNews(),
+              refetchCompanyNews(),
               refetchDexScreener(),
             ])
           }
@@ -1072,8 +1075,10 @@ export default function StockDetailsPage({
           description={description}
           company={company}
           finnhubMarketData={finnhubMarketData}
-          googleNews={googleNewsData?.articles || []}
-          isGoogleNewsLoading={isGoogleNewsLoading}
+          companyNews={companyNewsData?.articles || []}
+          companyNewsSource={companyNewsData?.source}
+          isCompanyNewsLoading={isCompanyNewsLoading}
+          isCompanyNewsError={isCompanyNewsError}
           provider={providerName}
           settlementChain={settlementChain}
           price={price}
@@ -1147,8 +1152,10 @@ function StockResearchContent({
   description,
   company,
   finnhubMarketData,
-  googleNews,
-  isGoogleNewsLoading,
+  companyNews,
+  companyNewsSource,
+  isCompanyNewsLoading,
+  isCompanyNewsError,
   provider,
   settlementChain,
   price,
@@ -1163,8 +1170,10 @@ function StockResearchContent({
   description: string;
   company?: CompanyProfile;
   finnhubMarketData?: FinnhubMarketData;
-  googleNews: GoogleNewsArticle[];
-  isGoogleNewsLoading: boolean;
+  companyNews: CompanyNewsArticle[];
+  companyNewsSource?: CompanyNewsSource;
+  isCompanyNewsLoading: boolean;
+  isCompanyNewsError: boolean;
   provider: string;
   settlementChain: string;
   price: number;
@@ -1255,14 +1264,14 @@ function StockResearchContent({
                 Latest news
               </h2>
               <p className="mt-1 text-sm text-gray-30 dark:text-gray-40">
-                Headlines from Google News.
+                {companyNewsSource ? `Company headlines from ${companyNewsSource}.` : "Latest company headlines."}
               </p>
             </div>
             <span className="text-xs font-semibold text-gray-30 dark:text-gray-40">
-              Google News
+              {companyNewsSource || "Company news"}
             </span>
           </div>
-          {isGoogleNewsLoading ? (
+          {isCompanyNewsLoading ? (
             <div className="mt-5 space-y-3" aria-label="Loading company news">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div
@@ -1271,9 +1280,13 @@ function StockResearchContent({
                 />
               ))}
             </div>
-          ) : googleNews.length ? (
+          ) : isCompanyNewsError ? (
+            <p className="mt-5 text-sm text-gray-30 dark:text-gray-40" role="status">
+              Company news is temporarily unavailable. Please try again later.
+            </p>
+          ) : companyNews.length ? (
             <div className="mt-5 divide-y divide-gray-80 overflow-hidden rounded-xl border border-gray-80 dark:divide-white/10 dark:border-white/10">
-              {googleNews.map((article) => (
+              {companyNews.map((article) => (
                 <a
                   key={article.url}
                   href={article.url}
@@ -1287,7 +1300,11 @@ function StockResearchContent({
                     </span>
                     <span className="mt-1 block text-xs text-gray-30 dark:text-gray-40">
                       {article.source}
-                      {article.publishedAt ? ` · ${article.publishedAt}` : ""}
+                      {article.publishedAt ? (
+                        <time dateTime={article.publishedAt}>
+                          {` · ${new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`}
+                        </time>
+                      ) : null}
                     </span>
                   </span>
                   <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-primary-60" />
