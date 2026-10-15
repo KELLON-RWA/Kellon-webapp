@@ -358,7 +358,10 @@ export function StockLogo({
           <img
             src={src || fallbackSrc}
             alt={`${symbol} logo`}
-            className="absolute inset-0 h-full w-full bg-white object-contain p-1 dark:bg-secondary-60"
+            className={cn(
+              "absolute inset-0 h-full w-full bg-white object-contain p-1",
+              ticker !== "DPRI" && "dark:bg-secondary-60",
+            )}
             data-fallback-src={fallbackSrc}
             onError={(event) => {
               const image = event.currentTarget;

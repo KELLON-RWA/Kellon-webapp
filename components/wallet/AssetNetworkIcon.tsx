@@ -63,7 +63,10 @@ export default function AssetNetworkIcon({
           <img
             src={imageSrc}
             alt={symbol}
-            className="h-full w-full object-contain p-1"
+            className={cn(
+              "h-full w-full object-contain p-1",
+              symbol.trim().toUpperCase() === "DPRI" && "bg-white",
+            )}
             onError={(event) => {
               const image = event.currentTarget;
               if (image.dataset.fallbackApplied) {

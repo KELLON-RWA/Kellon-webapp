@@ -1,5 +1,4 @@
 const COMPANY_LOGO_DOMAINS: Record<string, string> = {
-  DPRI: "dangote.com",
   AAPL: "apple.com",
   ARM: "arm.com",
   AMZN: "amazon.com",
@@ -38,6 +37,9 @@ const COMPANY_LOGO_DOMAINS: Record<string, string> = {
 };
 
 export function getCompanyLogoUrl(ticker: string): string | undefined {
+  if (ticker.trim().toUpperCase() === "DPRI") {
+    return "/dangote-refinery-logo.png";
+  }
   if (/^(GNT|GNTB)$/i.test(ticker.trim())) {
     return "https://res.cloudinary.com/djalafcj9/image/upload/v1620944606/get%20equity/favicon_intftr.ico";
   }
