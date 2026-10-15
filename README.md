@@ -22,15 +22,15 @@ Network and provider availability is determined by the backend for the user’s 
 
 ## Supported product areas
 
-| Area | Main flows |
-| --- | --- |
-| Wallet | Dashboard, assets, transaction history, notifications, receipts |
-| Stablecoins | USDC and USDT purchase, custody, send, receive, and withdrawal |
-| Fiat | Country-aware on-ramp, off-ramp, bank accounts, provider quotes |
-| Multi-chain | Base, Polygon, BNB Chain, Celo, Arc, Solana, Stellar, and other enabled networks |
-| DeFi | Yield discovery, deposits, withdrawals, positions |
-| Markets | Tokenised stocks, quotes, charts, and purchase flows |
-| Security | Privy authentication, backend-enforced MFA challenges, session handling, social recovery |
+| Area        | Main flows                                                                               |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| Wallet      | Dashboard, assets, transaction history, notifications, receipts                          |
+| Stablecoins | USDC and USDT purchase, custody, send, receive, and withdrawal                           |
+| Fiat        | Country-aware on-ramp, off-ramp, bank accounts, provider quotes                          |
+| Multi-chain | Base, Polygon, BNB Chain, Celo, Arc, Solana, Stellar, and other enabled networks         |
+| DeFi        | Yield discovery, deposits, withdrawals, positions                                        |
+| Markets     | Tokenised stocks, quotes, charts, and purchase flows                                     |
+| Security    | Privy authentication, backend-enforced MFA challenges, session handling, social recovery |
 
 ## Architecture
 
@@ -98,35 +98,37 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Create `.env.local` for local development. Do not commit it.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `NEXT_PUBLIC_BACKEND_API_URL` | Yes | Base URL for the Kellon API proxy and API client |
-| `NEXT_PUBLIC_API_URL` | Optional | Explicit API URL when different from the backend URL |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | Yes | Privy application ID |
-| `NEXT_PUBLIC_PRIVY_CLIENT_ID` | Optional | Privy client ID, if used by the environment |
-| `NEXT_PUBLIC_NETWORK_MODE` | Optional | Network mode used by chain-aware UI and transaction flows |
-| `LIFI_API_ID` | Optional | Server-side LI.FI API identifier |
-| `LIFI_API_KEY` | Optional | Server-side LI.FI credential |
-| `FINNHUB_API_KEY` | Required for stock research | Server-side Finnhub credential for exchange quotes, company profiles, valuation metrics, and fallback company news. Google News RSS is the primary news source. |
-| `ALCHEMY_RPC_KEY` | Optional | Server-side RPC configuration |
-| `ANKR_RPC_KEY` | Optional | Server-side RPC configuration |
-| `INFURA_RPC_KEY` | Optional | Server-side RPC configuration |
+| Variable                      | Required                    | Purpose                                                                                                                                                         |
+| ----------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_BACKEND_API_URL` | Yes                         | Base URL for the Kellon API proxy and API client                                                                                                                |
+| `NEXT_PUBLIC_API_URL`         | Optional                    | Explicit API URL when different from the backend URL                                                                                                            |
+| `NEXT_PUBLIC_PRIVY_APP_ID`    | Yes                         | Privy application ID                                                                                                                                            |
+| `NEXT_PUBLIC_PRIVY_CLIENT_ID` | Optional                    | Privy client ID, if used by the environment                                                                                                                     |
+| `NEXT_PUBLIC_NETWORK_MODE`    | Optional                    | Network mode used by chain-aware UI and transaction flows                                                                                                       |
+| `LIFI_API_ID`                 | Optional                    | Server-side LI.FI API identifier                                                                                                                                |
+| `LIFI_API_KEY`                | Optional                    | Server-side LI.FI credential                                                                                                                                    |
+| `FINNHUB_API_KEY`             | Required for stock research | Server-side Finnhub credential for exchange quotes, company profiles, valuation metrics, and fallback company news. Google News RSS is the primary news source. |
+| `ALCHEMY_RPC_KEY`             | Optional                    | Server-side RPC configuration                                                                                                                                   |
+| `ANKR_RPC_KEY`                | Optional                    | Server-side RPC configuration                                                                                                                                   |
+| `INFURA_RPC_KEY`              | Optional                    | Server-side RPC configuration                                                                                                                                   |
 
 Only values intended for the browser may use the `NEXT_PUBLIC_` prefix. Never expose backend signing secrets, provider credentials, or privileged API keys through public environment variables.
 
+Company profiles use the server-side `/api/market/company/[symbol]` Wikidata proxy (no API key). Profiles are cached for 24 hours, include a source link, and show the reporting year for employee counts. Missing fields fall back to existing company information or attributed news; Finnhub remains the source for exchange quotes and financial metrics.
+
 ## Development scripts
 
-| Command | Description |
-| --- | --- |
-| `yarn dev` | Run the development server with Turbopack |
-| `yarn build` | Create a production build |
-| `yarn start` | Start the production server |
-| `yarn lint` | Run ESLint |
-| `yarn type-check` | Run TypeScript without emitting files |
-| `yarn test` | Run the Vitest suite |
-| `yarn test:watch` | Run Vitest in watch mode |
-| `yarn format` | Check formatting with Prettier |
-| `yarn format:fix` | Apply Prettier formatting |
+| Command           | Description                               |
+| ----------------- | ----------------------------------------- |
+| `yarn dev`        | Run the development server with Turbopack |
+| `yarn build`      | Create a production build                 |
+| `yarn start`      | Start the production server               |
+| `yarn lint`       | Run ESLint                                |
+| `yarn type-check` | Run TypeScript without emitting files     |
+| `yarn test`       | Run the Vitest suite                      |
+| `yarn test:watch` | Run Vitest in watch mode                  |
+| `yarn format`     | Check formatting with Prettier            |
+| `yarn format:fix` | Apply Prettier formatting                 |
 
 Before opening a pull request, run:
 
