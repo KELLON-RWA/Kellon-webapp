@@ -3,15 +3,17 @@
 import { FC, useEffect, useRef, useState } from "react";
 import {
   usePrivy,
+  useLoginWithEmail,
   useLoginWithOAuth,
   useIdentityToken,
 } from "@privy-io/react-auth";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Mail } from "lucide-react";
 
 import { loginWithPrivy } from "@/services/api/auth";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Icons } from "@/components/Icons";
 import AuthHero from "./AuthHero";
@@ -28,6 +30,12 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
   const { authenticated, ready } = usePrivy();
 
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
+
+  const { sendCode, loginWithCode, state: emailState } = useLoginWithEmail();
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
 
   const { identityToken } = useIdentityToken();
 
@@ -65,7 +73,38 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
     }
   };
 
-  const isBusy = !ready || oauthLoading || isSyncing;
+  const handleSendCode = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setEmailError("");
+    const address = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    try {
+      await sendCode({ email: address });
+      setCodeSent(true);
+    } catch (err) {
+      console.error("Email code send failed:", err);
+      setEmailError("We couldn't send a code to that address. Try again.");
+    }
+  };
+
+  const handleVerifyCode = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setEmailError("");
+    try {
+      await loginWithCode({ code: code.trim() });
+    } catch (err) {
+      console.error("Email code login failed:", err);
+      setEmailError("That code is incorrect or has expired.");
+    }
+  };
+
+  const emailBusy =
+    emailState.status === "sending-code" ||
+    emailState.status === "submitting-code";
+  const isBusy = !ready || oauthLoading || isSyncing || emailBusy;
 
   return (
     <div className="flex min-h-screen w-full overflow-hidden ">
@@ -128,6 +167,108 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                     Continue with Google
                   </span>
                 </Button>
+
+                <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-100">
+                  <span className="h-px flex-1 bg-neutral-200 dark:bg-gray-500" />
+                  or
+                  <span className="h-px flex-1 bg-neutral-200 dark:bg-gray-500" />
+                </div>
+
+                {codeSent ? (
+                  <form onSubmit={handleVerifyCode} className="space-y-3">
+                    <p className="text-center text-sm text-gray-500 dark:text-gray-100">
+                      Enter the 6-digit code sent to{" "}
+                      <span className="font-semibold text-cryptoNight dark:text-white">
+                        {email.trim()}
+                      </span>
+                    </p>
+                    <Input
+                      value={code}
+                      onChange={(event) =>
+                        setCode(
+                          event.target.value.replace(/\D/g, "").slice(0, 6),
+                        )
+                      }
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="000000"
+                      className="h-[60px] rounded-2xl text-center text-lg tracking-[0.5em]"
+                      autoFocus
+                    />
+                    <Button
+                      type="submit"
+                      disabled={isBusy || code.length !== 6}
+                      size="full"
+                      className="h-[60px] rounded-2xl"
+                    >
+                      {emailState.status === "submitting-code" || isSyncing ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        "Verify and continue"
+                      )}
+                    </Button>
+                    <div className="flex items-center justify-between text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCode("");
+                          setEmailError("");
+                          setCodeSent(false);
+                        }}
+                        className="flex cursor-pointer items-center gap-1 text-gray-400 hover:underline"
+                      >
+                        <ArrowLeft className="h-3 w-3" /> Use another email
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() =>
+                          sendCode({ email: email.trim() }).catch(() =>
+                            setEmailError(
+                              "We couldn't resend the code. Try again.",
+                            ),
+                          )
+                        }
+                        className="cursor-pointer font-semibold text-cryptoNight hover:underline disabled:opacity-50 dark:text-white"
+                      >
+                        Resend code
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleSendCode} className="space-y-3">
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      className="h-[60px] rounded-2xl"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={isBusy || !email.trim()}
+                      size="full"
+                      variant="outline"
+                      className="h-[60px] rounded-2xl"
+                    >
+                      {emailState.status === "sending-code" ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Mail className="h-5 w-5" />
+                      )}
+                      <span className="ml-3 text-[15px] font-semibold">
+                        Continue with email
+                      </span>
+                    </Button>
+                  </form>
+                )}
+
+                {emailError ? (
+                  <p className="text-center text-xs font-medium text-red-500">
+                    {emailError}
+                  </p>
+                ) : null}
 
                 <p className="text-center text-xs leading-relaxed text-gray-400 dark:text-gray-100">
                   Fast onboarding. No complicated setup.
