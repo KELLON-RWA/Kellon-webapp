@@ -15,15 +15,20 @@ function getFinnhubSymbol(value: string) {
 }
 
 async function getFinnhubResource<T>(path: string, token: string) {
-  const separator = path.includes("?") ? "&" : "?";
-  const response = await fetch(
-    `${FINNHUB_BASE_URL}${path}${separator}token=${token}`,
-    {
-      next: { revalidate: 60 },
-    },
-  );
-  if (!response.ok) return null;
-  return (await response.json()) as T;
+  try {
+    const response = await fetch(`${FINNHUB_BASE_URL}${path}`, {
+      headers: { "X-Finnhub-Token": token },
+      next: { revalidate: path.startsWith("/quote?") ? 60 : 86400 },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data || typeof data !== "object" || Array.isArray(data) || data.error)
+      return null;
+    return data as T;
+  } catch {
+    return null;
+  }
 }
 
 type FinnhubQuote = {
@@ -91,19 +96,20 @@ export async function GET(
     ]);
 
     return NextResponse.json({
-      quote: quote
-        ? {
-            current: quote.c,
-            change: quote.d,
-            percentChange: quote.dp,
-            high: quote.h,
-            low: quote.l,
-            open: quote.o,
-            previousClose: quote.pc,
-            timestamp: quote.t,
-          }
-        : null,
-      profile: profile
+      quote:
+        quote && Number(quote.c) > 0
+          ? {
+              current: quote.c,
+              change: quote.d,
+              percentChange: quote.dp,
+              high: quote.h,
+              low: quote.l,
+              open: quote.o,
+              previousClose: quote.pc,
+              timestamp: quote.t,
+            }
+          : null,
+      profile: profile?.name
         ? {
             name: profile.name,
             ticker: profile.ticker,
