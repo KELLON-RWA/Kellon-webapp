@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import { IdentityDetailsCard } from "@/components/kyc/IdentityDetailsCard";
+import { AuthenticatorCard } from "./AuthenticatorCard";
 import BankAccountModal from "./BankAccountModal";
 import { bankService } from "@/services/api/bank";
 import { BankDetail, User } from "@/types/db";
@@ -294,8 +295,9 @@ const ProfilePage: FC<ProfilePageProps> = ({ initialProfile }) => {
           )}
         </div>
 
-        <div className="mb-4">
+        <div className="mb-4 space-y-4">
           <IdentityDetailsCard />
+          <AuthenticatorCard />
         </div>
 
         {/* Bank Component now receives data from parent */}
