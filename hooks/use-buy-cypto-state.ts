@@ -63,6 +63,9 @@ function reducer(state: State, action: Action): State {
       return { ...state, amount: action.amount };
 
     case "SET_COUNTRY_AND_CURRENCY":
+      if (action.source === "auto" && state.countrySource === "manual") {
+        return state;
+      }
       if (
         action.country === state.country &&
         action.currency === state.currency &&
@@ -262,18 +265,29 @@ export function useBuyCryptoState() {
 
   const setCountryAndCurrency = useCallback(
     (country: string, currency: string, source: "auto" | "manual" = "auto") => {
-      if (country === stateRef.current.country &&
-        currency === stateRef.current.currency &&
-        source === stateRef.current.countrySource)
+      if (
+        source === "auto" &&
+        (stateRef.current.countrySource === "manual" ||
+          searchParams.get("countrySource") === "manual")
+      )
         return;
-      applyAction({
-        type: "SET_COUNTRY_AND_CURRENCY",
-        country,
-        currency,
-        source,
-      }, true);
+      if (
+        country === stateRef.current.country &&
+        currency === stateRef.current.currency &&
+        source === stateRef.current.countrySource
+      )
+        return;
+      applyAction(
+        {
+          type: "SET_COUNTRY_AND_CURRENCY",
+          country,
+          currency,
+          source,
+        },
+        true,
+      );
     },
-    [applyAction],
+    [applyAction, searchParams],
   );
 
   const setBankId = useCallback(

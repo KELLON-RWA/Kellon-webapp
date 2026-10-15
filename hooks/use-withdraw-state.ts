@@ -91,6 +91,9 @@ function reducer(state: State, action: Action): State {
         ? state
         : { ...state, amount: action.amount };
     case "SET_COUNTRY_AND_CURRENCY":
+      if (action.source === "auto" && state.countrySource === "manual") {
+        return state;
+      }
       if (
         action.country === state.country &&
         action.currency === state.currency &&
@@ -283,17 +286,29 @@ export function useWithdrawState() {
 
   const setCountryAndCurrency = useCallback(
     (country: string, currency: string, source: "auto" | "manual" = "auto") => {
-      if (country === stateRef.current.country &&
+      if (
+        source === "auto" &&
+        (stateRef.current.countrySource === "manual" ||
+          searchParams.get("countrySource") === "manual")
+      )
+        return;
+      if (
+        country === stateRef.current.country &&
         currency === stateRef.current.currency &&
-        source === stateRef.current.countrySource) return;
-      applyAction({
-        type: "SET_COUNTRY_AND_CURRENCY",
-        country,
-        currency,
-        source,
-      }, true);
+        source === stateRef.current.countrySource
+      )
+        return;
+      applyAction(
+        {
+          type: "SET_COUNTRY_AND_CURRENCY",
+          country,
+          currency,
+          source,
+        },
+        true,
+      );
     },
-    [applyAction],
+    [applyAction, searchParams],
   );
 
   const setProviderId = useCallback(
