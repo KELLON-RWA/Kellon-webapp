@@ -27,6 +27,8 @@ export type FinnhubMarketData = {
 };
 
 import type { CompanyNewsArticle, CompanyNewsSource } from "@/lib/company-news";
+import type { NewsCompanyFacts } from "@/lib/company-news-facts";
+import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
 
 export type DexScreenerPool = {
   chain?: string;
@@ -49,6 +51,16 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 export const stockResearchService = {
+  getCompanyProfile(symbol: string, name: string) {
+    return getJson<{ profile: WikidataCompanyProfile | null }>(
+      `/api/market/company/${encodeURIComponent(symbol)}?${new URLSearchParams({ name })}`,
+    );
+  },
+  getCompanyNewsFacts(symbol: string, name: string) {
+    return getJson<{ facts: NewsCompanyFacts }>(
+      `/api/market/news/${encodeURIComponent(symbol)}?${new URLSearchParams({ name, profile: "1" })}`,
+    );
+  },
   getFinnhubMarketData(symbol: string) {
     return getJson<FinnhubMarketData>(
       `/api/market/stocks/${encodeURIComponent(symbol)}`,

@@ -3,12 +3,22 @@ export type CompanyNewsArticle = {
   url: string;
   source: string;
   publishedAt: string;
+  summary?: string;
+  imageUrl?: string;
 };
 
 export type CompanyNewsSource = "Google News" | "Finnhub";
 
 export function getCompanyNewsName(name: string): string {
   return name.replace(/\s+(?:tokenized\s+stock|[bcx]stock|IPO)$/i, "").trim();
+}
+
+export function getCompanyNewsQuery(symbol: string, name: string): string {
+  if (symbol === "DJT")
+    return '"Trump Media & Technology Group" OR "Trump Media and Technology Group"';
+  if (symbol === "DPRI")
+    return '"Dangote Petroleum Refinery" OR "Dangote Refinery"';
+  return `"${getCompanyNewsName(name).replace(/"/g, "")}"`;
 }
 
 function decodeXml(value: string): string {
@@ -21,7 +31,44 @@ function decodeXml(value: string): string {
     .replace(/&gt;/g, ">");
 }
 
-export function parseGoogleNewsRss(xml: string): CompanyNewsArticle[] {
+function safeImageUrl(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  try {
+    const url = new URL(decodeXml(value.trim()));
+    if (url.protocol !== "https:" || url.username || url.password)
+      return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
+function rssImage(item: string, description: string): string | undefined {
+  // Only images supplied by the feed; do not scrape or guess publisher images.
+  const tags =
+    item.match(/<(?:media:thumbnail|media:content|enclosure)\b[^>]*>/gi) || [];
+  for (const tag of tags) {
+    const type = tag.match(/\btype=["']([^"']+)["']/i)?.[1];
+    const medium = tag.match(/\bmedium=["']([^"']+)["']/i)?.[1];
+    const url = tag.match(/\burl=["']([^"']+)["']/i)?.[1];
+    if (
+      /^<media:thumbnail/i.test(tag) ||
+      medium === "image" ||
+      type?.startsWith("image/")
+    ) {
+      const image = safeImageUrl(url);
+      if (image) return image;
+    }
+  }
+  return safeImageUrl(
+    description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i)?.[1],
+  );
+}
+
+export function parseGoogleNewsRss(
+  xml: string,
+  limit = 6,
+): CompanyNewsArticle[] {
   return normalizeCompanyNews(
     (xml.match(/<item>[\s\S]*?<\/item>/gi) || []).map((item) => {
       const field = (name: string) => {
@@ -36,8 +83,14 @@ export function parseGoogleNewsRss(xml: string): CompanyNewsArticle[] {
         url: field("link"),
         source: field("source") || "Google News",
         datetime: Number.isFinite(date) ? date / 1000 : 0,
+        image: rssImage(item, field("description")),
+        summary: field("description")
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim(),
       };
     }),
+    limit,
   );
 }
 
@@ -76,6 +129,12 @@ export function normalizeCompanyNews(
         timestamp > 0 && Number.isFinite(date.getTime())
           ? date.toISOString()
           : "",
+      ...(typeof item.summary === "string" && item.summary.trim()
+        ? { summary: item.summary.trim() }
+        : {}),
+      ...(safeImageUrl(item.image)
+        ? { imageUrl: safeImageUrl(item.image) }
+        : {}),
     });
   }
   return articles

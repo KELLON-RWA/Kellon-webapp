@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   getCompanyNewsName,
+  getCompanyNewsQuery,
   normalizeCompanyNews,
   parseGoogleNewsRss,
 } from "@/lib/company-news";
+import { extractCompanyNewsFacts } from "@/lib/company-news-facts";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
@@ -30,9 +32,12 @@ export async function GET(
     );
   }
   let googleReturnedEmpty = false;
+  const profileOnly = new URL(request.url).searchParams.get("profile") === "1";
   try {
     const query = new URLSearchParams({
-      q: name,
+      q: profileOnly
+        ? `(${getCompanyNewsQuery(symbol, name)}) (CEO OR headquartered OR founded OR employees)`
+        : getCompanyNewsQuery(symbol, name),
       hl: "en-US",
       gl: "US",
       ceid: "US:en",
@@ -47,13 +52,32 @@ export async function GET(
     if (!response.ok) throw new Error("Google News request failed");
     const xml = await response.text();
     if (!/<rss[\s>]/i.test(xml)) throw new Error("Invalid Google News feed");
-    const articles = parseGoogleNewsRss(xml);
+    const candidates = parseGoogleNewsRss(xml, 30);
+    const articles =
+      symbol === "DJT"
+        ? candidates.filter((article) =>
+            /\bTrump Media\b|\bTMTG\b|\bDJT\b|\bTruth Social\b/i.test(
+              article.title,
+            ),
+          )
+        : candidates;
+    if (profileOnly)
+      return NextResponse.json({
+        facts: extractCompanyNewsFacts(articles, name, symbol),
+        source: "Google News",
+      });
     if (articles.length)
-      return NextResponse.json({ articles, source: "Google News" });
+      return NextResponse.json({
+        articles: articles.slice(0, 6),
+        source: "Google News",
+      });
     googleReturnedEmpty = true;
   } catch {
     // Google is primary. Try Finnhub only when it failed or supplied no usable stories.
   }
+
+  if (profileOnly)
+    return NextResponse.json({ facts: {}, source: "Google News" });
 
   const token = process.env.FINNHUB_API_KEY;
   if (!token) {

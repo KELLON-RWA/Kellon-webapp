@@ -23,7 +23,7 @@ describe("company news proxy", () => {
     vi.stubEnv("FINNHUB_API_KEY", "");
     await get("DPRI", "Dangote Petroleum Refinery IPO");
     expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("q")).toBe(
-      "Dangote Petroleum Refinery",
+      '"Dangote Petroleum Refinery" OR "Dangote Refinery"',
     );
   });
   it("requires a company name instead of silently searching the ticker", async () => {

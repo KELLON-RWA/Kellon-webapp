@@ -39,6 +39,10 @@ import {
 } from "@/services/api/stock-research";
 import type { CompanyNewsArticle, CompanyNewsSource } from "@/lib/company-news";
 import { getCompanyNewsName } from "@/lib/company-news";
+import type { NewsCompanyFacts } from "@/lib/company-news-facts";
+import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
+import { DANGOTE_COMPANY_PROFILE } from "@/lib/dangote-company-profile";
+import CompanyNewsThumbnail from "@/components/earn/CompanyNewsThumbnail";
 import { isRwaStockListing, stocksService } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
@@ -80,6 +84,11 @@ const STOCK_DESCRIPTIONS: Record<string, string> = {
 };
 
 type CompanyProfile = {
+  name?: string;
+  description?: string;
+  facts?: Array<{ label: string; value: string }>;
+  sources?: Array<{ label: string; url: string }>;
+  reviewedAt?: string;
   website: string;
   sector: string;
   industry: string;
@@ -123,6 +132,7 @@ function formatMetricRange(
 }
 
 const COMPANY_PROFILES: Record<string, CompanyProfile> = {
+  DPRI: DANGOTE_COMPANY_PROFILE,
   AAPL: {
     website: "https://www.apple.com",
     sector: "Technology",
@@ -499,6 +509,32 @@ export default function StockDetailsPage({
     });
   const finnhubMarketData = isRwa ? undefined : exchangeMarketData;
   const companyNewsName = getCompanyNewsName(stock?.name || "");
+  const { data: companyProfileData, refetch: refetchCompanyProfile } = useQuery(
+    {
+      queryKey: ["wikidata-company-profile", normalizedSymbol, companyNewsName],
+      queryFn: () =>
+        stockResearchService.getCompanyProfile(
+          normalizedSymbol,
+          companyNewsName,
+        ),
+      enabled: !isRwa && Boolean(stock) && activeTab === "Company",
+      staleTime: 24 * 60 * 60_000,
+    },
+  );
+  const { data: companyNewsFactsData } = useQuery({
+    queryKey: ["company-news-facts", normalizedSymbol, companyNewsName],
+    queryFn: () =>
+      stockResearchService.getCompanyNewsFacts(
+        normalizedSymbol,
+        companyNewsName,
+      ),
+    enabled:
+      !isRwa &&
+      Boolean(stock) &&
+      Boolean(companyNewsName) &&
+      activeTab === "Company",
+    staleTime: 5 * 60_000,
+  });
   const {
     data: companyNewsData,
     isLoading: isCompanyNewsLoading,
@@ -506,8 +542,10 @@ export default function StockDetailsPage({
     refetch: refetchCompanyNews,
   } = useQuery({
     queryKey: ["company-news", normalizedSymbol, companyNewsName],
-    queryFn: () => stockResearchService.getCompanyNews(normalizedSymbol, companyNewsName),
-    enabled: Boolean(stock) && Boolean(companyNewsName) && activeTab === "Company",
+    queryFn: () =>
+      stockResearchService.getCompanyNews(normalizedSymbol, companyNewsName),
+    enabled:
+      Boolean(stock) && Boolean(companyNewsName) && activeTab === "Company",
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
     refetchIntervalInBackground: false,
@@ -721,6 +759,7 @@ export default function StockDetailsPage({
                   ]
                 : []),
               refetchCompanyNews(),
+              refetchCompanyProfile(),
               refetchDexScreener(),
             ])
           }
@@ -1076,6 +1115,8 @@ export default function StockDetailsPage({
           company={company}
           finnhubMarketData={finnhubMarketData}
           companyNews={companyNewsData?.articles || []}
+          newsFacts={companyNewsFactsData?.facts || {}}
+          wikidataProfile={companyProfileData?.profile || undefined}
           companyNewsSource={companyNewsData?.source}
           isCompanyNewsLoading={isCompanyNewsLoading}
           isCompanyNewsError={isCompanyNewsError}
@@ -1153,6 +1194,8 @@ function StockResearchContent({
   company,
   finnhubMarketData,
   companyNews,
+  newsFacts,
+  wikidataProfile,
   companyNewsSource,
   isCompanyNewsLoading,
   isCompanyNewsError,
@@ -1171,6 +1214,8 @@ function StockResearchContent({
   company?: CompanyProfile;
   finnhubMarketData?: FinnhubMarketData;
   companyNews: CompanyNewsArticle[];
+  newsFacts: NewsCompanyFacts;
+  wikidataProfile?: WikidataCompanyProfile;
   companyNewsSource?: CompanyNewsSource;
   isCompanyNewsLoading: boolean;
   isCompanyNewsError: boolean;
@@ -1197,18 +1242,35 @@ function StockResearchContent({
         <section className="rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="mr-2 text-xl font-bold text-cryptoNight dark:text-white">
-              {officialProfile?.name || title}
+              {company?.name ||
+                wikidataProfile?.name ||
+                officialProfile?.name ||
+                title}
             </h2>
             <span className="rounded-full border border-primary-60/40 bg-primary-70/5 px-2.5 py-1 text-xs font-semibold text-primary-60 dark:bg-primary-70/10 dark:text-primary-60">
-              {officialProfile?.industry || company?.sector || "Public equity"}
+              {company?.facts
+                ? company.industry
+                : wikidataProfile?.industry ||
+                  officialProfile?.industry ||
+                  company?.sector ||
+                  "Public equity"}
             </span>
           </div>
           <p className="mt-5 max-w-3xl text-sm leading-6 text-gray-30 dark:text-gray-40">
-            {description}
+            {company?.description ||
+              (description.includes("is available as a tokenized stock")
+                ? wikidataProfile?.description || description
+                : description)}
           </p>
-          {officialProfile?.website || company?.website ? (
+          {company?.website ||
+          wikidataProfile?.website ||
+          officialProfile?.website ? (
             <a
-              href={officialProfile?.website || company?.website}
+              href={
+                company?.website ||
+                wikidataProfile?.website ||
+                officialProfile?.website
+              }
               target="_blank"
               rel="noreferrer"
               className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 text-sm font-semibold text-primary-60 transition hover:bg-primary-70/10 dark:border-primary-60/40 dark:text-primary-60 sm:w-auto sm:px-6"
@@ -1217,44 +1279,113 @@ function StockResearchContent({
             </a>
           ) : null}
           <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-gray-80 bg-gray-80 sm:grid-cols-2 dark:border-white/10 dark:bg-white/10">
-            <CompanyFact
-              icon={<Building2 className="h-4 w-4" />}
-              label={officialProfile ? "Exchange" : "Chief executive"}
-              value={
-                officialProfile?.exchange || company?.ceo || "Not available"
-              }
-            />
-            <CompanyFact
-              icon={<MapPin className="h-4 w-4" />}
-              label="Headquarters"
-              value={
-                officialProfile?.country ||
-                company?.headquarters ||
-                "Not available"
-              }
-            />
-            <CompanyFact
-              icon={<Landmark className="h-4 w-4" />}
-              label={officialProfile?.ipo ? "IPO date" : "Founded"}
-              value={
-                officialProfile?.ipo || company?.founded || "Not available"
-              }
-            />
-            <CompanyFact
-              icon={<Users className="h-4 w-4" />}
-              label={officialProfile ? "Shares outstanding" : "Employees"}
-              value={
-                officialProfile?.sharesOutstanding
-                  ? formatCompactNumber(
-                      officialProfile.sharesOutstanding * 1_000_000,
-                    )
-                  : company?.employees || "Not available"
-              }
-            />
+            {company?.facts ? (
+              company.facts.map((fact) => (
+                <CompanyFact
+                  key={fact.label}
+                  icon={<Building2 className="h-4 w-4" />}
+                  label={fact.label}
+                  value={fact.value}
+                />
+              ))
+            ) : (
+              <>
+                <CompanyFact
+                  icon={<Building2 className="h-4 w-4" />}
+                  label="Chief executive"
+                  value={
+                    wikidataProfile?.ceo ||
+                    company?.ceo ||
+                    newsFacts.ceo?.value ||
+                    "Not available"
+                  }
+                />
+                <CompanyFact
+                  icon={<MapPin className="h-4 w-4" />}
+                  label="Headquarters"
+                  value={
+                    wikidataProfile?.headquarters ||
+                    company?.headquarters ||
+                    newsFacts.headquarters?.value ||
+                    "Not available"
+                  }
+                />
+                <CompanyFact
+                  icon={<Landmark className="h-4 w-4" />}
+                  label="Founded"
+                  value={
+                    wikidataProfile?.founded ||
+                    company?.founded ||
+                    newsFacts.founded?.value ||
+                    "Not available"
+                  }
+                />
+                <CompanyFact
+                  icon={<Users className="h-4 w-4" />}
+                  label={
+                    wikidataProfile?.employeesAsOf
+                      ? `Employees (${wikidataProfile.employeesAsOf.slice(0, 4)})`
+                      : "Employees"
+                  }
+                  value={
+                    wikidataProfile?.employees ||
+                    company?.employees ||
+                    newsFacts.employees?.value ||
+                    "Not available"
+                  }
+                />
+              </>
+            )}
           </div>
           <p className="mt-4 text-xs text-gray-30 dark:text-gray-40">
-            Official company profile data from Finnhub.
+            {company?.sources ? (
+              <>
+                Official company sources · Reviewed {company.reviewedAt}. These
+                profile facts are manually maintained, not live market data.
+              </>
+            ) : wikidataProfile ? (
+              <>
+                Company facts from{" "}
+                <a
+                  href={wikidataProfile.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary-60 hover:underline"
+                >
+                  Wikidata
+                </a>
+                ; missing fields use existing company information or attributed
+                news. Community-maintained data may lag company updates.
+              </>
+            ) : (
+              "Existing company information and attributed news are used where available."
+            )}
           </p>
+          {company?.sources?.map((source) => (
+            <a
+              key={source.url}
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 block text-xs text-primary-60 hover:underline"
+            >
+              {source.label} <ExternalLink className="inline h-3 w-3" />
+            </a>
+          ))}
+          {Object.entries(newsFacts).map(([field, fact]) => (
+            <a
+              key={field}
+              href={fact.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 block text-xs text-primary-60 hover:underline"
+            >
+              News-reported {field}: {fact.value} — {fact.source}
+              {fact.publishedAt
+                ? ` (${new Date(fact.publishedAt).toLocaleDateString("en-US", { timeZone: "UTC" })})`
+                : ""}
+            </a>
+          ))}
         </section>
 
         <section className="rounded-2xl border border-gray-80 bg-white/70 p-5 dark:border-white/10 dark:bg-secondary-50/60 md:p-7">
@@ -1264,7 +1395,9 @@ function StockResearchContent({
                 Latest news
               </h2>
               <p className="mt-1 text-sm text-gray-30 dark:text-gray-40">
-                {companyNewsSource ? `Company headlines from ${companyNewsSource}.` : "Latest company headlines."}
+                {companyNewsSource
+                  ? `Company headlines from ${companyNewsSource}.`
+                  : "Latest company headlines."}
               </p>
             </div>
             <span className="text-xs font-semibold text-gray-30 dark:text-gray-40">
@@ -1281,7 +1414,10 @@ function StockResearchContent({
               ))}
             </div>
           ) : isCompanyNewsError ? (
-            <p className="mt-5 text-sm text-gray-30 dark:text-gray-40" role="status">
+            <p
+              className="mt-5 text-sm text-gray-30 dark:text-gray-40"
+              role="status"
+            >
               Company news is temporarily unavailable. Please try again later.
             </p>
           ) : companyNews.length ? (
@@ -1294,7 +1430,8 @@ function StockResearchContent({
                   rel="noreferrer"
                   className="flex items-start justify-between gap-4 p-4 transition hover:bg-gray-90 dark:hover:bg-white/5"
                 >
-                  <span className="min-w-0">
+                  <CompanyNewsThumbnail src={article.imageUrl} />
+                  <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold leading-5 text-cryptoNight dark:text-white">
                       {article.title}
                     </span>

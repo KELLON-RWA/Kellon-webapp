@@ -6,6 +6,38 @@ import {
 } from "./company-news";
 
 describe("Finnhub company news", () => {
+  it("preserves source-provided Finnhub images and rejects unsafe URLs", () => {
+    const story = {
+      headline: "Company news",
+      url: "https://example.com/story",
+      image: "https://example.com/photo.jpg",
+    };
+    expect(normalizeCompanyNews([story])[0].imageUrl).toBe(story.image);
+    expect(
+      normalizeCompanyNews([{ ...story, image: "javascript:alert(1)" }])[0]
+        .imageUrl,
+    ).toBeUndefined();
+  });
+  it("reads RSS media thumbnails, image enclosures and description images", () => {
+    for (const image of [
+      '<media:thumbnail url="https://example.com/photo.jpg"/>',
+      '<enclosure type="image/jpeg" url="https://example.com/photo.jpg"/>',
+      '<description><![CDATA[<img src="https://example.com/photo.jpg">]]></description>',
+    ]) {
+      expect(
+        parseGoogleNewsRss(
+          `<rss><item><title>News</title><link>https://example.com/story</link>${image}</item></rss>`,
+        )[0].imageUrl,
+      ).toBe("https://example.com/photo.jpg");
+    }
+  });
+  it("does not treat a video enclosure as a thumbnail", () => {
+    expect(
+      parseGoogleNewsRss(
+        '<rss><item><title>News</title><link>https://example.com/story</link><enclosure type="video/mp4" url="https://example.com/movie.mp4"/></item></rss>',
+      )[0].imageUrl,
+    ).toBeUndefined();
+  });
   it("uses company names without provider or IPO suffixes", () => {
     expect(getCompanyNewsName("Apple Inc. Tokenized Stock")).toBe("Apple Inc.");
     expect(getCompanyNewsName("Apple xStock")).toBe("Apple");
