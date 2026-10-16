@@ -1,20 +1,69 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import { useNotifications, useMarkAsRead } from "@/hooks/use-notifications";
 import { getFeaturedSystemNotifications } from "@/lib/featured-system-notifications";
 import NotificationDetailModal from "@/components/modals/NotificationDetailModal";
 import type { Notification } from "@/types/db";
 
+const DISMISSAL_KEY = "kellon-featured-updates-dismissed-until";
+const DISMISSAL_DURATION = 5 * 60_000;
+
 export default function SystemUpdatesPanel() {
   const { data: notifications = [], isLoading, error } = useNotifications();
   const { mutate: markAsRead } = useMarkAsRead();
   const [selected, setSelected] = useState<Notification | null>(null);
   const [index, setIndex] = useState(0);
+  const [dismissedUntil, setDismissedUntil] = useState(0);
+  const [dismissalLoaded, setDismissalLoaded] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const updates = getFeaturedSystemNotifications(notifications);
   const activeIndex = Math.min(index, Math.max(0, updates.length - 1));
+  const isDismissed = !dismissalLoaded || dismissedUntil > 0;
+
+  useEffect(() => {
+    try {
+      const savedUntil = Number(sessionStorage.getItem(DISMISSAL_KEY));
+      if (Number.isFinite(savedUntil) && savedUntil > Date.now()) {
+        setDismissedUntil(savedUntil);
+      } else {
+        sessionStorage.removeItem(DISMISSAL_KEY);
+      }
+    } catch {
+      // Dismissal still works in memory when browser storage is unavailable.
+    }
+    setDismissalLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!dismissedUntil) return;
+    const timeout = window.setTimeout(
+      () => {
+        setDismissedUntil(0);
+        setIndex(0);
+        try {
+          sessionStorage.removeItem(DISMISSAL_KEY);
+        } catch {
+          // Browser storage may be disabled.
+        }
+      },
+      Math.max(0, dismissedUntil - Date.now()),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [dismissedUntil]);
+
+  const dismiss = () => {
+    const until = Date.now() + DISMISSAL_DURATION;
+    setDismissedUntil(until);
+    setIndex(0);
+    try {
+      sessionStorage.setItem(DISMISSAL_KEY, String(until));
+    } catch {
+      // Keep the in-memory dismissal when browser storage is unavailable.
+    }
+  };
 
   const updateCount = updates.length;
   const scrollToUpdate = useCallback(
@@ -33,7 +82,8 @@ export default function SystemUpdatesPanel() {
   );
 
   useEffect(() => {
-    if (isLoading || error || selected || updateCount < 2) return;
+    if (isDismissed || isLoading || error || selected || updateCount < 2)
+      return;
 
     const interval = window.setInterval(() => {
       const viewport = viewportRef.current;
@@ -45,9 +95,9 @@ export default function SystemUpdatesPanel() {
     }, 5_000);
 
     return () => window.clearInterval(interval);
-  }, [isLoading, error, selected, updateCount, scrollToUpdate]);
+  }, [isDismissed, isLoading, error, selected, updateCount, scrollToUpdate]);
 
-  if (error || (!isLoading && !updates.length)) return null;
+  if (isDismissed || error || (!isLoading && !updates.length)) return null;
 
   return (
     <>
@@ -90,7 +140,7 @@ export default function SystemUpdatesPanel() {
                   key={notification.id}
                   type="button"
                   tabIndex={updateIndex === activeIndex ? 0 : -1}
-                  className="group relative flex h-[80px] w-full shrink-0 cursor-pointer snap-start snap-always items-center gap-3 overflow-hidden py-3 pl-10 pr-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-70 sm:gap-4 sm:pr-5"
+                  className="group relative flex h-[80px] w-full shrink-0 cursor-pointer snap-start snap-always items-center gap-3 overflow-hidden py-3 pl-10 pr-12 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-70 sm:gap-4 sm:pr-14"
                   onClick={() => {
                     setSelected(notification);
                     if (!notification.readAt)
@@ -120,6 +170,15 @@ export default function SystemUpdatesPanel() {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              aria-label="Hide featured updates for 5 minutes"
+              title="Hide for 5 minutes"
+              onClick={dismiss}
+              className="absolute right-2 top-2 z-20 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-70 dark:text-gray-40 dark:hover:bg-white/10"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
             {updates.length > 1 && (
               <div
                 className="absolute left-2 top-1/2 flex -translate-y-1/2 flex-col items-center"
