@@ -25,19 +25,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
-import { getChainLabel, getExplorerTransactionUrl } from "@/lib/chains";
+import { getExplorerTransactionUrl } from "@/lib/chains";
 import {
-  getCurrencyDecimals,
-  getCurrencySymbol,
-} from "@/lib/country-currency-map";
+  buildTransactionDetailSections,
+  escapeReceiptHtml,
+  formatAssetAmount,
+  formatFiatAmount,
+  formatPaidAmount,
+  getFiatCurrency,
+  getFiatReceivedAmount,
+  getReceiptPdfImageSize,
+  getTransactionMetadata,
+  getTransactionNetwork,
+  getTransactionReceiptAmount,
+  getTransactionReceiptAmountLabel,
+} from "@/lib/transaction-receipt";
 import { transactionService } from "@/services/api/transactions";
 import { providerService } from "@/services/api/payment-providers";
 import type { Transaction } from "@/types/db";
 import { getTransactionRefetchInterval } from "@/lib/transaction-polling";
 import { shouldReturnHomeFromTransaction } from "@/lib/transaction-navigation";
 import {
-  getTransactionDisplayAmount,
-  getTransactionFiatAmount,
   getTransactionHash,
   getTransactionOperation,
   getTransactionSymbol,
@@ -46,7 +54,6 @@ import {
 } from "@/lib/dashboard-utils";
 import {
   extractTransactionBankDetails,
-  getNestedProviderNumber,
   resolveBankNameByCode,
 } from "@/lib/transaction-detail-metadata";
 import html2canvas from "html2canvas";
@@ -55,23 +62,6 @@ import jsPDF from "jspdf";
 interface TransactionDetailsProps {
   id: string;
   origin?: string;
-}
-
-function formatAssetAmount(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: value > 0 && value < 1 ? 2 : 0,
-    maximumFractionDigits: 6,
-  }).format(value);
-}
-
-function formatFiatAmount(value: number, currency: string): string {
-  const decimals = getCurrencyDecimals(currency);
-  const symbol = getCurrencySymbol(currency);
-
-  return `${symbol}${new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value)}`;
 }
 
 function formatDateTime(value: Date | string): string {
@@ -199,332 +189,6 @@ function isPositiveTransaction(type: Transaction["type"]): boolean {
   return ["DEPOSIT", "BUY", "TRANSFER_IN"].includes(type);
 }
 
-function formatPaidAmount(transaction: Transaction): string | null {
-  const fiatAmount = getTransactionFiatAmount(transaction);
-
-  if (fiatAmount === null) return null;
-
-  return formatFiatAmount(fiatAmount, getFiatCurrency(transaction));
-}
-
-function getFiatCurrency(transaction: Transaction): string {
-  const metadata = getTransactionMetadata(transaction);
-
-  return (
-    getStringMetadataValue(metadata, [
-      "fiatCurrency",
-      "receiveCurrency",
-      "currency",
-      "localCurrency",
-    ]) || "NGN"
-  ).toUpperCase();
-}
-
-function getFiatReceivedAmount(transaction: Transaction): number | null {
-  const metadata = getTransactionMetadata(transaction);
-
-  const directAmount = getNumericMetadataValue(metadata, [
-    "settledFiat",
-    "orderNetFiat",
-    "receiveAmount",
-    "estimatedFiatAmount",
-    "fiatPayoutAmount",
-    "amountReceived",
-    "fiatAmount",
-  ]);
-  if (directAmount !== null) return directAmount;
-
-  if (transaction.type === "WITHDRAW" || transaction.type === "SELL") {
-    return getNestedProviderNumber(metadata, "centiivResponse", [
-      "receivableAmount",
-      "nairaValue",
-    ]);
-  }
-
-  return null;
-}
-
-function getTransactionRate(transaction: Transaction): number | null {
-  const metadata = getTransactionMetadata(transaction);
-
-  return (
-    getNumericMetadataValue(metadata, ["rate", "rawRate", "exchangeRate"]) ??
-    getNestedProviderNumber(metadata, "centiivResponse", ["rate"])
-  );
-}
-
-function getTransactionFee(transaction: Transaction): number | null {
-  const metadata = getTransactionMetadata(transaction);
-
-  return (
-    getNumericMetadataValue(metadata, [
-      "fee",
-      "fees",
-      "feeAmount",
-      "providerFee",
-    ]) ?? getNestedProviderNumber(metadata, "centiivResponse", ["fee"])
-  );
-}
-
-function getTransactionNetwork(transaction: Transaction): string {
-  const transactionWithChain = transaction as Transaction & {
-    chain?: string | null;
-    network?: string | null;
-  };
-  const metadata = getTransactionMetadata(transaction);
-  const provider =
-    typeof metadata.provider === "string"
-      ? metadata.provider.toLowerCase()
-      : null;
-  const chain =
-    transactionWithChain.chain ||
-    transactionWithChain.network ||
-    getStringMetadataValue(metadata, [
-      "chain",
-      "network",
-      "networkName",
-      "selectedChain",
-    ]);
-
-  switch (provider) {
-    case "paycrest":
-      return getChainLabel(
-        getStringMetadataValue(metadata, ["network"]) || chain,
-      );
-    case "centiiv":
-      return getChainLabel(
-        getStringMetadataValue(metadata, ["chain"]) || chain,
-      );
-    default:
-      return chain ? getChainLabel(chain) : "Unknown";
-  }
-}
-
-function getTransactionMetadata(
-  transaction: Transaction,
-): Record<string, unknown> {
-  return transaction.metadata && typeof transaction.metadata === "object"
-    ? (transaction.metadata as Record<string, unknown>)
-    : {};
-}
-
-function getStringMetadataValue(
-  metadata: Record<string, unknown>,
-  keys: string[],
-): string | null {
-  for (const key of keys) {
-    const value = metadata[key];
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function getNumericMetadataValue(
-  metadata: Record<string, unknown>,
-  keys: string[],
-): number | null {
-  for (const key of keys) {
-    const value = metadata[key];
-    const parsed =
-      typeof value === "string" || typeof value === "number"
-        ? Number(value)
-        : NaN;
-
-    if (Number.isFinite(parsed)) return parsed;
-  }
-
-  return null;
-}
-
-function getBankDetailRows(
-  transaction: Transaction,
-  resolvedBankName?: string | null,
-): DetailRow[] {
-  const metadata = getTransactionMetadata(transaction);
-  const { bankName, bankCode, accountName, accountNumber } =
-    extractTransactionBankDetails(metadata);
-  const displayBankName = bankName || resolvedBankName;
-
-  return [
-    displayBankName
-      ? { label: "Bank Name", value: displayBankName }
-      : bankCode
-        ? { label: "Bank Code", value: bankCode }
-        : null,
-    accountName ? { label: "Account Name", value: accountName } : null,
-    accountNumber ? { label: "Account Number", value: accountNumber } : null,
-  ].filter(Boolean) as DetailRow[];
-}
-
-function getRecipientDetailRows(transaction: Transaction): DetailRow[] {
-  const metadata = getTransactionMetadata(transaction);
-  const tag = getStringMetadataValue(metadata, ["recipientTag"]);
-  const email = getStringMetadataValue(metadata, ["recipientEmail"]);
-  const address = getStringMetadataValue(metadata, [
-    "recipientAddress",
-    "address",
-  ]);
-  const method = getStringMetadataValue(metadata, ["recipientMethod"]);
-  const addressType = getStringMetadataValue(metadata, [
-    "recipientAddressType",
-  ]);
-
-  const rows: DetailRow[] = [];
-
-  if (method === "tag" && tag) {
-    rows.push({ label: "Tag", value: tag });
-  } else if (method === "email" && email) {
-    rows.push({ label: "Email", value: email });
-  } else if ((addressType === "evm" || addressType === "stellar") && address) {
-    rows.push({ label: "Address", value: address, copyable: true, mono: true });
-  } else {
-    // Fallback for older transactions that might not have method/addressType
-    if (tag) {
-      rows.push({ label: "Tag", value: tag });
-    } else if (email) {
-      rows.push({ label: "Email", value: email });
-    } else if (address) {
-      rows.push({
-        label: "Address",
-        value: address,
-        copyable: true,
-        mono: true,
-      });
-    }
-  }
-
-  return rows;
-}
-
-interface DetailRow {
-  label: string;
-  value: string;
-  copyable?: boolean;
-  mono?: boolean;
-}
-
-interface DetailSection {
-  title?: string;
-  rows: DetailRow[];
-}
-
-function buildTransactionDetailSections(
-  transaction: Transaction,
-  amountValue: number | null,
-  symbol: string,
-  transactionNetwork: string,
-  resolvedBankName?: string | null,
-): DetailSection[] {
-  const metadata = getTransactionMetadata(transaction);
-  const fiatCurrency = getFiatCurrency(transaction);
-  const rate = getTransactionRate(transaction);
-  const fee = getTransactionFee(transaction);
-  const fiatReceived = getFiatReceivedAmount(transaction);
-  const amountText =
-    amountValue === null
-      ? `-- ${symbol}`
-      : `${formatAssetAmount(amountValue)} ${symbol}`;
-  const operation = getTransactionOperation(transaction);
-  const methodLabel = getTransactionTitle(transaction);
-  const paidAmount = formatPaidAmount(transaction);
-
-  const baseRows: DetailRow[] = [{ label: "Method", value: methodLabel }];
-
-  if (amountValue === null && paidAmount) {
-    baseRows.push({ label: "Amount paid", value: paidAmount });
-  } else {
-    baseRows.push({ label: "Amount", value: amountText });
-  }
-
-  if (operation === "withdraw" && fiatReceived !== null) {
-    baseRows.push({
-      label: metadata.settledFiat
-        ? "Bank payout confirmed"
-        : "Expected bank payout",
-      value: formatFiatAmount(fiatReceived, fiatCurrency),
-    });
-    const quoted = getNumericMetadataValue(metadata, ["quotedNetFiat"]);
-    if (
-      quoted !== null &&
-      quoted > 0 &&
-      Math.abs(quoted - fiatReceived) >= 0.01
-    ) {
-      baseRows.push({
-        label: "Originally quoted",
-        value: formatFiatAmount(quoted, fiatCurrency),
-      });
-    }
-  } else if (["buy", "deposit"].includes(operation)) {
-    if (paidAmount && amountValue !== null) {
-      baseRows.push({ label: "Amount Paid", value: paidAmount });
-    }
-  } else if (transaction.type === "SELL" && fiatReceived !== null) {
-    baseRows.push({
-      label: "Amount Received",
-      value: formatFiatAmount(fiatReceived, fiatCurrency),
-    });
-  }
-
-  if (fee !== null) {
-    const feeCurrency =
-      getStringMetadataValue(metadata, ["feeCurrency"]) ||
-      symbol ||
-      fiatCurrency;
-    const isFiatFee = feeCurrency === fiatCurrency;
-    baseRows.push({
-      label: "Fee",
-      value: isFiatFee
-        ? formatFiatAmount(fee, fiatCurrency)
-        : `${formatAssetAmount(fee)} ${feeCurrency}`,
-    });
-  }
-
-  if (transactionNetwork && transactionNetwork !== "Unknown") {
-    baseRows.push({ label: "Network", value: transactionNetwork });
-  }
-
-  if (rate !== null) {
-    baseRows.push({
-      label: "Rate",
-      value: `${formatFiatAmount(rate, fiatCurrency)} / ${symbol}`,
-    });
-  }
-
-  const transactionHash = getTransactionHash(transaction);
-  if (transactionHash) {
-    baseRows.push({
-      label: "Transaction hash",
-      value: transactionHash,
-      copyable: true,
-      mono: true,
-    });
-  }
-
-  baseRows.push({
-    label: "Reference ID",
-    value: transaction.id,
-    copyable: true,
-    mono: true,
-  });
-
-  const sections: DetailSection[] = [{ rows: baseRows }];
-  const bankRows = getBankDetailRows(transaction, resolvedBankName);
-  const recipientRows = getRecipientDetailRows(transaction);
-
-  if (bankRows.length > 0) {
-    sections.push({ title: "Account Details", rows: bankRows });
-  }
-
-  if (transaction.type === "TRANSFER_OUT" && recipientRows.length > 0) {
-    sections.push({ title: "Recipient", rows: recipientRows });
-  }
-
-  return sections;
-}
-
 export default function TransactionDetails({
   id,
   origin,
@@ -616,7 +280,7 @@ export default function TransactionDetails({
 
   const amountValue = useMemo(() => {
     if (!transaction) return null;
-    return getTransactionDisplayAmount(transaction);
+    return getTransactionReceiptAmount(transaction);
   }, [transaction]);
 
   const symbol = useMemo(() => {
@@ -685,13 +349,13 @@ export default function TransactionDetails({
     const receiptRows = detailSections
       .flatMap((section) => [
         section.title
-          ? `<div class="section-title">${section.title}</div>`
+          ? `<div class="section-title">${escapeReceiptHtml(section.title)}</div>`
           : "",
         ...section.rows.map(
           (row) => `
                 <div class="detail-row">
-                  <span class="detail-label">${row.label}</span>
-                  <span class="detail-value ${row.mono ? "mono" : ""}">${row.value}</span>
+                  <span class="detail-label">${escapeReceiptHtml(row.label)}</span>
+                  <span class="detail-value ${row.mono ? "mono" : ""}">${escapeReceiptHtml(row.value)}</span>
                 </div>
           `,
         ),
@@ -804,6 +468,7 @@ export default function TransactionDetails({
               font-size: 28px;
               font-weight: 700;
               color: #111827;
+              overflow-wrap: anywhere;
             }
             .transaction-type {
               font-size: 13px;
@@ -818,7 +483,7 @@ export default function TransactionDetails({
               color: #9ca3af;
               font-size: 11px;
               font-weight: 700;
-              letter-spacing: 0.08em;
+              letter-spacing: 0;
               text-transform: uppercase;
             }
             .detail-row {
@@ -831,11 +496,15 @@ export default function TransactionDetails({
             .detail-label {
               font-size: 13px;
               color: #6b7280;
+              flex: 0 0 36%;
             }
             .detail-value {
               font-size: 13px;
               font-weight: 500;
               color: #111827;
+              min-width: 0;
+              text-align: right;
+              overflow-wrap: anywhere;
             }
             .detail-value.mono {
               font-family: monospace;
@@ -870,8 +539,8 @@ export default function TransactionDetails({
               </div>
               <div class="date">${formatDateTime(transaction!.createdAt)}</div>
               <div class="amount-section">
-                <div class="amount">${amountLabel}</div>
-                <div class="transaction-type">${transactionTitle}</div>
+                <div class="amount">${escapeReceiptHtml(getTransactionReceiptAmountLabel(transaction!))}</div>
+                <div class="transaction-type">${escapeReceiptHtml(transactionTitle)}</div>
               </div>
               <div class="details">
                 ${receiptRows}
@@ -946,10 +615,19 @@ export default function TransactionDetails({
         orientation: "portrait",
       });
 
-      const imgWidth = 210;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const { width: imgWidth, height: imgHeight } = getReceiptPdfImageSize(
+        canvas.width,
+        canvas.height,
+      );
 
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.addImage(
+        imgData,
+        "PNG",
+        (210 - imgWidth) / 2,
+        10,
+        imgWidth,
+        imgHeight,
+      );
       pdf.save(`receipt-${transaction?.id.slice(0, 8)}.pdf`);
     } catch (error) {
       console.error("Failed to download PDF:", error);
