@@ -18,6 +18,7 @@ import {
   getPaymentRailConfig,
   type PaymentRail,
 } from "@/lib/payment-rails";
+import { useUser } from "@/hooks/use-user";
 
 interface ReviewStepProps {
   amount: string;
@@ -59,6 +60,19 @@ export function ReviewStep({
 }: ReviewStepProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const { data: profile } = useUser();
+
+  // Same address the backend settles to: the smart account on EVM, the public key elsewhere.
+  const destination = useMemo(() => {
+    const chain = selectedChain?.name?.toLowerCase();
+    const account = profile?.chainAccounts?.find(
+      (a) => a.chain?.toLowerCase() === chain,
+    );
+    const address = account?.smartAccountAddress || account?.publicKey;
+    return address && address.length > 12
+      ? `${address.slice(0, 6)}…${address.slice(-4)}`
+      : address;
+  }, [profile?.chainAccounts, selectedChain?.name]);
 
   // Safely format estimatedCrypto to avoid .toFixed() error
   const getFormattedCrypto = () => {
@@ -179,6 +193,22 @@ export function ReviewStep({
   return (
     <div className="flex h-full min-h-[calc(100dvh-200px)] flex-col md:min-h-[500px]">
       <div className="flex-1 overflow-y-auto md:px-0 animate-in fade-in slide-in-from-bottom-4">
+        {selectedChain && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-primary-60/30 bg-primary-60/10 p-4">
+            <ChainIcon name={selectedChain.name} size={28} />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-black dark:text-white">
+                You&apos;ll receive {asset} on {selectedChain.name}
+              </p>
+              {destination && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Sent to your {selectedChain.name} wallet {destination}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 1. Summary Chip - Same as Provider Step for consistency */}
         <SummaryPill
           asset={asset}
