@@ -1,5 +1,7 @@
 // --- Types & Interfaces ---
 
+import { providerService } from "@/services/api/payment-providers";
+
 interface TokenPriceResponse {
   [tokenId: string]: { [vsCurrency: string]: number };
 }
@@ -276,6 +278,113 @@ class PriceService {
   }
 
   // --- Exchange Rates ---
+
+  private parseNumber(value: unknown): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }
+
+  async getMainWalletExchangeRate(targetCurrency: string): Promise<number> {
+    const currency = targetCurrency.toUpperCase();
+    if (["USD", "USDC", "USDT"].includes(currency)) return 1;
+
+    const cacheKey = `main_wallet_${currency.toLowerCase()}`;
+    const cached = this.exchangeRateCache.get(cacheKey);
+    // Cache for 3 minutes
+    if (cached && Date.now() - cached.timestamp < 3 * 60 * 1000) {
+      return cached.data;
+    }
+
+    // 1. Try Paycrest buy rate first (1 USDC in target local currency)
+    try {
+      const res = await providerService.getPaycrestRate({
+        token: "USDC",
+        amount: 1,
+        currency,
+        network: "base",
+        side: "buy",
+      });
+      const paycrestRate =
+        this.parseNumber(res.data?.rate) ??
+        this.parseNumber(res.data?.price) ??
+        this.parseNumber(res.data?.data?.rate) ??
+        this.parseNumber(res.data?.data?.price) ??
+        this.parseNumber(res.data?.buy?.rate) ??
+        this.parseNumber(res.data?.buy?.price) ??
+        this.parseNumber(res.data?.fiatAmount);
+
+      if (res.success && paycrestRate && paycrestRate > 0) {
+        this.exchangeRateCache.set(cacheKey, {
+          data: paycrestRate,
+          timestamp: Date.now(),
+        });
+        return paycrestRate;
+      }
+    } catch {
+      // Continue to next provider fallback
+    }
+
+    // 2. Try other providers as fallback: Ramphub
+    try {
+      const res = await providerService.getRamphubQuote({
+        token: "USDC",
+        amount: 1,
+        currency,
+        network: "base",
+        side: "buy",
+      });
+      const ramphubRate =
+        this.parseNumber(res.data?.rate) ??
+        this.parseNumber(res.data?.fiatAmount);
+
+      if (res.success && res.data?.available && ramphubRate && ramphubRate > 0) {
+        this.exchangeRateCache.set(cacheKey, {
+          data: ramphubRate,
+          timestamp: Date.now(),
+        });
+        return ramphubRate;
+      }
+    } catch {
+      // Continue to next provider fallback
+    }
+
+    // 3. Try other providers as fallback: Centiiv
+    try {
+      const res = await providerService.getCentiivQuote({
+        fromAsset: currency,
+        toAsset: "USDC",
+        amount: 1,
+        network: "stellar",
+      });
+      const centiivRate = this.parseNumber(res.data?.rate);
+
+      if (res.success && centiivRate && centiivRate > 0) {
+        this.exchangeRateCache.set(cacheKey, {
+          data: centiivRate,
+          timestamp: Date.now(),
+        });
+        return centiivRate;
+      }
+    } catch {
+      // Continue to default fallback
+    }
+
+    // 4. Fall back to the current open exchange rate provider
+    const fallbackRate = await this.getFiatExchangeRate(currency);
+    if (fallbackRate > 0) {
+      this.exchangeRateCache.set(cacheKey, {
+        data: fallbackRate,
+        timestamp: Date.now(),
+      });
+      return fallbackRate;
+    }
+
+    return cached?.data || 0;
+  }
 
   async getFiatExchangeRate(targetCurrency: string): Promise<number> {
     const currency = targetCurrency.toUpperCase();

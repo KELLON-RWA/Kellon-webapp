@@ -68,7 +68,9 @@ export function useDashboardData(profile: User) {
   });
 
   const localCurrency = currencyCode || "USD";
-  const { exchangeRate, isRateLoading } = useExchangeRate(localCurrency, null);
+  const { exchangeRate, isRateLoading } = useExchangeRate(localCurrency, null, {
+    preferProviderRate: true,
+  });
 
   // A STOPPED chain is hidden from every balance and picker built on these assets.
   const chainStatus = useChainStatus();
