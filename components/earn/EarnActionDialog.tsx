@@ -698,9 +698,13 @@ export default function EarnActionDialog({
 
                 <Button
                   type="submit"
-                  variant="flow"
+                  variant={action === "withdraw" ? "destructive" : "flow"}
                   size="flow"
-                  className="h-14 rounded-[18px]"
+                  className={
+                    action === "withdraw"
+                      ? "h-14 rounded-[18px] bg-red-500 font-bold text-white shadow-lg hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-500"
+                      : "h-14 rounded-[18px]"
+                  }
                   disabled={isSubmitting || availableAmount <= 0}
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">

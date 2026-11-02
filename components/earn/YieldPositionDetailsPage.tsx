@@ -252,12 +252,18 @@ export default function YieldPositionDetailsPage({
       <div className="mt-7 hidden grid-cols-2 gap-3 md:grid">
         <Button
           type="button"
-          variant="outline"
-          className="h-12 border-rose-500/40 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200"
+          variant="destructive"
+          className="group relative h-12 overflow-hidden rounded-xl bg-red-500 font-bold text-white shadow-lg hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-500"
           disabled={!position || !opportunity}
           onClick={() => setActiveAction("withdraw")}
         >
-          <ArrowDownToLine className="h-4 w-4" /> Withdraw
+          <span className="relative z-10 flex items-center justify-center gap-2">
+            <ArrowDownToLine className="h-4 w-4" /> Withdraw
+          </span>
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"
+          />
         </Button>
         <Button
           type="button"
@@ -275,12 +281,18 @@ export default function YieldPositionDetailsPage({
         <div className="mx-auto grid max-w-3xl grid-cols-2 gap-3">
           <Button
             type="button"
-            variant="outline"
-            className="h-12 border-rose-500/40 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200"
+            variant="destructive"
+            className="group relative h-12 overflow-hidden rounded-xl bg-red-500 font-bold text-white shadow-lg hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-500"
             disabled={!position || !opportunity}
             onClick={() => setActiveAction("withdraw")}
           >
-            Withdraw
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              <ArrowDownToLine className="h-4 w-4" /> Withdraw
+            </span>
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"
+            />
           </Button>
           <Button
             type="button"
