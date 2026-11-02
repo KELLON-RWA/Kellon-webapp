@@ -49,6 +49,7 @@ export interface RamphubQuoteParams {
   amount: number;
   currency: string;
   network: string;
+  side?: "buy" | "sell";
 }
 
 export interface RamphubQuoteResponse {
@@ -439,6 +440,7 @@ export const providerService = {
       amount: params.amount,
       currency: params.currency,
       network: params.network,
+      side: params.side,
     });
     const res = await fetch(`/api/providers/ramphub/quote?${query}`, {
       method: "GET",

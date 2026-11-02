@@ -36,4 +36,18 @@ describe("supportsProviderNetwork", () => {
   it("leaves Centiiv off-ramp availability to the provider service", () => {
     expect(supportsProviderNetwork("Centiiv", "Base", "sell")).toBe(true);
   });
+
+  it("limits Ramphub on-ramp support to Base, BNB, and Solana", () => {
+    for (const network of ["Base", "BNB", "Solana"]) {
+      expect(supportsProviderNetwork("Ramphub", network, "buy")).toBe(true);
+    }
+
+    for (const network of ["Arc", "Celo", "Polygon", "Stellar"]) {
+      expect(supportsProviderNetwork("Ramphub", network, "buy")).toBe(false);
+    }
+  });
+
+  it("leaves Ramphub off-ramp availability to the provider service", () => {
+    expect(supportsProviderNetwork("Ramphub", "Base", "sell")).toBe(true);
+  });
 });

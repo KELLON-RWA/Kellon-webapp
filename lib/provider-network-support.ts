@@ -18,6 +18,9 @@ const PROVIDER_FLOW_NETWORKS: Record<
     buy: ["base", "bnb", "celo", "polygon", "solana"],
     sell: ["base", "bnb", "celo", "polygon", "solana"],
   },
+  ramphub: {
+    buy: ["base", "bnb", "solana"],
+  },
 };
 
 const PROVIDER_ASSETS: Record<string, readonly string[]> = {

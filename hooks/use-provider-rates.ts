@@ -143,16 +143,14 @@ export function useProviderRates({
                   }
                 }
               }
-            } else if (
-              provider.name.toLowerCase() === "ramphub" &&
-              side === "sell"
-            ) {
+            } else if (provider.name.toLowerCase() === "ramphub") {
               const res = await providerService.getRamphubQuote(
                 {
                   token: asset,
                   amount,
                   currency,
                   network: networkName,
+                  side,
                 },
                 abortController.signal,
               );
@@ -162,10 +160,17 @@ export function useProviderRates({
                 maxCryptoDebit = res.data.maxCryptoDebit;
                 routeProvider = res.data.provider;
                 rawRate = parseNumber(res.data.rate);
-                cryptoAmount = amount;
-                fiatAmount =
-                  parseNumber(res.data.receiveAmount) ??
-                  parseNumber(res.data.fiatAmount);
+                if (side === "sell") {
+                  cryptoAmount = amount;
+                  fiatAmount =
+                    parseNumber(res.data.receiveAmount) ??
+                    parseNumber(res.data.fiatAmount);
+                } else {
+                  cryptoAmount =
+                    parseNumber(res.data.receiveAmount) ??
+                    (rawRate && rawRate > 0 ? amount / rawRate : null);
+                  fiatAmount = parseNumber(res.data.fiatAmount) ?? amount;
+                }
               }
             } else if (provider.name.toLowerCase() === "centiiv") {
               const res = await providerService.getCentiivQuote(

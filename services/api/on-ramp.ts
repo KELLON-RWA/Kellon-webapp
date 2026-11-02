@@ -283,6 +283,11 @@ export const onrampService = {
     body: OnrampInitRequest,
   ): Promise<ApiResponse<OnrampResponse>> =>
     post("/api/onramp/paybis/initiate", body),
+
+  initiateRamphub: (
+    body: OnrampInitRequest,
+  ): Promise<ApiResponse<OnrampResponse>> =>
+    post("/api/onramp/ramphub/initiate", body),
 };
 
 /**

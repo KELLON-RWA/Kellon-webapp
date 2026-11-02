@@ -462,6 +462,8 @@ export default function BuyCryptoFlow({
         response = await onrampService.initiatePaychant(payload);
       } else if (providerName === "paybis") {
         response = await onrampService.initiatePaybis(payload);
+      } else if (providerName === "ramphub") {
+        response = await onrampService.initiateRamphub(payload);
       } else {
         response = await onrampService.initiateRamp(payload);
       }
