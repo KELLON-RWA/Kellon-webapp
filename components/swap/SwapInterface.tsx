@@ -66,6 +66,7 @@ import {
   findTransferVerificationRequiredError,
   getAvailableVerificationMethods,
   getOtpChannelForMethod,
+  getVerificationTypeForMethod,
   transferService,
   type VerificationMethod,
 } from "@/services/api/transfers";
@@ -777,11 +778,13 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
           setOtpSent(false);
           endOperation();
         }}
-        onSubmit={(verificationCode) => {
-          if (!verificationType) return;
+        onSubmit={(verificationCode, methodOverride) => {
+          const effectiveMethod = methodOverride || verificationType;
+          if (!effectiveMethod) return;
+          const activeVerificationType = getVerificationTypeForMethod(effectiveMethod);
           void executeSwap({
             verificationCode,
-            verificationType,
+            verificationType: activeVerificationType,
             context: verificationContext,
           });
         }}

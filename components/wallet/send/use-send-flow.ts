@@ -16,6 +16,10 @@ import {
   type VerificationMethod,
   type VerificationType,
 } from "@/services/api/transfers"
+import {
+  getEnabledTransactionVerificationMethods,
+  securityService,
+} from "@/services/api/security"
 import { useWallets } from "@privy-io/react-auth"
 import {
   useWallets as useSolanaWallets,
@@ -39,7 +43,7 @@ import {
   http,
   type Address,
 } from "viem"
-import type { Asset, User } from "@/types/db"
+import { AssetType, type Asset, type User } from "@/types/db"
 import type {
   AmountFormValues,
   RecipientFormValues,
@@ -51,6 +55,8 @@ import {
   ASSET_NAMES,
   SEND_STEPS,
   amountSchema,
+  createAmountSchema,
+  sanitizeAmountInput,
   getRecentRecipient,
   getRecipientKind,
   isSupportedRecipient,
@@ -198,8 +204,9 @@ function navReducer(state: NavState, action: NavAction): NavState {
         rawStep && SEND_STEPS.includes(rawStep) ? rawStep : state.step
 
       // Clear asset / amount when navigating back to recipient step.
-      const nextAmount =
+      const rawAmount =
         nextStep === "recipient" ? "" : action.params.get("amount") || ""
+      const nextAmount = sanitizeAmountInput(rawAmount, 18)
 
       let nextAssetId = nextStep === "recipient" ? "" : state.selectedAssetId
 
@@ -258,11 +265,104 @@ export function useSendFlow(profile: User) {
 
   const amountForm = useForm<AmountFormValues>({
     resolver: zodResolver(amountSchema),
-    defaultValues: { amount: searchParams.get("amount") || "" },
+    defaultValues: {
+      amount: sanitizeAmountInput(searchParams.get("amount") || "", 18),
+    },
     mode: "onChange",
   })
 
-  // ── Sendable assets (derived from profile) ─────────────────────────────────
+  // ── Query on-chain mUSDC (Moonwell Base) balance for user's Base Safe ──────
+  const [mUsdcOnChainBalance, setMUsdcOnChainBalance] = useState<number>(0)
+  const baseSafeAddress = expectedSafeFor(profile.chainAccounts, "base")
+
+  useEffect(() => {
+    let active = true
+    if (!baseSafeAddress) return
+
+    async function fetchMUsdcBalance() {
+      try {
+        const client = createPublicClient({
+          transport: http("https://mainnet.base.org"),
+        })
+        const balance = await client.readContract({
+          address: "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22" as Address,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [baseSafeAddress as Address],
+        })
+        if (active && balance > 0n) {
+          // mUSDC has 8 decimals
+          const formatted = Number(balance) / 1e8
+          setMUsdcOnChainBalance(formatted)
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    void fetchMUsdcBalance()
+    const interval = setInterval(fetchMUsdcBalance, 10_000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [baseSafeAddress])
+
+  // ── Query on-chain native balances (e.g. ETH on Base) ───────────────────
+  const [nativeOnChainBalances, setNativeOnChainBalances] = useState<
+    Record<string, number>
+  >({})
+
+  useEffect(() => {
+    let active = true
+
+    async function fetchNativeBalances() {
+      const activeChains = getActiveChains()
+      const entries: Array<[string, number]> = []
+
+      await Promise.all(
+        Object.entries(activeChains).map(async ([chainKey, chainConfig]) => {
+          if (chainConfig.type !== "evm") return
+          const safeAddr = expectedSafeFor(profile.chainAccounts, chainKey)
+          const rpcUrl = chainConfig.rpcUrls.default.http[0]
+          if (!safeAddr || !rpcUrl) return
+
+          try {
+            const client = createPublicClient({ transport: http(rpcUrl) })
+            const balance = await client.getBalance({
+              address: safeAddr as Address,
+            })
+            if (active && balance > 0n) {
+              const formatted = Number(
+                formatUnits(balance, chainConfig.nativeCurrency.decimals),
+              )
+              if (formatted > 0) {
+                entries.push([
+                  `${chainConfig.nativeCurrency.symbol}:${chainKey}`,
+                  formatted,
+                ])
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }),
+      )
+
+      if (active && entries.length > 0) {
+        setNativeOnChainBalances(Object.fromEntries(entries))
+      }
+    }
+
+    void fetchNativeBalances()
+    const interval = setInterval(fetchNativeBalances, 12_000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [profile.chainAccounts])
+
+  // ── Sendable assets (derived from profile + on-chain tokens) ───────────────
   const sendableAssets = useMemo<SendableAsset[]>(() => {
     const grouped = new Map<string, SendableAsset>()
 
@@ -272,10 +372,15 @@ export function useSendFlow(profile: User) {
         const symbol = asset.symbol.toUpperCase()
         const chain = asset.chain || ""
         const amount = parseAssetAmount(asset.amount)
-        if (amount <= 0 || !["USDC", "USDT"].includes(symbol)) return
+        if (
+          amount <= 0 ||
+          !["USDC", "USDT", "MUSDC", "ETH"].includes(symbol)
+        )
+          return
 
         const key = `${symbol}:${normalizeBridgeChain(chain)}`
         const current = grouped.get(key)
+        const isEth = symbol === "ETH"
         grouped.set(key, {
           id: asset.id,
           key,
@@ -284,21 +389,70 @@ export function useSendFlow(profile: User) {
           amount: (current?.amount || 0) + amount,
           chain,
           assetType: asset.assetType,
+          decimals: isEth ? 18 : symbol === "MUSDC" ? 8 : 6,
+          tokenAddress:
+            symbol === "MUSDC"
+              ? "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22"
+              : undefined,
         })
       })
 
-    return Array.from(grouped.values())
-      .sort((a, b) => {
-        if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
-        return a.chain.localeCompare(b.chain)
+    // Surface native on-chain balances (e.g. ETH on Base)
+    Object.entries(nativeOnChainBalances).forEach(([key, bal]) => {
+      if (bal <= 0) return
+      const [symbol, chainKey] = key.split(":")
+      const chainConfig =
+        getActiveChains()[chainKey as keyof ReturnType<typeof getActiveChains>]
+      if (!chainConfig) return
+
+      const current = grouped.get(key)
+      grouped.set(key, {
+        id: `${symbol}-${chainKey}`,
+        key,
+        symbol,
+        name: ASSET_NAMES[symbol] || chainConfig.nativeCurrency.name || symbol,
+        amount: Math.max(current?.amount || 0, bal),
+        chain: chainConfig.name,
+        assetType: AssetType.CRYPTO,
+        decimals: chainConfig.nativeCurrency.decimals,
       })
-  }, [profile.assets])
+    })
+
+    // Surface mUSDC if held on Base
+    if (mUsdcOnChainBalance > 0) {
+      const key = "MUSDC:base"
+      const current = grouped.get(key)
+      grouped.set(key, {
+        id: "mUSDC-base",
+        key,
+        symbol: "mUSDC",
+        name: "Moonwell USDC",
+        amount: (current?.amount || 0) + mUsdcOnChainBalance,
+        chain: "Base",
+        assetType: AssetType.CRYPTO,
+        tokenAddress: "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22",
+        decimals: 8,
+      })
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const order = ["USDC", "USDT", "ETH", "MUSDC"]
+      const aIndex = order.indexOf(a.symbol)
+      const bIndex = order.indexOf(b.symbol)
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
+      if (aIndex !== -1) return -1
+      if (bIndex !== -1) return 1
+      if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
+      return a.chain.localeCompare(b.chain)
+    })
+  }, [profile.assets, mUsdcOnChainBalance, nativeOnChainBalances])
 
   // ── Navigation reducer (initialised once from URL on mount) ───────────────
   const initialNavState = useMemo<NavState>(() => {
     const rawStep = searchParams.get("step") as SendStep | null
     const step = rawStep && SEND_STEPS.includes(rawStep) ? rawStep : "recipient"
-    const amount = searchParams.get("amount") || ""
+    const rawAmount = searchParams.get("amount") || ""
+    const amount = sanitizeAmountInput(rawAmount, 18)
     const urlSymbol = searchParams.get("asset")?.toUpperCase() || ""
     const urlChain = searchParams.get("network")?.toLowerCase() || ""
     let selectedAssetId = ""
@@ -337,6 +491,7 @@ export function useSendFlow(profile: User) {
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const [verificationRequest, setVerificationRequest] = useState<{
     verificationType: VerificationType
     availableMethods: VerificationMethod[]
@@ -365,7 +520,8 @@ export function useSendFlow(profile: User) {
     Number.isFinite(amountValue) &&
     amountValue > 0 &&
     Boolean(selectedAsset) &&
-    amountValue <= (selectedAsset?.amount ?? 0)
+    amountValue <= (selectedAsset?.amount ?? 0) &&
+    /^\d+(\.\d+)?$/.test(amount)
   const isCurrentRecipientVerified =
     Boolean(verifiedRecipient) &&
     verifiedRecipientInput === normalizedRecipientKey
@@ -610,16 +766,24 @@ export function useSendFlow(profile: User) {
 
   const setAmountValue = useCallback(
     (value: string) => {
-      dispatch({ type: "SET_AMOUNT", amount: value })
-      updateUrl({ amount: value || null }, { replace: true })
-      amountForm.setValue("amount", value, {
+      const decimals = selectedAsset?.decimals ?? 6
+      const sanitized = sanitizeAmountInput(value, decimals)
+      dispatch({ type: "SET_AMOUNT", amount: sanitized })
+      updateUrl({ amount: sanitized || null }, { replace: true })
+      amountForm.setValue("amount", sanitized, {
         shouldDirty: true,
         shouldTouch: true,
         shouldValidate: true,
       })
     },
-    [amountForm, updateUrl],
+    [amountForm, selectedAsset?.decimals, updateUrl],
   )
+
+  useEffect(() => {
+    if (amountForm.getValues("amount") !== nav.amount) {
+      amountForm.setValue("amount", nav.amount, { shouldValidate: true })
+    }
+  }, [nav.amount, amountForm])
 
   const handleAmountKeypadPress = useCallback(
     (value: string) => {
@@ -637,7 +801,8 @@ export function useSendFlow(profile: User) {
         setAmountValue(value)
         return
       }
-      setAmountValue(`${current}${value}`)
+      const next = current ? `${current}${value}` : value === "." ? "0." : value
+      setAmountValue(next)
     },
     [amountForm, setAmountValue],
   )
@@ -1003,39 +1168,65 @@ export function useSendFlow(profile: User) {
           }
 
           const tokenSymbol = selectedAsset.symbol.toUpperCase()
+          const isNativeEth = tokenSymbol === "ETH"
+          const isMUsdc = tokenSymbol === "MUSDC"
           const tokenAddress =
-            tokenSymbol === "USDC"
-              ? chainConfig.usdcAddress
-              : chainConfig.usdtAddress
+            selectedAsset.tokenAddress ||
+            (isNativeEth
+              ? "0x0000000000000000000000000000000000000000"
+              : isMUsdc
+                ? "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22"
+                : tokenSymbol === "USDC"
+                  ? chainConfig.usdcAddress
+                  : chainConfig.usdtAddress)
 
-          if (!tokenAddress) {
+          if (!tokenAddress && !isNativeEth) {
             throw new Error(
               `Token ${tokenSymbol} not supported on ${selectedAsset.chain}`,
             )
           }
 
           const isBsc = chainConfig.id === 56 || chainConfig.id === 97
-          const decimals = isBsc ? 18 : 6
+          const decimals =
+            selectedAsset.decimals ?? (isNativeEth ? 18 : isMUsdc ? 8 : isBsc ? 18 : 6)
           let amountBigInt = toBaseUnits(amountValue, decimals)
 
           const safeAddr = (smartAccountClient.account as { address?: string })
             ?.address
           if (safeAddr) {
-            amountBigInt = await verifyOnChainBalance(
-              chainLower,
-              tokenAddress,
-              safeAddr,
-              amountBigInt,
-              tokenSymbol,
-              decimals,
-            )
+            if (isNativeEth) {
+              const rpcUrl = chainConfig.rpcUrls.default.http[0]
+              const client = createPublicClient({ transport: http(rpcUrl) })
+              const balance = await client.getBalance({
+                address: safeAddr as Address,
+              })
+              if (balance < amountBigInt) {
+                amountBigInt = balance
+              }
+              if (amountBigInt <= 0n) {
+                throw new Error(
+                  "Insufficient ETH balance on-chain to complete this transfer.",
+                )
+              }
+            } else if (tokenAddress) {
+              amountBigInt = await verifyOnChainBalance(
+                chainLower,
+                tokenAddress,
+                safeAddr,
+                amountBigInt,
+                tokenSymbol,
+                decimals,
+              )
+            }
           }
 
-          const txData = encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [destinationAddress as `0x${string}`, amountBigInt],
-          })
+          const txData = isNativeEth
+            ? ("0x" as `0x${string}`)
+            : encodeFunctionData({
+                abi: erc20Abi,
+                functionName: "transfer",
+                args: [destinationAddress as `0x${string}`, amountBigInt],
+              })
 
           if (
             verification?.verificationCode &&
@@ -1060,9 +1251,9 @@ export function useSendFlow(profile: User) {
             ).sendTransaction({
               account: smartAccountClient.account,
               chain: smartAccountClient.chain,
-              to: tokenAddress as `0x${string}`,
+              to: (isNativeEth ? destinationAddress : tokenAddress) as `0x${string}`,
               data: txData,
-              value: 0n,
+              value: isNativeEth ? amountBigInt : 0n,
             })
             setStickyVerificationCode(null)
             setStickyTransferMeta(null)
@@ -1094,45 +1285,96 @@ export function useSendFlow(profile: User) {
         }
 
         setVerificationRequest(null)
+        setVerificationError(null)
         endOperation()
         toast.success(
           response.data?.message || "Transfer completed successfully",
         )
         router.push("/transactions")
       } catch (error) {
-        const verificationError = findTransferVerificationRequiredError(error)
-        if (verificationError) {
-          const availableMethods = getAvailableVerificationMethods(
-            verificationError.availableMethods,
-            verificationError.verificationType,
+        const verificationChallenge = findTransferVerificationRequiredError(error)
+        const isVerifying = Boolean(verification?.verificationCode)
+
+        if (verificationChallenge) {
+          let userEnabledMethods: VerificationMethod[] | null = null
+          try {
+            const settings = await securityService.getSettings()
+            userEnabledMethods = getEnabledTransactionVerificationMethods(settings)
+          } catch {
+            userEnabledMethods = null
+          }
+
+          const hasNoSecurityMethods =
+            userEnabledMethods !== null && userEnabledMethods.length === 0
+
+          const challengeMethods = getAvailableVerificationMethods(
+            verificationChallenge.availableMethods,
+            verificationChallenge.verificationType,
           )
+
+          const effectiveMethods =
+            userEnabledMethods && userEnabledMethods.length > 0
+              ? challengeMethods.filter((m) => userEnabledMethods.includes(m))
+              : challengeMethods
+
+          const availableMethods =
+            effectiveMethods.length > 0 ? effectiveMethods : challengeMethods
+
           const selectedMethod = resolveVerificationMethod(
             availableMethods,
-            verificationError.verificationType,
+            userEnabledMethods?.includes("totp")
+              ? "totp"
+              : verificationChallenge.verificationType,
           )
-          setVerificationRequest({
+
+          setVerificationRequest((prev) => ({
             verificationType: getVerificationTypeForMethod(selectedMethod),
             availableMethods,
-            selectedMethod,
-            action: verificationError.action,
-            // The backend sends the preferred OTP as part of the initial challenge.
-            otpSent: selectedMethod !== "totp",
-          })
-          if (selectedMethod !== "totp") {
-            toast.info(
-              selectedMethod === "sms_otp"
-                ? "We sent a verification code to your phone. Enter it to continue."
-                : "We sent a verification code to your email. Enter it to continue.",
-            )
+            selectedMethod:
+              prev?.selectedMethod && availableMethods.includes(prev.selectedMethod)
+                ? prev.selectedMethod
+                : selectedMethod,
+            action: verificationChallenge.action,
+            // The backend sends the preferred OTP as part of the initial challenge if enabled.
+            // If the user has zero enabled methods, no OTP was dispatched.
+            otpSent: hasNoSecurityMethods
+              ? false
+              : isVerifying
+                ? true
+                : selectedMethod !== "totp",
+          }))
+
+          if (isVerifying) {
+            const errorMsg = "Invalid verification code. Please try again."
+            setVerificationError(errorMsg)
+            toast.error(errorMsg)
           } else {
-            toast.info("Enter your authenticator code to continue.")
+            setVerificationError(null)
+            if (hasNoSecurityMethods) {
+              // User has no 2FA configured yet: do not show a false "code sent to email" toast.
+              // TransferVerificationModal will open directly into setup mode.
+            } else if (selectedMethod !== "totp") {
+              toast.info(
+                selectedMethod === "sms_otp"
+                  ? "We sent a verification code to your phone. Enter it to continue."
+                  : "We sent a verification code to your email. Enter it to continue.",
+              )
+            } else {
+              toast.info("Enter your authenticator code to continue.")
+            }
           }
           return
         }
+
+        const fallbackMsg =
+          error instanceof Error ? error.message : "Unable to process transfer"
+        if (isVerifying) {
+          setVerificationError(fallbackMsg)
+        } else {
+          setVerificationRequest(null)
+        }
         endOperation()
-        toast.error(
-          error instanceof Error ? error.message : "Unable to process transfer",
-        )
+        toast.error(fallbackMsg)
       } finally {
         setIsSubmitting(false)
       }
@@ -1162,14 +1404,15 @@ export function useSendFlow(profile: User) {
   }, [executeTransfer])
 
   const submitTransferVerification = useCallback(
-    (verificationCode: string) => {
+    (verificationCode: string, methodOverride?: VerificationMethod) => {
       if (!verificationRequest) return
+      const effectiveMethod =
+        methodOverride || verificationRequest.selectedMethod
+      setVerificationError(null)
       void executeTransfer({
         verificationCode,
-        verificationType: getVerificationTypeForMethod(
-          verificationRequest.selectedMethod,
-        ),
-        verificationMethod: verificationRequest.selectedMethod,
+        verificationType: getVerificationTypeForMethod(effectiveMethod),
+        verificationMethod: effectiveMethod,
       })
     },
     [executeTransfer, verificationRequest],
@@ -1178,6 +1421,7 @@ export function useSendFlow(profile: User) {
   const closeTransferVerification = useCallback(() => {
     if (isSubmitting) return
     setVerificationRequest(null)
+    setVerificationError(null)
     updateStep("review")
   }, [isSubmitting, updateStep])
 
@@ -1187,6 +1431,7 @@ export function useSendFlow(profile: User) {
       if (!verificationRequest || !channel || isResendingVerification) return
 
       setIsResendingVerification(true)
+      setVerificationError(null)
       try {
         const response = await transferService.requestOTP(
           verificationRequest.action || "transfer",
@@ -1219,6 +1464,7 @@ export function useSendFlow(profile: User) {
       if (!verificationRequest || method === verificationRequest.selectedMethod)
         return
 
+      setVerificationError(null)
       const channel = getOtpChannelForMethod(method)
       setVerificationRequest((current) =>
         current
@@ -1277,6 +1523,8 @@ export function useSendFlow(profile: User) {
     recipientKind,
     recipientLookupMessage,
     verificationRequest,
+    verificationError,
+    setVerificationError,
     selectedAsset,
     selectRecentRecipient,
     sendableAssets,

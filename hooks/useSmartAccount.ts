@@ -44,6 +44,7 @@ import {
   isTransferVerificationChallenge,
   TransferVerificationRequiredError,
   resolveVerificationType,
+  containsVerificationMarker,
 } from "@/services/api/transfers"
 import type { ConnectedWallet } from "@privy-io/react-auth"
 import { SignerMismatchError } from "@/lib/evm-signer"
@@ -310,6 +311,33 @@ export function useSmartAccount() {
               const responseData = (await res.json()) as JsonRpcResponse
 
               if (responseData.error) {
+                const isJsonRpcMfa =
+                  containsVerificationMarker(responseData.error.message) ||
+                  Boolean(
+                    (
+                      responseData.error as {
+                        availableMethods?: string[]
+                      }
+                    )?.availableMethods?.length,
+                  )
+
+                if (isJsonRpcMfa) {
+                  const mfaError = responseData.error as {
+                    message?: string
+                    availableMethods?: string[]
+                    action?: string
+                  }
+                  const mfaType = resolveVerificationType(
+                    mfaError.availableMethods,
+                  )
+                  throw new TransferVerificationRequiredError(
+                    mfaError.message || "Verification required",
+                    mfaType,
+                    mfaError.availableMethods,
+                    mfaError.action,
+                  )
+                }
+
                 const err = new Error(
                   responseData.error.message || "Bundler Error",
                 )
@@ -317,6 +345,15 @@ export function useSmartAccount() {
                   responseData.error.code
                 ;(err as Error & { data?: unknown }).data =
                   responseData.error.data
+                ;(err as Error & { error?: unknown }).error = responseData.error
+                ;(
+                  err as Error & { availableMethods?: string[] }
+                ).availableMethods = (
+                  responseData.error as { availableMethods?: string[] }
+                ).availableMethods
+                ;(err as Error & { action?: string }).action = (
+                  responseData.error as { action?: string }
+                ).action
                 throw err
               }
 

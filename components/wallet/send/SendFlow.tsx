@@ -75,6 +75,8 @@ export default function SendFlow({ profile }: SendFlowProps) {
     submitTransferVerification,
     resendTransferVerification,
     verificationRequest,
+    verificationError,
+    setVerificationError,
     verifiedRecipient,
     verifyRecipient,
   } = useSendFlow(activeProfile);
@@ -273,6 +275,8 @@ export default function SendFlow({ profile }: SendFlowProps) {
         isResending={isResendingVerification}
         onClose={closeTransferVerification}
         onSubmit={submitTransferVerification}
+        errorMessage={verificationError}
+        onClearError={() => setVerificationError(null)}
       />
       <BridgeFundingOverlay
         profile={activeProfile}

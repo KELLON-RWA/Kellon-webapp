@@ -22,6 +22,7 @@ import TransferVerificationModal from "@/components/wallet/send/TransferVerifica
 import {
   findTransferVerificationRequiredError,
   getAvailableVerificationMethods,
+  getVerificationTypeForMethod,
   transferService,
   type VerificationMethod,
 } from "@/services/api/transfers";
@@ -1046,8 +1047,9 @@ export default function StockActionDialog({
           setOtpSent(false);
           endOperation();
         }}
-        onSubmit={(verificationCode) => {
-          const activeVerificationType = verificationType || "email_otp";
+        onSubmit={(verificationCode, methodOverride) => {
+          const effectiveMethod = methodOverride || verificationType || "email_otp";
+          const activeVerificationType = getVerificationTypeForMethod(effectiveMethod);
           form.handleSubmit((values) =>
             performStockAction(values, {
               verificationCode,

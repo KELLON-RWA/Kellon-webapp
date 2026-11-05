@@ -31,6 +31,10 @@ import {
   transferService,
   type VerificationMethod,
 } from "@/services/api/transfers";
+import {
+  getEnabledTransactionVerificationMethods,
+  securityService,
+} from "@/services/api/security";
 import { swapService, type Route } from "@/services/api/swap";
 import type { User } from "@/types/db";
 import { SwapComposeStep } from "./steps/ComposeStep";
@@ -85,6 +89,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
   const [verification, setVerification] = useState<SwapVerification | null>(
     null,
   );
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   const source = sources.find((item) => item.key === sourceKey) || null;
   const destinations = useMemo(
@@ -190,7 +195,10 @@ export default function SwapFlow({ profile }: { profile: User }) {
     setView("compose");
   }, [routes]);
 
-  const executeSwap = async (code?: string) => {
+  const executeSwap = async (
+    code?: string,
+    methodOverride?: VerificationMethod,
+  ) => {
     if (!source || !destination || !selectedRoute) return;
     if (source.chainType !== "evm" || destination.chainType !== "evm") {
       toast.error("This network is not supported by the swap provider.");
@@ -211,9 +219,11 @@ export default function SwapFlow({ profile }: { profile: User }) {
           `Could not initialize your ${source.chainName} account.`,
         );
 
+      const effectiveMethod =
+        methodOverride || verification?.selectedMethod || "totp";
       setStickyVerificationCode(
-        code && verification
-          ? { type: verification.selectedMethod, code }
+        code
+          ? { type: effectiveMethod, code }
           : null,
       );
       setStickyTransferMeta({ amount: amountValue, symbol: source.symbol });
@@ -287,33 +297,73 @@ export default function SwapFlow({ profile }: { profile: User }) {
         calls,
       });
       setVerification(null);
+      setVerificationError(null);
       toast.success("Swap submitted", {
         description: `${amount} ${source.symbol} is being swapped to ${destination.symbol}. Transaction: ${hash.slice(0, 10)}…`,
       });
       router.push("/");
     } catch (error) {
-      const verificationError = findTransferVerificationRequiredError(error);
-      if (verificationError) {
+      const verificationChallenge = findTransferVerificationRequiredError(error);
+      const isVerifying = Boolean(code);
+      if (verificationChallenge) {
+        let userEnabledMethods: VerificationMethod[] | null = null;
+        try {
+          const settings = await securityService.getSettings();
+          userEnabledMethods = getEnabledTransactionVerificationMethods(settings);
+        } catch {
+          userEnabledMethods = null;
+        }
+        const hasNoSecurityMethods =
+          userEnabledMethods !== null && userEnabledMethods.length === 0;
+
         const methods = getAvailableVerificationMethods(
-          verificationError.availableMethods,
-          verificationError.verificationType,
+          verificationChallenge.availableMethods,
+          verificationChallenge.verificationType,
         );
         const selectedMethod = resolveVerificationMethod(
           methods,
-          verificationError.verificationType,
+          userEnabledMethods?.includes("totp")
+            ? "totp"
+            : verificationChallenge.verificationType,
         );
-        setVerification({
-          availableMethods: methods,
-          selectedMethod,
+        setVerification((prev) => ({
+          availableMethods: hasNoSecurityMethods ? [] : methods,
+          selectedMethod:
+            prev?.selectedMethod && methods.includes(prev.selectedMethod)
+              ? prev.selectedMethod
+              : selectedMethod,
           verificationType: getVerificationTypeForMethod(selectedMethod),
-          action: verificationError.action,
-          otpSent: selectedMethod !== "totp",
-        });
+          action: verificationChallenge.action,
+          otpSent: hasNoSecurityMethods ? false : isVerifying ? true : selectedMethod !== "totp",
+        }));
+        if (isVerifying) {
+          const msg = "Invalid verification code. Please try again.";
+          setVerificationError(msg);
+          toast.error(msg);
+        } else {
+          setVerificationError(null);
+          if (!hasNoSecurityMethods) {
+            if (selectedMethod !== "totp") {
+              toast.info(
+                selectedMethod === "sms_otp"
+                  ? "We sent a verification code to your phone. Enter it to continue."
+                  : "We sent a verification code to your email. Enter it to continue.",
+              );
+            } else {
+              toast.info("Enter your authenticator code to continue.");
+            }
+          }
+        }
         return;
       }
-      toast.error(
-        error instanceof Error ? error.message : "Unable to submit swap",
-      );
+      const fallbackMsg =
+        error instanceof Error ? error.message : "Unable to submit swap";
+      if (isVerifying) {
+        setVerificationError(fallbackMsg);
+      } else {
+        setVerification(null);
+      }
+      toast.error(fallbackMsg);
     } finally {
       setStickyVerificationCode(null);
       setStickyTransferMeta(null);
@@ -325,6 +375,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
     const channel = getOtpChannelForMethod(method);
     if (!verification || !channel || isResending) return;
     setIsResending(true);
+    setVerificationError(null);
     try {
       await transferService.requestOTP(verification.action || "swap", channel);
       setVerification((current) =>
@@ -353,9 +404,27 @@ export default function SwapFlow({ profile }: { profile: User }) {
     );
   };
 
+  const handleFlip = () => {
+    if (!destination) return;
+    const targetSourceKey = destination.key;
+    const newSource = sources.find((item) => item.key === targetSourceKey);
+    if (!newSource) return;
+
+    const newDestinations = getSwapDestinations(newSource, tokenCatalog);
+    const targetDestKey =
+      newDestinations.find((d) => d.key === sourceKey)?.key ||
+      getDefaultSwapDestination(newSource, newDestinations)?.key ||
+      "";
+
+    setSourceKey(targetSourceKey);
+    setDestinationKey(targetDestKey);
+    setAmount("");
+    setSelectedRoute(null);
+  };
+
   const quoteError =
     source && destination && !isProviderSupported
-      ? `${source.symbol} recovery swaps on ${source.chainName} are not supported by the current swap provider yet.`
+      ? `${source.symbol} swaps on ${source.chainName} are not supported by the current swap provider yet.`
       : quoteQuery.error instanceof Error
         ? quoteQuery.error.message
         : null;
@@ -410,6 +479,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
           onRouteSelect={setSelectedRoute}
           onShowAllRoutes={() => setShowAllRoutes(true)}
           onReview={() => setView("review")}
+          onFlip={handleFlip}
         />
       )}
       <TransferVerificationModal
@@ -424,10 +494,17 @@ export default function SwapFlow({ profile }: { profile: User }) {
           verification && void requestOtp(verification.selectedMethod)
         }
         isResending={isResending}
-        onClose={() => !isSubmitting && setVerification(null)}
-        onSubmit={(code) => void executeSwap(code)}
+        onClose={() => {
+          if (!isSubmitting) {
+            setVerification(null);
+            setVerificationError(null);
+          }
+        }}
+        onSubmit={(code, method) => void executeSwap(code, method)}
         title="Confirm swap"
         actionNoun="swap"
+        errorMessage={verificationError}
+        onClearError={() => setVerificationError(null)}
       />
     </section>
   );

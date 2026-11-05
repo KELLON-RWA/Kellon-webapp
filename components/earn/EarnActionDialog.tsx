@@ -29,6 +29,7 @@ import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
 import {
   findTransferVerificationRequiredError,
   getAvailableVerificationMethods,
+  getVerificationTypeForMethod,
   transferService,
   type VerificationMethod,
 } from "@/services/api/transfers";
@@ -756,8 +757,9 @@ export default function EarnActionDialog({
           setVerificationMethods([]);
           setOtpSent(false);
         }}
-        onSubmit={(verificationCode) => {
-          const activeVerificationType = verificationType || "email_otp";
+        onSubmit={(verificationCode, methodOverride) => {
+          const effectiveMethod = methodOverride || verificationType || "email_otp";
+          const activeVerificationType = getVerificationTypeForMethod(effectiveMethod);
           form.handleSubmit((values) =>
             performAction(values, {
               verificationCode,

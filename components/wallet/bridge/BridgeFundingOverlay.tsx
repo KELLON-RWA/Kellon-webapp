@@ -40,6 +40,10 @@ import {
   transferService,
   type VerificationMethod,
 } from "@/services/api/transfers"
+import {
+  getEnabledTransactionVerificationMethods,
+  securityService,
+} from "@/services/api/security"
 import type { User } from "@/types/db"
 import {
   Dialog,
@@ -194,6 +198,7 @@ export default function BridgeFundingOverlay({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isResending, setIsResending] = useState(false)
   const [verification, setVerification] = useState<BridgeVerification | null>(null)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const [sourceExecutions, setSourceExecutions] = useState<
     Record<string, FundingSourceExecution>
   >({})
@@ -336,14 +341,19 @@ export default function BridgeFundingOverlay({
     }
   }
 
-  const executeFundingPlan = async (code?: string) => {
+  const executeFundingPlan = async (
+    code?: string,
+    methodOverride?: VerificationMethod,
+  ) => {
     if (!setup || !plan || !canExecute) return
     setIsSubmitting(true)
     let activeSourceChain: string | null = null
 
     try {
-      if (code && verification) {
-        setStickyVerificationCode({ type: verification.selectedMethod, code })
+      const effectiveMethod =
+        methodOverride || verification?.selectedMethod || "totp"
+      if (code) {
+        setStickyVerificationCode({ type: effectiveMethod, code })
       } else {
         setStickyVerificationCode(null)
       }
@@ -490,40 +500,80 @@ export default function BridgeFundingOverlay({
       }
 
       setVerification(null)
+      setVerificationError(null)
       setView("submitted")
       toast.success("Bridge transactions submitted", {
         description: `${bridgeSources.length} source network${bridgeSources.length === 1 ? " is" : "s are"} funding ${getChainLabel(setup.targetChain)}.`,
       })
       void reconcileBalances(submitted)
     } catch (error) {
-      const verificationError = findTransferVerificationRequiredError(error)
-      if (verificationError) {
+      const verificationChallenge = findTransferVerificationRequiredError(error)
+      const isVerifying = Boolean(code)
+      if (verificationChallenge) {
         if (activeSourceChain) {
           updateSourceExecution(activeSourceChain, { status: "planned" })
         }
+        let userEnabledMethods: VerificationMethod[] | null = null
+        try {
+          const settings = await securityService.getSettings()
+          userEnabledMethods = getEnabledTransactionVerificationMethods(settings)
+        } catch {
+          userEnabledMethods = null
+        }
+        const hasNoSecurityMethods =
+          userEnabledMethods !== null && userEnabledMethods.length === 0
+
         const methods = getAvailableVerificationMethods(
-          verificationError.availableMethods,
-          verificationError.verificationType,
+          verificationChallenge.availableMethods,
+          verificationChallenge.verificationType,
         )
         const selectedMethod = resolveVerificationMethod(
           methods,
-          verificationError.verificationType,
+          userEnabledMethods?.includes("totp")
+            ? "totp"
+            : verificationChallenge.verificationType,
         )
-        setVerification({
-          availableMethods: methods,
-          selectedMethod,
+        setVerification((prev) => ({
+          availableMethods: hasNoSecurityMethods ? [] : methods,
+          selectedMethod:
+            prev?.selectedMethod && methods.includes(prev.selectedMethod)
+              ? prev.selectedMethod
+              : selectedMethod,
           verificationType: getVerificationTypeForMethod(selectedMethod),
-          action: verificationError.action,
-          otpSent: selectedMethod !== "totp",
-        })
+          action: verificationChallenge.action,
+          otpSent: hasNoSecurityMethods ? false : isVerifying ? true : selectedMethod !== "totp",
+        }))
+        if (isVerifying) {
+          const msg = "Invalid verification code. Please try again."
+          setVerificationError(msg)
+          toast.error(msg)
+        } else {
+          setVerificationError(null)
+          if (!hasNoSecurityMethods) {
+            if (selectedMethod !== "totp") {
+              toast.info(
+                selectedMethod === "sms_otp"
+                  ? "We sent a verification code to your phone. Enter it to continue."
+                  : "We sent a verification code to your email. Enter it to continue.",
+              )
+            } else {
+              toast.info("Enter your authenticator code to continue.")
+            }
+          }
+        }
         return
       }
       if (activeSourceChain) {
         updateSourceExecution(activeSourceChain, { status: "attention" })
       }
-      toast.error(
-        error instanceof Error ? error.message : "Unable to submit bridge plan",
-      )
+      const fallbackMsg =
+        error instanceof Error ? error.message : "Unable to submit bridge plan"
+      if (isVerifying) {
+        setVerificationError(fallbackMsg)
+      } else {
+        setVerification(null)
+      }
+      toast.error(fallbackMsg)
     } finally {
       setStickyVerificationCode(null)
       setStickyTransferMeta(null)
@@ -535,6 +585,7 @@ export default function BridgeFundingOverlay({
     const channel = getOtpChannelForMethod(method)
     if (!verification || !channel || isResending) return
     setIsResending(true)
+    setVerificationError(null)
     try {
       await transferService.requestOTP(verification.action || "transfer", channel)
       setVerification((current) =>
@@ -779,8 +830,13 @@ export default function BridgeFundingOverlay({
         verification ? void requestOtp(verification.selectedMethod) : undefined
       }
       isResending={isResending}
-      onClose={() => setVerification(null)}
-      onSubmit={(code) => void executeFundingPlan(code)}
+      onClose={() => {
+        setVerification(null)
+        setVerificationError(null)
+      }}
+      onSubmit={(code, method) => void executeFundingPlan(code, method)}
+      errorMessage={verificationError}
+      onClearError={() => setVerificationError(null)}
     />
   )
 

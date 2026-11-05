@@ -28,6 +28,10 @@ import {
   transferService,
   type VerificationMethod,
 } from "@/services/api/transfers"
+import {
+  getEnabledTransactionVerificationMethods,
+  securityService,
+} from "@/services/api/security"
 import type { User } from "@/types/db"
 import {
   bridgeService,
@@ -111,6 +115,7 @@ export default function BridgeFlow({
   const [verification, setVerification] = useState<BridgeVerification | null>(
     null,
   )
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const [bridgeSuccess, setBridgeSuccess] = useState<{
     symbol: BridgeAssetOption["symbol"]
     amount: string
@@ -298,7 +303,10 @@ export default function BridgeFlow({
     )
   }
 
-  const executeBridge = async (code?: string) => {
+  const executeBridge = async (
+    code?: string,
+    methodOverride?: VerificationMethod,
+  ) => {
     if (!source || !destination || !selectedRoute) return
     setIsSubmitting(true)
     setBridgeSuccess({
@@ -309,8 +317,10 @@ export default function BridgeFlow({
     })
 
     try {
-      if (code && verification) {
-        setStickyVerificationCode({ type: verification.selectedMethod, code })
+      const effectiveMethod =
+        methodOverride || verification?.selectedMethod || "totp"
+      if (code) {
+        setStickyVerificationCode({ type: effectiveMethod, code })
       } else {
         setStickyVerificationCode(null)
       }
@@ -452,6 +462,7 @@ export default function BridgeFlow({
       }
 
       setVerification(null)
+      setVerificationError(null)
       setBridgeSuccess({
         symbol: source.symbol,
         amount: receiveAmount || amount,
@@ -468,28 +479,67 @@ export default function BridgeFlow({
       }
     } catch (error) {
       setBridgeSuccess(null)
-      const verificationError = findTransferVerificationRequiredError(error)
-      if (verificationError) {
+      const verificationChallenge = findTransferVerificationRequiredError(error)
+      const isVerifying = Boolean(code)
+      if (verificationChallenge) {
+        let userEnabledMethods: VerificationMethod[] | null = null
+        try {
+          const settings = await securityService.getSettings()
+          userEnabledMethods = getEnabledTransactionVerificationMethods(settings)
+        } catch {
+          userEnabledMethods = null
+        }
+        const hasNoSecurityMethods =
+          userEnabledMethods !== null && userEnabledMethods.length === 0
+
         const methods = getAvailableVerificationMethods(
-          verificationError.availableMethods,
-          verificationError.verificationType,
+          verificationChallenge.availableMethods,
+          verificationChallenge.verificationType,
         )
         const selectedMethod = resolveVerificationMethod(
           methods,
-          verificationError.verificationType,
+          userEnabledMethods?.includes("totp")
+            ? "totp"
+            : verificationChallenge.verificationType,
         )
-        setVerification({
-          availableMethods: methods,
-          selectedMethod,
+        setVerification((prev) => ({
+          availableMethods: hasNoSecurityMethods ? [] : methods,
+          selectedMethod:
+            prev?.selectedMethod && methods.includes(prev.selectedMethod)
+              ? prev.selectedMethod
+              : selectedMethod,
           verificationType: getVerificationTypeForMethod(selectedMethod),
-          action: verificationError.action,
-          otpSent: selectedMethod !== "totp",
-        })
+          action: verificationChallenge.action,
+          otpSent: hasNoSecurityMethods ? false : isVerifying ? true : selectedMethod !== "totp",
+        }))
+        if (isVerifying) {
+          const msg = "Invalid verification code. Please try again."
+          setVerificationError(msg)
+          toast.error(msg)
+        } else {
+          setVerificationError(null)
+          if (!hasNoSecurityMethods) {
+            if (selectedMethod !== "totp") {
+              toast.info(
+                selectedMethod === "sms_otp"
+                  ? "We sent a verification code to your phone. Enter it to continue."
+                  : "We sent a verification code to your email. Enter it to continue.",
+              )
+            } else {
+              toast.info("Enter your authenticator code to continue.")
+            }
+          }
+        }
         return
       }
-      toast.error(
-        error instanceof Error ? error.message : "Unable to submit bridge",
-      )
+      const fallbackMsg =
+        error instanceof Error ? error.message : "Unable to submit bridge"
+      if (isVerifying) {
+        setVerificationError(fallbackMsg)
+      } else {
+        setVerification(null)
+      }
+      toast.error(fallbackMsg)
     } finally {
       setStickyVerificationCode(null)
       setStickyTransferMeta(null)
@@ -501,6 +551,7 @@ export default function BridgeFlow({
     const channel = getOtpChannelForMethod(method)
     if (!verification || !channel || isResending) return
     setIsResending(true)
+    setVerificationError(null)
     try {
       await transferService.requestOTP(
         verification.action || "transfer",
@@ -627,10 +678,17 @@ export default function BridgeFlow({
           verification && void requestOtp(verification.selectedMethod)
         }
         isResending={isResending}
-        onClose={() => !isSubmitting && setVerification(null)}
-        onSubmit={(code) => void executeBridge(code)}
+        onClose={() => {
+          if (!isSubmitting) {
+            setVerification(null)
+            setVerificationError(null)
+          }
+        }}
+        onSubmit={(code, method) => void executeBridge(code, method)}
         title="Confirm bridge"
         actionNoun="bridge"
+        errorMessage={verificationError}
+        onClearError={() => setVerificationError(null)}
       />
       {bridgeSuccess ? (
         <BridgeSuccessModal

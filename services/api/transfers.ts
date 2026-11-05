@@ -164,7 +164,7 @@ export function resolveVerificationMethod(
   return fallback
 }
 
-function containsVerificationMarker(value: unknown): boolean {
+export function containsVerificationMarker(value: unknown): boolean {
   if (typeof value === "string") {
     const normalized = value.toUpperCase()
     return (
