@@ -300,6 +300,7 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             exchangeRate={dashboard.exchangeRate}
             activeCurrency={dashboard.activeCurrency}
             isBalanceVisible={dashboard.isBalanceVisible}
+            onAddFunds={() => setIsAddFundsOpen(true)}
           />
           <TopMoversPanel
             listings={stockListings}
