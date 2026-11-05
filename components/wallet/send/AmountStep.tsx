@@ -11,8 +11,8 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormMessage,
 } from "@/components/ui/form";
+import { sanitizeAmountInput } from "./send-utils";
 import type { AmountFormValues, SendableAsset } from "./send-types";
 
 interface AmountStepProps {
@@ -116,16 +116,37 @@ export default function AmountStep({
                       </div>
                       <input
                         {...field}
+                        value={amount}
                         onChange={(event) => {
-                          field.onChange(event);
-                          onAmountChange(event.target.value);
+                          const decimals = selectedAsset?.decimals ?? 6;
+                          const sanitized = sanitizeAmountInput(
+                            event.target.value,
+                            decimals,
+                          );
+                          field.onChange(sanitized);
+                          onAmountChange(sanitized);
+                        }}
+                        onPaste={(event) => {
+                          event.preventDefault();
+                          const pasted = event.clipboardData.getData("text");
+                          const decimals = selectedAsset?.decimals ?? 6;
+                          const sanitized = sanitizeAmountInput(
+                            pasted,
+                            decimals,
+                          );
+                          field.onChange(sanitized);
+                          onAmountChange(sanitized);
                         }}
                         type="text"
                         inputMode="decimal"
                         autoComplete="off"
-                        pattern="[0-9]*[.]?[0-9]{0,6}"
                         placeholder="0.00"
-                        className="h-16 w-full rounded-2xl border border-black/5 bg-gray-95 px-4 pr-20 text-4xl font-bold tracking-tight text-black outline-none placeholder:text-gray-60 focus-visible:ring-[3px] focus-visible:ring-primary-70/20 dark:border-white/10 dark:bg-secondary-60 dark:text-white dark:placeholder:text-white/15 md:h-12 md:pl-16 md:pr-16 md:text-center md:text-base"
+                        className={cn(
+                          "h-16 w-full rounded-2xl border bg-gray-95 px-4 pr-20 text-4xl font-bold tracking-tight text-black outline-none placeholder:text-gray-60 focus-visible:ring-[3px] dark:bg-secondary-60 dark:text-white dark:placeholder:text-white/15 md:h-12 md:pl-16 md:pr-16 md:text-center md:text-base transition-colors",
+                          hasAmount && !isAmountValid
+                            ? "border-red-500/80 focus-visible:ring-red-500/20 text-red-600 dark:border-red-500/80 dark:text-red-400 dark:focus-visible:ring-red-500/20"
+                            : "border-black/5 focus-visible:ring-primary-70/20 dark:border-white/10",
+                        )}
                       />
                       <button
                         type="button"
@@ -139,19 +160,31 @@ export default function AmountStep({
                     </div>
                   </FormControl>
                 </div>
-                <FormMessage className="hidden text-xs md:block" />
               </FormItem>
             )}
           />
         </form>
       </Form>
 
-      {amount && !isAmountValid ? (
+      {hasAmount && !isAmountValid ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-medium text-red-500">
-            Enter an amount greater than zero and within your balance.
-          </p>
-          {isOverBalance ? <BridgeDeficitButton onClick={onBridge} /> : null}
+          {isOverBalance ? (
+            <>
+              <p className="text-xs font-medium text-red-500 dark:text-red-400">
+                Insufficient balance. You need{" "}
+                {formatAssetAmount(amountValue - (selectedAsset?.amount || 0))}{" "}
+                more {selectedAsset?.symbol || "asset"}.
+              </p>
+              <BridgeDeficitButton onClick={onBridge} />
+            </>
+          ) : (
+            <p className="text-xs font-medium text-red-500 dark:text-red-400">
+              {amountForm.formState.errors.amount?.message ||
+                (amountValue <= 0
+                  ? "Enter an amount greater than zero"
+                  : "Enter a valid amount")}
+            </p>
+          )}
         </div>
       ) : null}
 

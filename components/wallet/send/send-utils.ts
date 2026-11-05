@@ -12,6 +12,8 @@ export const SEND_STEPS = ["recipient", "asset", "amount", "review"] as const;
 export const ASSET_NAMES: Record<string, string> = {
   USDC: "USD Coin",
   USDT: "Tether USD",
+  MUSDC: "Moonwell USDC",
+  ETH: "Ethereum",
 };
 
 export const stepTitles = {
@@ -32,17 +34,68 @@ export const recipientSchema = z.object({
     ),
 });
 
-export const amountSchema = z.object({
-  amount: z
-    .string()
-    .trim()
-    .min(1, "Enter an amount")
-    .regex(/^\d+(\.\d{1,6})?$/, "Enter a valid amount")
-    .refine(
-      (value) => Number.isFinite(Number(value)) && Number(value) > 0,
-      "Amount must be greater than 0",
-    ),
-});
+export function sanitizeAmountInput(
+  value: string,
+  maxDecimals: number = 6,
+): string {
+  if (!value) return "";
+
+  // Normalize commas to dots
+  let cleaned = value.replace(/,/g, ".");
+
+  // Remove any non-numeric and non-decimal characters
+  cleaned = cleaned.replace(/[^0-9.]/g, "");
+
+  // Prevent multiple decimal points
+  const parts = cleaned.split(".");
+  if (parts.length > 2) {
+    cleaned = `${parts[0]}.${parts.slice(1).join("")}`;
+  }
+
+  // Prepend 0 if starting with a dot (e.g. ".5" -> "0.5")
+  if (cleaned.startsWith(".")) {
+    cleaned = `0${cleaned}`;
+  }
+
+  // Enforce maximum decimal places
+  if (cleaned.includes(".")) {
+    const [whole, decimal] = cleaned.split(".");
+    cleaned = `${whole}.${decimal.slice(0, maxDecimals)}`;
+  }
+
+  return cleaned;
+}
+
+export function createAmountSchema(selectedAsset?: SendableAsset | null) {
+  const maxDecimals = selectedAsset?.decimals ?? 6;
+  const balance = selectedAsset?.amount ?? 0;
+  const symbol = selectedAsset?.symbol ?? "asset";
+
+  return z.object({
+    amount: z
+      .string()
+      .trim()
+      .min(1, "Enter an amount")
+      .regex(
+        new RegExp(`^\\d+(\\.\\d{0,${maxDecimals}})?$`),
+        `Invalid amount format (max ${maxDecimals} decimal places)`,
+      )
+      .refine(
+        (value) => Number.isFinite(Number(value)) && Number(value) > 0,
+        "Amount must be greater than 0",
+      )
+      .refine(
+        (value) => {
+          if (!selectedAsset) return true;
+          const num = Number(value);
+          return Number.isFinite(num) && num <= balance;
+        },
+        `Amount cannot exceed your ${formatAssetAmount(balance)} ${symbol} balance`,
+      ),
+  });
+}
+
+export const amountSchema = createAmountSchema();
 
 export function parseAssetAmount(amount: Asset["amount"]): number {
   const parsed = typeof amount === "string" ? Number(amount) : amount;
@@ -74,6 +127,9 @@ export function groupSendableAssets(
 }
 
 export function getTokenIconUrl(symbol: string): string {
+  if (symbol.toLowerCase() === "musdc") {
+    return "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/usdc.png";
+  }
   return `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`;
 }
 

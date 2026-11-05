@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { giftFormSchema } from "@/components/gifts/gift-types";
 import { invoiceSchema } from "@/components/invoices/create-invoice/types";
-import { amountSchema } from "@/components/wallet/send/send-utils";
+import {
+  amountSchema,
+  createAmountSchema,
+  sanitizeAmountInput,
+} from "@/components/wallet/send/send-utils";
 import { guardianSchema, quickRecoverySchema } from "./social-recovery";
 
 describe("user input validation", () => {
@@ -74,5 +78,34 @@ describe("user input validation", () => {
         chain: "base",
       }).success,
     ).toBe(false);
+  });
+
+  it("sanitizes amount input strictly like withdraw and buy flows", () => {
+    expect(sanitizeAmountInput("23sdf")).toBe("23");
+    expect(sanitizeAmountInput("abc23.45xyz")).toBe("23.45");
+    expect(sanitizeAmountInput("23,50")).toBe("23.50");
+    expect(sanitizeAmountInput("23.4.5")).toBe("23.45");
+    expect(sanitizeAmountInput(".5")).toBe("0.5");
+    expect(sanitizeAmountInput("1.12345678", 6)).toBe("1.123456");
+  });
+
+  it("validates amount against balance and format rules", () => {
+    const assetSchema = createAmountSchema({
+      id: "usdc-base",
+      key: "USDC:base",
+      symbol: "USDC",
+      name: "USD Coin",
+      amount: 100,
+      chain: "Base",
+      assetType: "crypto" as any,
+      decimals: 6,
+    });
+
+    expect(assetSchema.safeParse({ amount: "50" }).success).toBe(true);
+    expect(assetSchema.safeParse({ amount: "100" }).success).toBe(true);
+    expect(assetSchema.safeParse({ amount: "100.01" }).success).toBe(false);
+    expect(assetSchema.safeParse({ amount: "0" }).success).toBe(false);
+    expect(assetSchema.safeParse({ amount: "-5" }).success).toBe(false);
+    expect(assetSchema.safeParse({ amount: "23sdf" }).success).toBe(false);
   });
 });
