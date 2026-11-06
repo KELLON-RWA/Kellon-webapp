@@ -10,6 +10,7 @@ import {
   type Address,
   type Chain,
   fallback,
+  parseAbi,
 } from "viem"
 import {
   base,
@@ -22,6 +23,8 @@ import {
   polygonAmoy,
   bscTestnet,
 } from "viem/chains"
+
+const SAFE_OWNERS_ABI = parseAbi(["function getOwners() view returns (address[])"])
 
 const arc = defineChain({
   id: 5042,
@@ -185,7 +188,7 @@ export function useSmartAccount() {
           throw new SignerMismatchError()
         }
 
-        const cacheKey = `${privyWallet.address}_${targetChainKey}`
+        const cacheKey = `${privyWallet.address}_${targetChainKey}_${expectedSafe?.toLowerCase() ?? "own"}`
         const existing = clientCache.get(cacheKey)
         if (existing) {
           assertOwnsSafe(existing.account?.address)
@@ -412,16 +415,28 @@ export function useSmartAccount() {
           transport: custom(provider),
         })
 
-        const safeAccount = await toSafeSmartAccount({
+        const safeConfig = {
           client: publicClient,
           owners: [ownerClient],
-          version: "1.4.1",
+          version: "1.4.1" as const,
           entryPoint: {
             address: entryPoint07Address,
-            version: "0.7",
+            version: "0.7" as const,
           },
-        })
+        }
+        let safeAccount = await toSafeSmartAccount(safeConfig)
 
+        // A recovered account keeps its Safe under a new owner, whose own Safe is a different
+        // address. Drive the account's Safe only when the chain says this signer owns it.
+        if (expectedSafe && safeAccount.address.toLowerCase() !== expectedSafe.toLowerCase()) {
+          const owners = await publicClient
+            .readContract({ address: expectedSafe as Address, abi: SAFE_OWNERS_ABI, functionName: "getOwners" })
+            .catch(() => [] as readonly Address[])
+          if (!owners.some((o) => o.toLowerCase() === privyWallet.address.toLowerCase())) {
+            assertOwnsSafe(safeAccount.address)
+          }
+          safeAccount = await toSafeSmartAccount({ ...safeConfig, address: expectedSafe as Address })
+        }
         assertOwnsSafe(safeAccount.address)
 
         cachedAddresses.set(cacheKey, safeAccount.address)

@@ -19,6 +19,7 @@ import {
   RoutesResponse,
 } from "@lifi/sdk";
 import { useQuery } from "@tanstack/react-query";
+import { getSwapFee } from "@/services/api/swap-fee";
 import { useAccount } from "wagmi";
 import { parseUnits } from "viem";
 import { Button } from "@/components/ui/button";
@@ -217,7 +218,10 @@ const SwapInterface: FC<SwapInterfaceProps> = ({ className }) => {
         toAddress: address,
       };
       setRoutesQueryExecuted(true); // Mark that getRoutes was called
-      return await getRoutes(request);
+      return await getRoutes({
+        ...request,
+        options: { fee: await getSwapFee() },
+      });
     },
     enabled: Boolean(
       fromToken &&

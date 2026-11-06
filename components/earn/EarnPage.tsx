@@ -1384,7 +1384,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           key={opportunity.id}
                           type="button"
                           onClick={() => openYieldOpportunity(opportunity)}
-                          disabled={positionsLoading}
+                          disabled={positionsLoading || opportunity.depositsPaused}
                           className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                         >
                           <div className="flex min-w-0 items-center gap-3">
@@ -1407,7 +1407,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               {formatApy(opportunity.apy)}
                             </p>
                             <span className="mt-1 inline-flex rounded-md bg-gradient-to-r from-primary-70 to-primary-60 px-2 py-0.5 text-[10px] font-bold text-white dark:bg-primary-70 dark:bg-none">
-                              Deposit
+                              {opportunity.depositsPaused ? "Deposits paused" : "Deposit"}
                             </span>
                           </div>
                         </button>
@@ -1480,9 +1480,16 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               )}
                             </td>
                             <td className="px-4 py-3.5">
-                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                                {opportunity.chain}
-                              </span>
+                              <div className="flex flex-col items-start gap-1">
+                                <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                                  {opportunity.chain}
+                                </span>
+                                {typeof opportunity.withdrawableLiquidity === "number" ? (
+                                  <span className="text-[10px] text-gray-30 dark:text-gray-40">
+                                    {opportunity.withdrawableLiquidity.toLocaleString(undefined, { maximumFractionDigits: 4 })} {opportunity.symbol} withdrawable
+                                  </span>
+                                ) : null}
+                              </div>
                             </td>
                             <td className="px-5 py-3.5 text-right">
                               <Button
@@ -1490,13 +1497,13 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 variant="flow"
                                 size="sm"
                                 className="h-9 shrink-0 px-4"
-                                disabled={positionsLoading}
+                                disabled={positionsLoading || opportunity.depositsPaused}
                                 onClick={() =>
                                   openYieldOpportunity(opportunity)
                                 }
                               >
                                 <span className="relative z-10 flex items-center justify-center gap-1.5">
-                                  Deposit
+                                  {opportunity.depositsPaused ? "Deposits paused" : "Deposit"}
                                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                                 </span>
                               </Button>

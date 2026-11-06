@@ -108,7 +108,6 @@ export async function initLifiConfig() {
       slippage: 0.005,
       order: "CHEAPEST",
       allowSwitchChain: true,
-      fee: 0.002,
       maxPriceImpact: 0.1,
     },
   });

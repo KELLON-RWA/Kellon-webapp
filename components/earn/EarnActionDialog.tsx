@@ -43,6 +43,7 @@ import {
 import { type BridgeProvider } from "@/services/api/bridge";
 import { bridgeOutbox } from "@/services/api/bridge-outbox";
 import type { User, YieldOpportunity, YieldPosition } from "@/types/db";
+import FeeLine from "./FeeLine";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -74,9 +75,10 @@ type EvmSmartAccountClient = {
   sendTransaction(args: {
     account: unknown;
     chain: unknown;
-    to: `0x${string}`;
+    to?: `0x${string}`;
     data?: `0x${string}`;
-    value: bigint;
+    value?: bigint;
+    calls?: { to: `0x${string}`; data?: `0x${string}`; value: bigint }[];
   }): Promise<string>;
 };
 
@@ -305,6 +307,31 @@ export default function EarnActionDialog({
       throw new Error(
         "The funding plan is missing its bridge provider. Please try again.",
       );
+    }
+
+    if (prepared.batched) {
+      const [first] = prepared.transactions;
+      const chainKey =
+        CHAIN_BY_ID[Number(first?.chainId)] ||
+        opportunity?.chain.toLowerCase() ||
+        "";
+      const client = await getSmartAccountClient(
+        evmWallet,
+        chainKey,
+        expectedSafeFor(profile.chainAccounts, chainKey),
+      );
+      if (!client) {
+        throw new Error(`Could not initialize your ${chainKey} account.`);
+      }
+      return (client as unknown as EvmSmartAccountClient).sendTransaction({
+        account: client.account,
+        chain: client.chain,
+        calls: prepared.transactions.map((transaction) => ({
+          to: transaction.to as `0x${string}`,
+          data: transaction.data as `0x${string}` | undefined,
+          value: transactionValue(transaction.value),
+        })),
+      });
     }
 
     let finalHash = "";
@@ -566,8 +593,33 @@ export default function EarnActionDialog({
         return;
       }
 
+      const message =
+        error instanceof Error ? error.message : "The Earn action failed.";
+      const queueable =
+        action === "withdraw" &&
+        message.includes("available to withdraw") &&
+        Boolean(opportunity);
       toast.error(
-        error instanceof Error ? error.message : "The Earn action failed.",
+        message,
+        queueable
+          ? {
+              duration: 15_000,
+              action: {
+                label: "Withdraw when available",
+                onClick: () =>
+                  void yieldService
+                    .requestExit(opportunity!.id)
+                    .then(() =>
+                      toast.success(
+                        "We'll withdraw your funds to your wallet as soon as the pool has cash.",
+                      ),
+                    )
+                    .catch(() =>
+                      toast.error("Could not queue your withdrawal."),
+                    ),
+              },
+            }
+          : undefined,
       );
     } finally {
       setStickyVerificationCode(null);
@@ -692,6 +744,22 @@ export default function EarnActionDialog({
                           {formatTokenAmount(availableAmount)} {symbol}
                         </span>
                       </div>
+                      {typeof opportunity?.withdrawableLiquidity === "number" ? (
+                        <div className="flex items-center justify-between text-[11px] text-gray-30 dark:text-gray-40">
+                          <span>Available to withdraw</span>
+                          <span>
+                            {formatTokenAmount(opportunity.withdrawableLiquidity)} {symbol}
+                          </span>
+                        </div>
+                      ) : null}
+                      <FeeLine
+                        feature="yield"
+                        moment={action === "supply" ? "deposit" : "withdraw"}
+                        provider={opportunity?.protocol}
+                        chain={opportunity?.chain}
+                        asset={symbol}
+                        amount={Number(field.value) || 0}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

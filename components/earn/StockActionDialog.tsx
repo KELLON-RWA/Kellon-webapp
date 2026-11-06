@@ -52,6 +52,7 @@ import {
   type SellStockResponse,
 } from "@/services/api/stocks";
 import type { User } from "@/types/db";
+import FeeLine from "./FeeLine";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -971,6 +972,14 @@ export default function StockActionDialog({
                           : `$${calculatedProceeds.toFixed(2)} USDC`}
                       </span>
                     </div>
+                    <FeeLine
+                      feature="stocks"
+                      moment={action}
+                      provider={stockProvider}
+                      chain={targetStockChain}
+                      asset="USDC"
+                      amount={action === "buy" ? watchValue : calculatedProceeds}
+                    />
                   </div>
                 )}
 
