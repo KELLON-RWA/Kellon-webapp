@@ -19,9 +19,11 @@ interface AssetStepProps {
   onOpenAddFunds: () => void;
 }
 
-function preferredNetwork(group: SendableAssetGroup): SendableAsset {
-  return group.assets.reduce((best, asset) =>
-    asset.amount > best.amount ? asset : best,
+function preferredNetwork(group: SendableAssetGroup): SendableAsset | null {
+  if (!group?.assets || group.assets.length === 0) return null;
+  return group.assets.reduce(
+    (best, asset) => (asset.amount > best.amount ? asset : best),
+    group.assets[0],
   );
 }
 
@@ -70,10 +72,19 @@ export default function AssetStep({
   return (
     <div className="flex h-full min-w-0 flex-col gap-5">
       <div>
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+        <p className="mb-2 text-xs font-light capitalize text-gray-500 dark:text-gray-400">
           Send from
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div
+          className={cn(
+            "grid gap-3",
+            groups.length === 1
+              ? "grid-cols-1"
+              : groups.length === 2
+                ? "grid-cols-2"
+                : "grid-cols-2 sm:grid-cols-3",
+          )}
+        >
           {groups.map((group) => {
             const isSelected = group.symbol === activeGroup?.symbol;
 
@@ -82,7 +93,10 @@ export default function AssetStep({
                 key={group.symbol}
                 type="button"
                 aria-pressed={isSelected}
-                onClick={() => onSelectAsset(preferredNetwork(group).key)}
+                onClick={() => {
+                  const preferred = preferredNetwork(group);
+                  if (preferred?.key) onSelectAsset(preferred.key);
+                }}
                 className={cn(
                   "flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition-all",
                   isSelected
@@ -114,7 +128,7 @@ export default function AssetStep({
 
       {activeGroup && selectedNetwork ? (
         <div className="pt-1">
-          <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+          <label className="mb-2 block text-xs font-light capitalize text-gray-500 dark:text-gray-400">
             Network
           </label>
 

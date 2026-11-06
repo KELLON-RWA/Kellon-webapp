@@ -22,9 +22,9 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
   // Chain accounts can include backend-provisioned networks that Kellon does
   // not support yet. Only expose active Kellon networks in receive.
   const filteredChainAccounts = useMemo(() => {
-    return chainAccounts
-      .filter((account) => getActiveChainKey(account.chain) !== null)
-      .sort((a, b) => a.chain.localeCompare(b.chain));
+    return (chainAccounts || [])
+      .filter((account) => account && getActiveChainKey(account.chain) !== null)
+      .sort((a, b) => (a?.chain || "").localeCompare(b?.chain || ""));
   }, [chainAccounts]);
 
   const [selectedChainId, setSelectedChainId] = useState<string>(
@@ -76,13 +76,18 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
 
   // Transform chainAccounts to the format expected by SelectNetworkModal
   const networks = useMemo(() => {
-    return filteredChainAccounts.map((account) => ({
-      id: account.id,
-      name:
-        account.chain.toLowerCase() === "bnb"
-          ? "BNB"
-          : account.chain.charAt(0).toUpperCase() + account.chain.slice(1),
-    }));
+    return filteredChainAccounts.map((account) => {
+      const chain = account?.chain || "";
+      return {
+        id: account.id,
+        name:
+          chain.toLowerCase() === "bnb"
+            ? "BNB"
+            : chain
+              ? chain.charAt(0).toUpperCase() + chain.slice(1)
+              : "Network",
+      };
+    });
   }, [filteredChainAccounts]);
 
   // Generate QR code on address change
@@ -268,7 +273,7 @@ const ReceiveCrypto: FC<ReceiveCryptoProps> = ({ chainAccounts, onClose }) => {
       {/* Network Selection Modal */}
       <SelectNetworkModal
         isOpen={isNetworkModalOpen}
-        onClose={setIsNetworkModalOpen}
+        onClose={() => setIsNetworkModalOpen(false)}
         chains={networks}
         selectedChainId={selectedChainId}
         onSelectChain={handleSelectNetwork}
