@@ -226,19 +226,93 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "*.paycrest.io",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "framerusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "media.licdn.com",
         pathname: "/**",
       },
     ],
   },
 
-  webpack: (config) => {
+  poweredByHeader: false,
+  compress: true,
+
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "@tanstack/react-query",
+      "framer-motion",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-scroll-area",
+      "@radix-ui/react-switch",
+      "sonner",
+    ],
+  },
+
+  webpack: (config, { isServer }) => {
     config.resolve = config.resolve || {}
-    config.resolve.fallback = {
-      ...(config.resolve.fallback || {}),
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
       "@react-native-async-storage/async-storage": false,
     }
+
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        "@react-native-async-storage/async-storage": false,
+        "@farcaster/mini-app-solana": false,
+        "pino-pretty": false,
+      }
+    }
+
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      { module: /virtualMasterPool/ },
+      { module: /@privy-io\/react-auth/ },
+      /Critical dependency: the request of a dependency is an expression/,
+    ]
+
     return config
+  },
+
+  async headers() {
+    return [
+      {
+        source: "/fonts/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/manifest.json",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+    ]
   },
 
   async rewrites() {

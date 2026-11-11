@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import Provider from "@/components/providers/Provider";
+
+const roboto = localFont({
+  src: "../fonts/roboto/Roboto-VariableFont.ttf",
+  variable: "--font-roboto",
+  display: "swap",
+  preload: true,
+});
 
 const siteUrl = "https://www.kellon.xyz";
 const siteDescription =
@@ -73,8 +81,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="antialiased">
+    <html lang="en" className={roboto.variable} suppressHydrationWarning>
+      <body className="font-roboto antialiased">
         <Provider>{children}</Provider>
       </body>
     </html>

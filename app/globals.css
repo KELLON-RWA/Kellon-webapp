@@ -4,9 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @font-face {
-  font-family: "Manrope", sans-serif;
-  src: url("/fonts/Manrope/Manrope-VariableFont.ttf");
-  font-weight: 200 800; /* full weight range */
+  font-family: "Roboto";
+  src: url("/fonts/Roboto/Roboto-VariableFont.ttf");
+  font-weight: 100 900; /* full weight range */
   font-style: normal;
   font-display: swap;
 }
@@ -81,7 +81,8 @@
   --color-black1: #1a1f2e;
   --color-black2: #0b101a;
   /* fonts */
-  --font-manrope: "Manrope", sans-serif;
+  --font-roboto: var(--font-roboto, "Roboto", sans-serif);
+  --font-sans: var(--font-roboto, "Roboto", sans-serif);
   /* letter-spacing*/
   --tracking-tight: 0.1em;
   --tracking-mid: 0.15em;

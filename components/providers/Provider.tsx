@@ -28,7 +28,7 @@ const Provider: FC<ProviderProps> = async ({ children }) => {
           <ReactQueryProvider>
             <RealtimeProvider>
               <CustomWagmiProvider>
-                <div className="font-manrope text-cryptoNight dark:text-white relative min-h-screen">
+                <div className="font-roboto text-cryptoNight dark:text-white relative min-h-screen">
                   {/* Enhanced Glass Texture */}
                   <div className="fixed inset-0 z-0">
                     <div className="absolute inset-0 bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:from-violet1/10 dark:via-secondary-50 dark:to-secondary-40" />
