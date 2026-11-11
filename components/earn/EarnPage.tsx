@@ -1206,7 +1206,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               <section className="relative mb-8 hidden overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-7 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:block dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(138,22,133,0.18),transparent_48%),linear-gradient(115deg,rgba(255,255,255,0.7),rgba(246,232,242,0.42)_48%,rgba(255,255,255,0.16))] dark:bg-[radial-gradient(circle_at_16%_0%,rgba(193,92,165,0.42),transparent_52%),radial-gradient(circle_at_90%_20%,rgba(255,255,255,0.1),transparent_40%)]" />
                 <div className="relative">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
+                  <p className="text-xs font-light capitalize text-gray-30 dark:text-gray-40">
                     Total portfolio balance
                   </p>
                   <p className="mt-3 text-4xl font-extrabold tabular-nums text-cryptoNight dark:text-white">
@@ -1384,7 +1384,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           key={opportunity.id}
                           type="button"
                           onClick={() => openYieldOpportunity(opportunity)}
-                          disabled={positionsLoading || opportunity.depositsPaused}
+                          disabled={positionsLoading}
                           className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                         >
                           <div className="flex min-w-0 items-center gap-3">
@@ -1407,7 +1407,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               {formatApy(opportunity.apy)}
                             </p>
                             <span className="mt-1 inline-flex rounded-md bg-gradient-to-r from-primary-70 to-primary-60 px-2 py-0.5 text-[10px] font-bold text-white dark:bg-primary-70 dark:bg-none">
-                              {opportunity.depositsPaused ? "Deposits paused" : "Deposit"}
+                              Deposit
                             </span>
                           </div>
                         </button>
@@ -1480,16 +1480,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               )}
                             </td>
                             <td className="px-4 py-3.5">
-                              <div className="flex flex-col items-start gap-1">
-                                <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
-                                  {opportunity.chain}
-                                </span>
-                                {typeof opportunity.withdrawableLiquidity === "number" ? (
-                                  <span className="text-[10px] text-gray-30 dark:text-gray-40">
-                                    {opportunity.withdrawableLiquidity.toLocaleString(undefined, { maximumFractionDigits: 4 })} {opportunity.symbol} withdrawable
-                                  </span>
-                                ) : null}
-                              </div>
+                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                                {opportunity.chain}
+                              </span>
                             </td>
                             <td className="px-5 py-3.5 text-right">
                               <Button
@@ -1497,13 +1490,13 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 variant="flow"
                                 size="sm"
                                 className="h-9 shrink-0 px-4"
-                                disabled={positionsLoading || opportunity.depositsPaused}
+                                disabled={positionsLoading}
                                 onClick={() =>
                                   openYieldOpportunity(opportunity)
                                 }
                               >
                                 <span className="relative z-10 flex items-center justify-center gap-1.5">
-                                  {opportunity.depositsPaused ? "Deposits paused" : "Deposit"}
+                                  Deposit
                                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                                 </span>
                               </Button>

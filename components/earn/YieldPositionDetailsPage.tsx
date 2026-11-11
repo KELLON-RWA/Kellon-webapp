@@ -206,7 +206,7 @@ export default function YieldPositionDetailsPage({
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           {opportunity?.riskLevel || "Conservative"}
         </span>
-        <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-30 dark:text-gray-40">
+        <p className="mt-6 text-xs font-light capitalize text-gray-30 dark:text-gray-40">
           Staked position
         </p>
         <p className="mt-1 text-4xl font-bold tabular-nums text-cryptoNight dark:text-white">

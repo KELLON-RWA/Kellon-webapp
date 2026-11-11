@@ -393,9 +393,6 @@ export interface YieldOpportunity {
   tvl?: number | string | null;
   riskLevel: RiskLevel;
   isWhitelisted?: boolean;
-  /** What the market can pay out now; null where the protocol has no such limit. */
-  withdrawableLiquidity?: number | null;
-  depositsPaused?: boolean;
   metadata?: json | null;
   createdAt?: Date;
   updatedAt?: Date;

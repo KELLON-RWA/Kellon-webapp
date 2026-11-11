@@ -9,7 +9,7 @@ export interface YieldTransaction {
   data?: string;
   value?: string | number;
   chainId?: string | number;
-  stepType?: "approve" | "bridge" | "supply" | "withdraw" | "fee";
+  stepType?: "approve" | "bridge" | "supply" | "withdraw";
   provider?: string;
   messengerName?: string;
   txXdr?: string;
@@ -31,8 +31,6 @@ export interface FundingPlan {
 export interface PreparedYieldAction {
   type?: "direct" | "cross-chain-sequential";
   transactions: YieldTransaction[];
-  /** Every step goes out as one userop, so the fee cannot be skipped. */
-  batched?: boolean;
   plan?: FundingPlan;
   metadata?: {
     protocol?: string;
@@ -155,7 +153,6 @@ export const yieldService = {
       opportunityId,
       amount,
       selectedChains,
-      batched: true,
       ...verification,
     }),
 
@@ -167,12 +164,8 @@ export const yieldService = {
     post<PreparedYieldAction>("/api/yield/withdraw", {
       opportunityId,
       amount,
-      batched: true,
       ...verification,
     }),
-
-  requestExit: (opportunityId: string) =>
-    post<{ id: string }>("/api/yield/exit-requests", { opportunityId }),
 
   confirmPosition: (
     opportunityId: string,
