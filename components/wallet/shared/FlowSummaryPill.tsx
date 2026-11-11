@@ -46,7 +46,9 @@ export default function FlowSummaryPill({
   const assetSymbol = asset.toUpperCase();
   const chainName = networkName || selectedChain?.name || null;
   const displayCurrency =
-    amountCurrency || (fiatAmount ? assetSymbol : fiatCurrency) || null;
+    amountCurrency !== undefined
+      ? amountCurrency
+      : (fiatAmount ? assetSymbol : fiatCurrency) || null;
   const amountLabel =
     amount !== null && amount !== undefined && amount !== ""
       ? `${amount}${displayCurrency ? ` ${displayCurrency}` : ""}`

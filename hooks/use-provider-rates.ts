@@ -10,6 +10,8 @@ interface ProviderRateDetails {
   fiatAmount: number | null; // Calculated fiat amount
   rawRate: number | null; // Raw rate from backend
   routeProvider?: string; // For an aggregator: the partner the route settles through
+  fee?: number | string | null;
+  feeCurrency?: string | null;
 }
 
 type ProviderRatesMap = Record<string, ProviderRateDetails | null>;
@@ -94,6 +96,8 @@ export function useProviderRates({
             let expiresAt: string | undefined;
             let maxCryptoDebit: string | undefined;
             let routeProvider: string | undefined;
+            let fee: number | string | null = null;
+            let feeCurrency: string | undefined;
 
             if (provider.name.toLowerCase() === "paycrest") {
               // Paycrest's amount parameter is denominated in the token, while
@@ -128,6 +132,8 @@ export function useProviderRates({
               quoteId = res.data?.quoteId;
               expiresAt = res.data?.expiresAt;
               maxCryptoDebit = res.data?.maxCryptoDebit;
+              fee = parseNumber(res.data?.fees);
+              feeCurrency = res.data?.feeCurrency;
               if (res.success && paycrestRate) {
                 rawRate = paycrestRate;
                 if (rawRate > 0) {
@@ -160,6 +166,10 @@ export function useProviderRates({
                 maxCryptoDebit = res.data.maxCryptoDebit;
                 routeProvider = res.data.provider;
                 rawRate = parseNumber(res.data.rate);
+                fee =
+                  parseNumber((res.data as unknown as Record<string, unknown>)?.fees) ??
+                  parseNumber((res.data as unknown as Record<string, unknown>)?.fee) ??
+                  null;
                 if (side === "sell") {
                   cryptoAmount = amount;
                   fiatAmount =
@@ -186,6 +196,9 @@ export function useProviderRates({
               quoteId = res.data?.quoteId;
               expiresAt = res.data?.expiresAt;
               maxCryptoDebit = res.data?.maxCryptoDebit;
+              fee =
+                parseNumber(res.data?.fees) ??
+                (res.data?.fees ? String(res.data.fees) : null);
               if (res.success) {
                 rawRate = res.data?.rate ? parseFloat(res.data.rate) : null;
                 const estimatedAmount = res.data?.estimatedReceivableAmount
@@ -212,6 +225,8 @@ export function useProviderRates({
                     expiresAt,
                     maxCryptoDebit,
                     routeProvider,
+                    fee,
+                    feeCurrency,
                   }
                 : null;
           } catch (error) {

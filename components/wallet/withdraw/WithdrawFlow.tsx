@@ -1107,10 +1107,13 @@ export default function WithdrawFlow({
               maxCryptoDebit={selectedProviderRate?.maxCryptoDebit}
               amount={amount}
               asset={asset}
-              amountUnit={asset}
+              amountUnit=""
               selectedChain={selectedChain}
               selectedProvider={selectedProvider}
               selectedBank={selectedBank}
+              exchangeRate={selectedProviderRawRate}
+              fee={selectedProviderRate?.fee}
+              feeCurrency={selectedProviderRate?.feeCurrency}
               isSubmitting={
                 isSubmitting ||
                 retryCountdown > 0 ||
