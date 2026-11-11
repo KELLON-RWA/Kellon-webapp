@@ -60,7 +60,6 @@ export default function RecipientStep({
   recipientLookupMessage,
   onVerifyRecipient,
   onConfirmRecipient,
-  onResetConfirmation,
   onRecipientChange,
 }: RecipientStepProps) {
   const isWalletAddress =

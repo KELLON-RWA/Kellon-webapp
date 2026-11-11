@@ -54,14 +54,12 @@ export default function TransferVerificationModal({
   onClose,
   onSubmit,
   title = "Confirm transfer",
-  actionNoun = "send",
   description,
   onResend,
   isResending = false,
   availableMethods,
   selectedMethod,
   onMethodChange,
-  otpSent = true,
   errorMessage,
   onClearError,
 }: TransferVerificationModalProps) {
@@ -165,12 +163,6 @@ export default function TransferVerificationModal({
   const trimmedCode = code.replace(/\D/g, "").slice(0, 6);
   const canSubmit = trimmedCode.length === 6 && !isSubmitting;
   const showMethodPicker = methods.length > 1 && Boolean(onMethodChange);
-  const methodLabel =
-    activeMethod === "sms_otp"
-      ? "SMS"
-      : activeMethod === "totp"
-        ? "Google Authenticator"
-        : "email";
 
   useEffect(() => {
     setCode("");

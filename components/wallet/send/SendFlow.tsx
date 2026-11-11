@@ -95,7 +95,6 @@ export default function SendFlow({ profile }: SendFlowProps) {
     verificationError,
     setVerificationError,
     successState,
-    clearSuccessState,
     verifiedRecipient,
     verifyRecipient,
   } = useSendFlow(activeProfile);

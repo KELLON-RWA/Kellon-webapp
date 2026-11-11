@@ -40,7 +40,7 @@ import {
   http,
   type Address,
 } from "viem"
-import { AssetType, type Asset, type User } from "@/types/db"
+import type { Asset, User } from "@/types/db"
 import type {
   AmountFormValues,
   RecipientFormValues,
@@ -1315,7 +1315,6 @@ export function useSendFlow(profile: User) {
       profile.chainAccounts,
       recipientInput,
       recipientKind,
-      router,
       selectedAsset,
       verifiedRecipient,
       wallets,

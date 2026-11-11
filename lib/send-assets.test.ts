@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isStablecoinSymbol, STABLECOIN_SYMBOLS } from "@/lib/dashboard-utils";
+import { isStablecoinSymbol } from "@/lib/dashboard-utils";
 import {
   ASSET_NAMES,
   groupSendableAssets,

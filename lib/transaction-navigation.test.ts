@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
+  findMatchingTransaction,
   getTransactionDetailsPath,
+  isValidTransactionId,
+  resolveFlowTransactionId,
   shouldReturnHomeFromTransaction,
 } from "./transaction-navigation"
+import { transactionService } from "@/services/api/transactions"
+import type { Transaction } from "@/types/db"
 
 describe("transaction detail navigation", () => {
   it("marks transaction details opened from a transaction flow", () => {
@@ -21,5 +26,74 @@ describe("transaction detail navigation", () => {
   it("returns home only for transaction-flow navigation", () => {
     expect(shouldReturnHomeFromTransaction("flow")).toBe(true)
     expect(shouldReturnHomeFromTransaction("transactions")).toBe(false)
+  })
+
+  it("validates UUID transaction IDs correctly", () => {
+    expect(
+      isValidTransactionId("3b619c95-fd09-43aa-9d8e-bcdf504f2914"),
+    ).toBe(true)
+    expect(isValidTransactionId("not-a-uuid")).toBe(false)
+    expect(isValidTransactionId("0x123456789abcdef")).toBe(false)
+    expect(isValidTransactionId(null)).toBe(false)
+  })
+
+  it("finds matching transaction by hash", () => {
+    const mockTx = {
+      id: "3b619c95-fd09-43aa-9d8e-bcdf504f2914",
+      type: "TRANSFER_OUT",
+      symbol: "USDC",
+      amount: "2.734881",
+      createdAt: new Date(),
+      metadata: { txHash: "0xabcdef123456" },
+    } as unknown as Transaction
+
+    const match = findMatchingTransaction([mockTx], {
+      txHash: "0xabcdef123456",
+    })
+    expect(match?.id).toBe("3b619c95-fd09-43aa-9d8e-bcdf504f2914")
+  })
+
+  it("finds matching bridge transaction by groupId", () => {
+    const mockTx = {
+      id: "7c829e12-aa11-44bb-99cc-eeff00112233",
+      type: "BRIDGE",
+      symbol: "USDC",
+      amount: "5.0",
+      createdAt: new Date(),
+      metadata: { groupId: "bridge-grp-999" },
+    } as unknown as Transaction
+
+    const match = findMatchingTransaction([mockTx], {
+      groupId: "bridge-grp-999",
+      type: "BRIDGE",
+    })
+    expect(match?.id).toBe("7c829e12-aa11-44bb-99cc-eeff00112233")
+  })
+
+  it("finds recent matching transaction by type, symbol, and amount fallback", () => {
+    const mockTx = {
+      id: "11111111-2222-3333-4444-555555555555",
+      type: "TRANSFER_OUT",
+      symbol: "USDC",
+      amount: 2.734881,
+      createdAt: new Date(Date.now() - 5000), // 5 seconds ago
+    } as unknown as Transaction
+
+    const match = findMatchingTransaction([mockTx], {
+      type: "TRANSFER_OUT",
+      symbol: "USDC",
+      amount: 2.734881,
+    })
+    expect(match?.id).toBe("11111111-2222-3333-4444-555555555555")
+  })
+
+  it("resolves direct valid transaction ID without querying API", async () => {
+    const spy = vi.spyOn(transactionService, "getTransactions")
+    const id = await resolveFlowTransactionId({
+      transactionId: "3b619c95-fd09-43aa-9d8e-bcdf504f2914",
+    })
+    expect(id).toBe("3b619c95-fd09-43aa-9d8e-bcdf504f2914")
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
   })
 })

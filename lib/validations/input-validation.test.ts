@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { AssetType } from "@/types/db";
 import { giftFormSchema } from "@/components/gifts/gift-types";
 import { invoiceSchema } from "@/components/invoices/create-invoice/types";
 import {
@@ -97,7 +98,7 @@ describe("user input validation", () => {
       name: "USD Coin",
       amount: 100,
       chain: "Base",
-      assetType: "crypto" as any,
+      assetType: AssetType.CRYPTO,
       decimals: 6,
     });
 
