@@ -33,6 +33,7 @@ interface BankSelectionStepProps {
   amount: string;
   amountUnit: string | null;
   fiatCurrency: string;
+  fiatAmount?: string | number | null;
   country: string | null;
   selectedChain?: { name: string } | null;
   selectedBank: BankDetail | null;
@@ -51,6 +52,7 @@ export function WithdrawBankSelectionStep({
   amount,
   amountUnit,
   fiatCurrency,
+  fiatAmount,
   country,
   selectedChain,
   selectedBank,
@@ -272,10 +274,12 @@ export function WithdrawBankSelectionStep({
           selectedChain={selectedChain}
           amount={amount}
           amountCurrency={amountUnit || undefined}
+          fiatAmount={fiatAmount}
+          fiatCurrency={fiatCurrency}
         />
 
         <div className="mt-8">
-          <h3 className="mb-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-3 text-xs font-light capitalize text-gray-500 dark:text-gray-400">
             Bank Details
           </h3>
 
@@ -287,7 +291,7 @@ export function WithdrawBankSelectionStep({
 
               <div className="mb-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  <h3 className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                     Saved Accounts
                   </h3>
                   {savedBanks.length ? (
@@ -374,7 +378,7 @@ export function WithdrawBankSelectionStep({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-mid text-gray-30 dark:text-gray-40">
+                    <label className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                       Account Number
                     </label>
                     <div className="relative">
@@ -450,7 +454,7 @@ export function WithdrawBankSelectionStep({
           ) : (
             <section className="rounded-[28px] border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-secondary-50/10 md:p-6">
               <div className="mb-5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <p className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                   New Account
                 </p>
               </div>
@@ -487,7 +491,7 @@ export function WithdrawBankSelectionStep({
               </button>
 
               <div className="mt-4 rounded-2xl border border-gray-80 bg-gray-95 px-4 py-4 dark:border-white/10 dark:bg-secondary-50">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <p className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                   Account Number
                 </p>
                 <p className="mt-3 text-base font-semibold text-black dark:text-white">
@@ -514,7 +518,7 @@ export function WithdrawBankSelectionStep({
           {!usesVerifiedBankFlow ? (
             <div className="mt-8">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <h3 className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                   Recent Accounts
                 </h3>
                 {savedBanks.length ? (

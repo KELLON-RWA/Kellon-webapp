@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import Image from "next/image";
-import { CheckCircle2, ChevronDown, Globe, ArrowRight } from "lucide-react";
+import { ChevronDown, Globe, ArrowRight } from "lucide-react";
+import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import ChainIcon from "@/components/wallet/ChainIcon";
 import { getSupportedChainsForToken } from "@/lib/chains";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
@@ -44,10 +44,10 @@ export function AssetSelectionStep({
   const hasValidSelection = asset && networkName;
 
   return (
-    <div className="flex flex-col h-full min-h-[calc(100dvh-200px)] md:min-h-[500px]">
-      <div className="min-h-0 flex-1 overflow-y-auto pb-32 md:px-0 md:pb-0">
+    <div className="flex h-full min-h-[calc(100dvh-200px)] flex-col md:min-h-[500px]">
+      <div className="flex-1 overflow-y-auto md:px-0">
         {/* Country Selector */}
-        <div className="flex justify-center  mb-8">
+        <div className="mb-6 flex justify-center">
           <button
             type="button"
             onClick={onOpenCountryModal}
@@ -69,61 +69,61 @@ export function AssetSelectionStep({
 
         {/* Select Asset Section */}
         <section className="mb-8">
-          <h3 className="mb-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-3 text-xs font-light capitalize text-gray-500 dark:text-gray-400">
             Select Asset
           </h3>
-          <div className="space-y-3">
-            {assets.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                aria-pressed={asset === a.symbol}
-                onClick={() => onSelectAsset(a.symbol)}
-                className={cn(
-                  "cursor-pointer",
-                  "w-full rounded-2xl border p-4 text-left transition-all",
-                  asset === a.symbol
-                    ? "border-primary-60 bg-primary-70/5 ring-2 ring-primary-60/20"
-                    : "border-black/5 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50",
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="relative h-8 w-8">
-                      <Image
-                        src={`https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${a.symbol.toLowerCase()}.png`}
-                        alt={a.symbol}
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
-                    <div className="text-left">
-                      <p
-                        className={cn(
-                          "text-sm font-bold",
-                          asset === a.symbol
-                            ? "text-primary-60"
-                            : "text-black dark:text-white",
-                        )}
-                      >
-                        {a.symbol}
-                      </p>
-                      <p className="text-xs text-gray-500">{a.name}</p>
-                    </div>
-                  </div>
-                  {asset === a.symbol && (
-                    <CheckCircle2 className="h-5 w-5 text-primary-70" />
+          <div
+            className={cn(
+              "grid gap-3",
+              assets.length === 1
+                ? "grid-cols-1"
+                : assets.length === 2
+                  ? "grid-cols-2"
+                  : "grid-cols-2 sm:grid-cols-3",
+            )}
+          >
+            {assets.map((a) => {
+              const isSelected = asset === a.symbol;
+
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => onSelectAsset(a.symbol)}
+                  className={cn(
+                    "flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition-all",
+                    isSelected
+                      ? "border-primary-60 bg-primary-70/5 ring-2 ring-primary-60/20"
+                      : "border-black/5 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-secondary-50 dark:hover:bg-secondary-60/50",
                   )}
-                </div>
-              </button>
-            ))}
+                >
+                  <AssetNetworkIcon symbol={a.symbol} />
+                  <span className="min-w-0">
+                    <span
+                      className={cn(
+                        "block truncate text-sm font-bold",
+                        isSelected
+                          ? "text-primary-60"
+                          : "text-black dark:text-white",
+                      )}
+                    >
+                      {a.symbol}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-gray-500">
+                      {a.name}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
         {/* Select Network Section */}
         {asset && (
           <section className="animate-in fade-in slide-in-from-bottom-2">
-            <h3 className="mb-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+            <h3 className="mb-3 text-xs font-light capitalize text-gray-500 dark:text-gray-400">
               Select Network
             </h3>
             <div className="grid grid-cols-2 gap-3">
@@ -157,7 +157,6 @@ export function AssetSelectionStep({
       </div>
 
       <FlowActionFooter
-        className="bg-gradient-to-t"
         onClick={onContinue}
         disabled={!hasValidSelection}
         buttonClassName={cn(!hasValidSelection && "from-gray-400 to-gray-500")}

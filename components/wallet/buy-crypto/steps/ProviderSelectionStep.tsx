@@ -1,6 +1,5 @@
 // components/BuyCryptoFlow/steps/ProviderSelectionStep.tsx
 import {
-  Globe,
   ArrowRight,
   Loader2,
   Check,
@@ -12,9 +11,13 @@ import { cn } from "@/lib/utils";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import { Button } from "@/components/ui/button";
-import { getDisplayProviderRate } from "@/lib/provider-rate-display";
-import Image from "next/image";
-import { useState } from "react";
+import {
+  getBestRateProviderId,
+  getDisplayProviderRate,
+  sortProvidersByRate,
+} from "@/lib/provider-rate-display";
+import { useMemo } from "react";
+import { ProviderLogo } from "@/components/wallet/shared/ProviderLogo";
 
 interface Provider {
   id: string;
@@ -81,11 +84,18 @@ export function ProviderSelectionStep({
   onGoHome,
   onChangeSelection,
 }: ProviderSelectionStepProps) {
-  const visibleProviders = isRatesLoading
-    ? providers
-    : providers.filter((provider) =>
-        hasUsableProviderRate(providerRates[provider.id]),
-      );
+  const bestRateProviderId = useMemo(() => {
+    return getBestRateProviderId(providers, providerRates, "buy");
+  }, [providers, providerRates]);
+
+  const visibleProviders = useMemo(() => {
+    const list = isRatesLoading
+      ? providers
+      : providers.filter((provider) =>
+          hasUsableProviderRate(providerRates[provider.id]),
+        );
+    return sortProvidersByRate(list, providerRates, "buy");
+  }, [isRatesLoading, providers, providerRates]);
   const visibleProviderCount = visibleProviders.length;
   const selectedProvider = visibleProviders.find(
     (p) => p.id === selectedProviderId,
@@ -103,17 +113,6 @@ export function ProviderSelectionStep({
   const hasNoProviders = !isRatesLoading && providers.length === 0;
   const hasNoLiveRates =
     !isRatesLoading && providers.length > 0 && visibleProviderCount === 0;
-
-  // Track image loading errors per provider
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
-
-  const handleImageError = (providerId: string) => {
-    setImageErrors((prev) => ({ ...prev, [providerId]: true }));
-  };
-
-  const shouldShowIcon = (provider: Provider) => {
-    return imageErrors[provider.id] || !provider.logo;
-  };
 
   // Helper to format currency
   const formatCurrency = (value: number) => {
@@ -135,7 +134,7 @@ export function ProviderSelectionStep({
 
         <div className="mt-6 md:mt-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-wider">
+            <h3 className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
               Recommended Providers
             </h3>
             <span className="text-[9px] md:text-[10px] text-gray-400">
@@ -156,7 +155,6 @@ export function ProviderSelectionStep({
               );
               const isLoadingRate = isRatesLoading && rateDetails === undefined;
               const isSelected = selectedProviderId === provider.id;
-              const showFallbackIcon = shouldShowIcon(provider);
 
               return (
                 <button
@@ -171,32 +169,29 @@ export function ProviderSelectionStep({
                       : "border-black/5 dark:border-white/10 bg-white dark:bg-secondary-60/40 hover:border-primary-60/30",
                   )}
                 >
-                  {/* Recommended Badge */}
-                  {provider.isRecommended && (
+                  {/* Best Rate or Recommended Badge */}
+                  {provider.id === bestRateProviderId ? (
+                    <div className="absolute -top-2 -right-2">
+                      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[8px] md:text-[9px] font-bold px-2.5 py-0.5 rounded-full shadow-lg">
+                        Best Rate
+                      </div>
+                    </div>
+                  ) : provider.isRecommended ? (
                     <div className="absolute -top-2 -right-2">
                       <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[8px] md:text-[9px] font-bold px-2 py-0.5 rounded-full shadow-lg">
                         Recommended
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="relative flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-primary-60 to to-secondary-50 dark:from-primary-70/10 dark:to-primary-60/10 flex items-center justify-center overflow-hidden">
-                        {!showFallbackIcon ? (
-                          <div className="relative w-full h-full">
-                            <Image
-                              fill
-                              src={provider.logo}
-                              alt={provider.name}
-                              className="object-contain p-1.5 md:p-2"
-                              onError={() => handleImageError(provider.id)}
-                              sizes="(max-width: 768px) 40px, 48px"
-                            />
-                          </div>
-                        ) : (
-                          <Globe className="w-5 h-5 md:w-6 md:h-6 text-primary-60" />
-                        )}
+                        <ProviderLogo
+                          name={provider.name}
+                          logo={provider.logo}
+                          size={48}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">

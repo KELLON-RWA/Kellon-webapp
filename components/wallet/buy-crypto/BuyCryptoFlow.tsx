@@ -2,9 +2,10 @@
 
 import { chainStatus } from "@/lib/chain-status";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { getBestRateProviderId } from "@/lib/provider-rate-display";
 import { useBuyCryptoState, STEPS } from "@/hooks/use-buy-cypto-state";
 import type { Step } from "@/hooks/use-buy-cypto-state";
 import type { BankDetail, Transaction } from "@/types/db";
@@ -42,13 +43,13 @@ import SelectBankModal, {
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import { AssetSelectionStep } from "./steps/AssetSelectionStep";
 import { AmountEntryStep } from "./steps/AmountEntryStep";
-import { ProviderSelectionStep } from "./steps/ProviderSelectionStep";
 import { BuyBankSelectionStep } from "./steps/BankSelectionStep";
 import { ReviewStep } from "./steps/ReviewStep";
+import { BuySuccessModal } from "./BuySuccessModal";
 
 const CENTIIV_POLL_INTERVAL_MS = 3_000;
 const CENTIIV_MAX_POLL_ATTEMPTS = 20;
-const DEFAULT_FLOW_STEPS = ["asset", "amount", "provider", "review"] as const;
+const DEFAULT_FLOW_STEPS = ["asset", "amount", "review"] as const;
 type VisibleFlowStep = (typeof DEFAULT_FLOW_STEPS)[number] | Step;
 type ProviderRateSnapshot = {
   cryptoAmount: number | null;
@@ -191,6 +192,10 @@ export default function BuyCryptoFlow({
   const [initializedOrder, setInitializedOrder] =
     useState<OnrampResponse | null>(null);
   const [isCompletingOrder, setIsCompletingOrder] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [resolvedTransactionId, setResolvedTransactionId] =
+    useState<string | null>(null);
+  const [isSyncingTransaction, setIsSyncingTransaction] = useState(false);
   const [isFetchingInstructions, setIsFetchingInstructions] = useState(false);
   const [instructionsError, setInstructionsError] = useState<string | null>(
     null,
@@ -260,8 +265,8 @@ export default function BuyCryptoFlow({
 
   const fiatAmountNum = useMemo(() => parseFloat(amount) || 0, [amount]);
 
-  // Provider-specific rates (only when step is "provider" and inputs are valid)
-  const showRates = step === "provider" && isAmountValid && fiatAmountNum > 0;
+  // Provider-specific rates (live whenever inputs are valid)
+  const showRates = isAmountValid && fiatAmountNum > 0;
   const { rates: providerRates, isLoadingRates } = useProviderRates({
     providers: showRates ? providers : [],
     asset,
@@ -271,6 +276,47 @@ export default function BuyCryptoFlow({
     isAmountValid: showRates,
     isLoadingProviders,
   });
+
+  // Auto-select best rate provider, recommended, or first provider if not chosen yet
+  const userManuallySelectedRef = useRef(false);
+
+  useEffect(() => {
+    userManuallySelectedRef.current = false;
+  }, [asset, fiatCurrency, networkName]);
+
+  useEffect(() => {
+    if (providers.length === 0) return;
+
+    const bestId = getBestRateProviderId(providers, providerRates, "buy");
+
+    // Auto-select best rate provider as rates load if user hasn't made a manual choice
+    if (!userManuallySelectedRef.current && bestId) {
+      if (bestId !== selectedProviderId) {
+        setSelectedProviderId(bestId);
+      }
+      return;
+    }
+
+    const currentIsValid =
+      selectedProviderId && providers.some((p) => p.id === selectedProviderId);
+
+    if (!currentIsValid) {
+      const target =
+        (bestId && providers.find((p) => p.id === bestId)) ||
+        providers.find((p) => p.isRecommended) ||
+        providers[0];
+      if (target && target.id !== selectedProviderId) {
+        setSelectedProviderId(target.id);
+      }
+    }
+  }, [providers, selectedProviderId, providerRates, setSelectedProviderId]);
+
+  // If URL somehow opens step=provider, redirect to amount
+  useEffect(() => {
+    if ((step as string) === "provider") {
+      setStep("amount");
+    }
+  }, [step, setStep]);
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) || null;
   const selectedProviderRate = selectedProviderId
@@ -331,17 +377,15 @@ export default function BuyCryptoFlow({
     initializedOrder && selectedProvider?.name?.toLowerCase() === "centiiv",
   );
   const stepTitle =
-    step === "provider"
-      ? "Choose Provider"
-      : step === "amount"
-        ? "Enter Amount"
-        : step === "bank"
-          ? "Refund Account"
-          : step === "review"
-            ? hasTransferInstructions || isCentiivOrderInitialized
-              ? "Transfer Instructions"
-              : "Review Order"
-            : "Buy Crypto";
+    step === "amount"
+      ? "Enter Amount"
+      : step === "bank"
+        ? "Refund Account"
+        : step === "review"
+          ? hasTransferInstructions || isCentiivOrderInitialized
+            ? "Transfer Instructions"
+            : "Review Order"
+          : "Buy Crypto";
 
   useEffect(() => {
     let cancelled = false;
@@ -606,36 +650,53 @@ export default function BuyCryptoFlow({
 
   const confirmMoneySent = async () => {
     setIsCompletingOrder(true);
-    try {
-      const transactionId = await resolveOnrampTransactionId(initializedOrder);
+    setIsSuccessModalOpen(true);
+    setIsSyncingTransaction(true);
 
-      if (transactionId) {
-        toast.success("Payment marked as sent");
-        router.replace(getTransactionDetailsPath(transactionId, "flow"));
-        return;
+    try {
+      let transactionId = await resolveOnrampTransactionId(initializedOrder);
+
+      // If not immediately found, try a couple background polling attempts
+      if (!transactionId) {
+        for (let extra = 0; extra < 4; extra += 1) {
+          await new Promise((r) => setTimeout(r, 2000));
+          transactionId = await resolveOnrampTransactionId(initializedOrder);
+          if (transactionId) break;
+        }
       }
 
-      toast.success(
-        "Payment marked as sent. Your transaction is still syncing.",
-      );
-      router.push("/transactions");
+      if (transactionId) {
+        setResolvedTransactionId(transactionId);
+      }
     } catch {
-      toast.error(
-        "Payment was submitted, but we could not open its details. Check your transaction history shortly.",
-      );
-      router.push("/transactions");
+      // Background sync will continue or user can view in transactions
     } finally {
+      setIsSyncingTransaction(false);
       setIsCompletingOrder(false);
+    }
+  };
+
+  const handleSuccessDone = () => {
+    setIsSuccessModalOpen(false);
+    router.push("/");
+  };
+
+  const handleViewTransactions = () => {
+    setIsSuccessModalOpen(false);
+    if (resolvedTransactionId) {
+      router.push(getTransactionDetailsPath(resolvedTransactionId, "flow"));
+    } else {
+      // Safe fallback: open general transactions page rather than an unindexed detail route
+      router.push("/transactions");
     }
   };
 
   // Step navigation
   const goBack = () => {
     if (step === "amount") setStep("asset");
-    else if (step === "provider") setStep("amount");
-    else if (step === "bank") setStep("provider");
+    else if (step === "bank") setStep("amount");
     else if (step === "review")
-      setStep(requiresRefundBank ? "bank" : "provider");
+      setStep(requiresRefundBank ? "bank" : "amount");
     else onAttemptClose(false);
   };
 
@@ -650,13 +711,13 @@ export default function BuyCryptoFlow({
   }, [amount, cryptoAmountValue, step]);
 
   return (
-    <div className="flex flex-col container max-w-2xl mx-auto min-h-[90dvh] md:pt-20">
+    <div className="container mx-auto flex min-h-[100dvh] max-w-2xl flex-col pb-[env(safe-area-inset-bottom)] md:min-h-[90dvh] md:pb-32 md:pt-20">
       <FlowHeader
         title={stepTitle}
         onBack={goBack}
         onClose={() => onAttemptClose(true)}
         closeLabel="Close buy flow"
-        className="mb-8 px-4 pt-4"
+        className="mb-4 px-3 pt-2 sm:mb-8 sm:px-4 sm:pt-4"
       />
 
       <StepIndicator
@@ -665,7 +726,7 @@ export default function BuyCryptoFlow({
       />
 
       <div
-        className={`flex-1 flex w-11/12 flex-col mx-auto md:w-lg md:mx-auto ${
+        className={`mx-auto flex w-full max-w-md flex-1 flex-col px-3 sm:px-4 md:w-lg md:max-w-2xl md:px-0 ${
           step === "asset" ? "pt-4" : "pt-1"
         }`}
       >
@@ -698,45 +759,27 @@ export default function BuyCryptoFlow({
             isAmountValid={isAmountValid}
             paymentRail={paymentRail}
             paymentMethodLabel={paymentRailConfig.label}
-            onKeypadPress={handleKeypadPress}
-            onContinue={() => {
-              if (isAmountValid) {
-                setStep("provider");
-              }
-            }}
-            onAmountChange={handleAmountChange}
-          />
-        )}
-
-        {step === "provider" && (
-          <ProviderSelectionStep
-            asset={asset}
-            networkName={networkName}
-            selectedChain={selectedChain}
-            amount={amount}
             providers={providers}
             selectedProviderId={selectedProviderId}
-            paymentMethodLabel={paymentRailConfig.label}
-            onSelectProvider={setSelectedProviderId}
-            onContinue={() => {
-              if (!hasSelectedProviderRate) {
-                toast.error(
-                  "Rate unavailable. Please select another provider or try again.",
-                );
-                return;
-              }
-              setStep(requiresRefundBank ? "bank" : "review");
+            onSelectProvider={(id) => {
+              userManuallySelectedRef.current = true;
+              setSelectedProviderId(id);
             }}
             providerRates={providerRates}
             isRatesLoading={isLoadingRates}
-            requiresRefundAccount={requiresRefundBank}
-            country={country}
-            onGoHome={() => router.push("/")}
-            onChangeSelection={() => setStep("asset")}
-            fiatCurrency={fiatCurrency}
-            fiatSymbol={fiatSymbol}
-            decimals={decimals}
-            cryptoAmountValue={cryptoAmountValue}
+            onKeypadPress={handleKeypadPress}
+            onContinue={() => {
+              if (isAmountValid) {
+                if (!hasSelectedProviderRate && selectedProvider) {
+                  toast.error(
+                    "Rate unavailable. Please select another provider or try again.",
+                  );
+                  return;
+                }
+                setStep(requiresRefundBank ? "bank" : "review");
+              }
+            }}
+            onAmountChange={handleAmountChange}
           />
         )}
 
@@ -824,6 +867,21 @@ export default function BuyCryptoFlow({
         }}
         country={kycPrompt?.country}
         reason={`${selectedProvider?.name || "This provider"} needs your identity details before this purchase. Save them, then confirm again.`}
+      />
+      <BuySuccessModal
+        open={isSuccessModalOpen}
+        onDone={handleSuccessDone}
+        onViewTransactions={handleViewTransactions}
+        amount={amount}
+        fiatCurrency={fiatCurrency}
+        asset={asset}
+        networkName={selectedChain?.name || networkName}
+        estimatedCrypto={
+          selectedProviderRate?.cryptoAmount || cryptoAmountValue
+        }
+        providerName={selectedProvider?.name}
+        resolvedTransactionId={resolvedTransactionId}
+        isSyncingTransaction={isSyncingTransaction}
       />
     </div>
   );

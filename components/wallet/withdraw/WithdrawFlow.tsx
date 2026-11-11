@@ -1,15 +1,17 @@
 "use client";
 
 import { chainStatus } from "@/lib/chain-status";
+import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { BankDetail, User } from "@/types/db";
 import { useWithdrawState, WITHDRAW_STEPS } from "@/hooks/use-withdraw-state";
 import { useCountryDetection } from "@/hooks/use-country-detection";
 import { getCurrencyForCountry } from "@/lib/country-currency-map";
 import { getChainById } from "@/lib/chains";
+import { getBestRateProviderId } from "@/lib/provider-rate-display";
 import {
   isStablecoinAmountWithinBalance,
   MIN_STABLECOIN_AMOUNT,
@@ -46,7 +48,6 @@ import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import { WithdrawAssetSelectionStep } from "./steps/AssetSelectionStep";
 import { WithdrawAmountEntryStep } from "./steps/AmountEntryStep";
-import { WithdrawProviderSelectionStep } from "./steps/ProviderSelectionStep";
 import { WithdrawBankSelectionStep } from "./steps/BankSelectionStep";
 import { WithdrawReviewStep } from "./steps/ReviewStep";
 import SelectBankModal, {
@@ -113,6 +114,7 @@ export default function WithdrawFlow({
   onAttemptClose: (hasStarted: boolean) => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     step,
     asset,
@@ -199,16 +201,18 @@ export default function WithdrawFlow({
   } = useProviders(country, asset, networkName, fiatCurrency, "sell");
 
   useEffect(() => {
-    if (providerId && providerId !== selectedProviderId) {
-      setSelectedProviderId(providerId);
+    if (providerId) {
+      if (providerId !== selectedProviderId) {
+        setSelectedProviderId(providerId);
+      }
     }
   }, [providerId, selectedProviderId, setSelectedProviderId]);
 
   useEffect(() => {
-    if (selectedProviderId && selectedProviderId !== providerId) {
-      setProviderId(selectedProviderId);
+    if ((step as string) === "provider") {
+      setStep("amount");
     }
-  }, [providerId, selectedProviderId, setProviderId]);
+  }, [step, setStep]);
 
   useEffect(() => {
     let cancelled = false;
@@ -264,6 +268,44 @@ export default function WithdrawFlow({
     isLoadingProviders,
     side: "sell",
   });
+
+  const initialProviderParamRef = useRef(searchParams.get("providerId"));
+  const userManuallySelectedRef = useRef(
+    Boolean(initialProviderParamRef.current),
+  );
+
+  useEffect(() => {
+    userManuallySelectedRef.current = false;
+  }, [asset, payoutCountry, fiatCurrency, networkName]);
+
+  useEffect(() => {
+    if (providers.length === 0) return;
+
+    const bestId = getBestRateProviderId(providers, providerRates, "withdraw");
+
+    // Auto-select best rate provider as rates load if user hasn't made a manual choice
+    if (!userManuallySelectedRef.current && bestId) {
+      if (bestId !== selectedProviderId) {
+        setSelectedProviderId(bestId);
+        setProviderId(bestId);
+      }
+      return;
+    }
+
+    const currentId = selectedProviderId || providerId;
+    const currentIsValid = currentId && providers.some((p) => p.id === currentId);
+
+    if (!currentIsValid) {
+      const target =
+        (bestId && providers.find((p) => p.id === bestId)) ||
+        providers.find((p) => p.isRecommended) ||
+        providers[0];
+      if (target && target.id !== selectedProviderId) {
+        setSelectedProviderId(target.id);
+        setProviderId(target.id);
+      }
+    }
+  }, [providers, selectedProviderId, providerId, providerRates, setSelectedProviderId, setProviderId]);
   const selectedProviderRate = selectedProviderId
     ? providerRates[selectedProviderId]
     : null;
@@ -319,8 +361,7 @@ export default function WithdrawFlow({
 
   const goBack = () => {
     if (step === "amount") setStep("asset");
-    else if (step === "provider") setStep("amount");
-    else if (step === "bank") setStep("provider");
+    else if (step === "bank") setStep("amount");
     else if (step === "review") setStep("bank");
     else onAttemptClose(false);
   };
@@ -918,24 +959,22 @@ export default function WithdrawFlow({
       <div className="container mx-auto flex min-h-[100dvh] max-w-2xl flex-col pb-[env(safe-area-inset-bottom)] md:min-h-[90dvh] md:pb-32 md:pt-20">
         <FlowHeader
           title={
-            step === "provider"
-              ? "Choose Provider"
-              : step === "amount"
-                ? "Enter Amount"
-                : step === "bank"
-                  ? selectedProvider?.name?.toLowerCase() === "paycrest"
-                    ? "Payout Account"
-                    : "Select Bank"
-                  : step === "review"
-                    ? "Review Withdrawal"
-                    : "Withdraw"
+            step === "amount"
+              ? "Enter Amount"
+              : step === "bank"
+                ? selectedProvider?.name?.toLowerCase() === "paycrest"
+                  ? "Payout Account"
+                  : "Select Bank"
+                : step === "review"
+                  ? "Review Withdrawal"
+                  : "Withdraw"
           }
           onBack={goBack}
           onClose={() =>
             hasStarted ? setShowExitModal(true) : onAttemptClose(false)
           }
           closeLabel="Close withdrawal flow"
-          className="mb-8 px-4 pt-4"
+          className="mb-4 px-3 pt-2 sm:mb-8 sm:px-4 sm:pt-4"
         />
 
         <StepIndicator
@@ -944,7 +983,7 @@ export default function WithdrawFlow({
         />
 
         <div
-          className={`mx-auto flex w-11/12 flex-1 flex-col md:mx-auto md:w-lg ${
+          className={`mx-auto flex w-full max-w-md flex-1 flex-col px-3 sm:px-4 md:w-lg md:max-w-2xl md:px-0 ${
             step === "asset" ? "pt-4" : "pt-1"
           }`}
         >
@@ -975,7 +1014,29 @@ export default function WithdrawFlow({
               selectedChain={selectedChain}
               amount={amount}
               assetBalance={selectedAssetBalance}
-              onContinue={() => isAmountValid && setStep("provider")}
+              country={payoutCountry}
+              fiatCurrency={fiatCurrency}
+              isDetectingCountry={isDetectingCountry}
+              providers={providers}
+              selectedProviderId={selectedProviderId}
+              onSelectProvider={(id) => {
+                userManuallySelectedRef.current = true;
+                setSelectedProviderId(id);
+                setProviderId(id);
+              }}
+              providerRates={providerRates}
+              isRatesLoading={isLoadingRates}
+              onContinue={() => {
+                if (isAmountValid) {
+                  if (!hasSelectedProviderRate && selectedProvider) {
+                    toast.error(
+                      "Rate unavailable. Please select another provider or try again.",
+                    );
+                    return;
+                  }
+                  setStep("bank");
+                }
+              }}
               onAmountChange={setAmount}
               onBridge={() => {
                 if (!asset || !selectedAssetDetails) return;
@@ -989,40 +1050,17 @@ export default function WithdrawFlow({
             />
           ) : null}
 
-          {step === "provider" ? (
-            <WithdrawProviderSelectionStep
-              asset={asset}
-              amount={amount}
-              amountUnit={asset}
-              fiatCurrency={fiatCurrency}
-              selectedChain={selectedChain}
-              providers={providers}
-              selectedProviderId={selectedProviderId || null}
-              onSelectProvider={setSelectedProviderId}
-              onContinue={() => {
-                if (!selectedProviderId) return;
-                if (!hasSelectedProviderRate) {
-                  toast.error(
-                    "Rate unavailable. Please select another provider or try again.",
-                  );
-                  return;
-                }
-                setStep("bank");
-              }}
-              providerRates={providerRates}
-              isRatesLoading={isLoadingRates}
-              country={country}
-              onGoHome={() => router.push("/")}
-              onChangeSelection={() => setStep("asset")}
-            />
-          ) : null}
-
           {step === "bank" ? (
             <WithdrawBankSelectionStep
               asset={asset}
               amount={amount}
               amountUnit={asset}
               fiatCurrency={fiatCurrency}
+              fiatAmount={
+                estimatedFiatAmount > 0
+                  ? formatNumberWithCommas(estimatedFiatAmount.toFixed(2))
+                  : undefined
+              }
               country={payoutCountry}
               selectedChain={selectedChain}
               selectedBank={selectedBank}

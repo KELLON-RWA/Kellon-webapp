@@ -378,6 +378,7 @@ export const providerService = {
         const res = await fetch(endpoint, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
         });
         return handleResponse(res);
       },
@@ -396,6 +397,7 @@ export const providerService = {
         const res = await fetch("/api/providers/fees", {
           method: "GET",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
         });
         return handleResponse(res);
       },

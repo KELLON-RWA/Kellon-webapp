@@ -55,6 +55,12 @@ export function useProviders(
         if (cancelled) return;
 
         if (response.success && response.data) {
+          if (process.env.NODE_ENV !== "production") {
+            console.log(
+              `[useProviders] fetched for ${country}/${currency}/${networkName} (${type}):`,
+              response.data,
+            );
+          }
           const mapped = response.data
             .filter(
               (p: PaymentProvider) =>
@@ -74,10 +80,11 @@ export function useProviders(
                 fixed > 0 ? `${fixed} fixed` : null,
               ].filter(Boolean);
 
+              const isPaycrest = providerKey.includes("paycrest");
               return {
                 id: p.id,
                 name: p.name,
-                logo: p.logo || "",
+                logo: p.logo || (isPaycrest ? "/paycrest-logo.svg" : ""),
                 deliveryTime: p.processingTime || "Instant",
                 fee: feeParts.length ? feeParts.join(" + ") : "No fee",
                 features: p.features || [],

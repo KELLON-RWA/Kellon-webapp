@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
 import ChainIcon from "@/components/wallet/ChainIcon";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
@@ -46,6 +47,12 @@ export function WithdrawReviewStep({
           selectedChain={selectedChain}
           amount={amount}
           amountCurrency={amountUnit || undefined}
+          fiatAmount={
+            netFiat > 0
+              ? formatNumberWithCommas(netFiat.toFixed(2))
+              : undefined
+          }
+          fiatCurrency={fiatCurrency}
         />
 
         <div className="mb-8 w-full rounded-[28px] border border-black/5 bg-white p-6 dark:border-white/10 dark:bg-secondary-50">
@@ -115,24 +122,22 @@ export function WithdrawReviewStep({
             </div>
           </div>
         </div>
-
-        <FlowActionFooter
-          sticky={false}
-          className="mt-auto space-y-4 pb-6"
-          onClick={onConfirm}
-          disabled={isSubmitting}
-          showShimmer={!isSubmitting}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              {paymentAction.withdrawalLoadingAction}
-            </>
-          ) : (
-            paymentAction.withdrawalAction
-          )}
-        </FlowActionFooter>
       </div>
+
+      <FlowActionFooter
+        onClick={onConfirm}
+        disabled={isSubmitting}
+        showShimmer={!isSubmitting}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            {paymentAction.withdrawalLoadingAction}
+          </>
+        ) : (
+          paymentAction.withdrawalAction
+        )}
+      </FlowActionFooter>
     </div>
   );
 }

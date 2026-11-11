@@ -33,22 +33,25 @@ export default function FlowActionFooter({
     <div
       className={cn(
         sticky &&
-          "sticky bottom-0 left-0 right-0 mt-6 border-t border-black/5 px-4 pb-4 pt-6 dark:border-white/5 md:px-0",
+          "sticky bottom-0 left-0 right-0 mt-auto bg-transparent border-none pb-4 pt-2 md:pt-4 md:pb-0 pointer-events-auto",
         className,
       )}
     >
-      <div className={cn("mx-auto max-w-md md:max-w-full", innerClassName)}>
+      <div className={cn("mx-auto w-full max-w-md md:max-w-full", innerClassName)}>
         <Button
           type={type}
           variant="flow"
           size="flow"
           onClick={onClick}
           disabled={disabled}
-          className={buttonClassName}
+          className={cn(
+            disabled && "from-gray-400 to-gray-500 opacity-60",
+            buttonClassName,
+          )}
         >
           <span
             className={cn(
-              "relative z-10 flex items-center justify-center gap-2 text-sm md:text-base",
+              "relative z-10 flex items-center justify-center gap-2 text-sm font-semibold xs:text-base",
               textClassName,
             )}
           >

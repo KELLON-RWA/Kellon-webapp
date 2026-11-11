@@ -4,18 +4,21 @@ import {
   AlertCircle,
   ArrowRight,
   Check,
-  Globe,
   Home,
   Loader2,
   MapPin,
 } from "lucide-react";
-import Image from "next/image";
-import { useState } from "react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import { Button } from "@/components/ui/button";
-import { getDisplayProviderRate } from "@/lib/provider-rate-display";
+import {
+  getBestRateProviderId,
+  getDisplayProviderRate,
+  sortProvidersByRate,
+} from "@/lib/provider-rate-display";
+import { ProviderLogo } from "@/components/wallet/shared/ProviderLogo";
 
 interface Provider {
   id: string;
@@ -85,12 +88,18 @@ export function WithdrawProviderSelectionStep({
   onGoHome,
   onChangeSelection,
 }: ProviderSelectionStepProps) {
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
-  const visibleProviders = isRatesLoading
-    ? providers
-    : providers.filter((provider) =>
-        hasUsableProviderRate(providerRates[provider.id]),
-      );
+  const bestRateProviderId = useMemo(() => {
+    return getBestRateProviderId(providers, providerRates, "withdraw");
+  }, [providers, providerRates]);
+
+  const visibleProviders = useMemo(() => {
+    const list = isRatesLoading
+      ? providers
+      : providers.filter((provider) =>
+          hasUsableProviderRate(providerRates[provider.id]),
+        );
+    return sortProvidersByRate(list, providerRates, "withdraw");
+  }, [isRatesLoading, providers, providerRates]);
   const visibleProviderCount = visibleProviders.length;
   const selectedProvider =
     visibleProviders.find((provider) => provider.id === selectedProviderId) ||
@@ -125,7 +134,7 @@ export function WithdrawProviderSelectionStep({
 
         <div className="mt-6 md:mt-8">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 md:text-xs">
+            <h3 className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
               Recommended Providers
             </h3>
             <span className="text-[9px] text-gray-400 md:text-[10px]">
@@ -136,7 +145,6 @@ export function WithdrawProviderSelectionStep({
           <div className="space-y-3 md:space-y-4">
             {visibleProviders.map((provider) => {
               const isSelected = provider.id === selectedProviderId;
-              const showFallback = imageErrors[provider.id] || !provider.logo;
               const rateDetails = providerRates[provider.id];
               const rawRate = rateDetails?.rawRate;
               const estimatedFiat = rateDetails?.fiatAmount;
@@ -161,7 +169,14 @@ export function WithdrawProviderSelectionStep({
                       : "border-black/5 bg-white hover:border-primary-60/30 dark:border-white/10 dark:bg-secondary-60/40",
                   )}
                 >
-                  {provider.isRecommended ? (
+                  {/* Best Rate or Recommended Badge */}
+                  {provider.id === bestRateProviderId ? (
+                    <div className="absolute -right-2 -top-2">
+                      <div className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-2.5 py-0.5 text-[8px] font-bold tracking-wide text-white shadow-lg md:text-[9px]">
+                        Best Rate
+                      </div>
+                    </div>
+                  ) : provider.isRecommended ? (
                     <div className="absolute -right-2 -top-2">
                       <div className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 text-[8px] font-bold text-white shadow-lg md:text-[9px]">
                         Recommended
@@ -172,22 +187,11 @@ export function WithdrawProviderSelectionStep({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary-60 to-secondary-50 dark:from-primary-70/10 dark:to-primary-60/10 md:h-12 md:w-12">
-                        {showFallback ? (
-                          <Globe className="h-5 w-5 text-primary-60 md:h-6 md:w-6" />
-                        ) : (
-                          <Image
-                            fill
-                            src={provider.logo || ""}
-                            alt={provider.name}
-                            className="object-contain p-2"
-                            onError={() =>
-                              setImageErrors((prev) => ({
-                                ...prev,
-                                [provider.id]: true,
-                              }))
-                            }
-                          />
-                        )}
+                        <ProviderLogo
+                          name={provider.name}
+                          logo={provider.logo}
+                          size={48}
+                        />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">

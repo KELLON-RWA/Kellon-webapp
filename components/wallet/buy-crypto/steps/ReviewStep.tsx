@@ -372,51 +372,44 @@ export function ReviewStep({
         )}
       </div>
 
-      <div className="sticky bottom-0 left-0 right-0 mt-6 border-t border-black/5 bg-gradient-to-t px-4 pb-4 pt-6 dark:border-white/5 md:px-0">
-        <div className="mx-auto max-w-md md:max-w-full">
-          {providerAccount ? (
-            <FlowActionFooter
-              sticky={false}
-              onClick={onConfirmSent}
-              disabled={isCompleting || !onConfirmSent}
-              showShimmer={!isCompleting}
-              helperText="We will complete your order and take you to the transaction details once you confirm."
-            >
-              <CheckCircle2 className="h-5 w-5" />
-              {isCompleting ? "Completing Order..." : "I have Sent The Money"}
-            </FlowActionFooter>
-          ) : initializedOrder ? (
-            <FlowActionFooter
-              sticky={false}
-              onClick={onRetryInstructions}
-              disabled={isFetchingInstructions || !onRetryInstructions}
-              showShimmer={!isFetchingInstructions}
-              helperText="Retrying checks the existing payment and will not initialize another order."
-            >
-              {isFetchingInstructions ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-5 w-5" />
-              )}
-              {isFetchingInstructions
-                ? "Fetching Payment Details..."
-                : "Retry Payment Details"}
-            </FlowActionFooter>
+      {providerAccount ? (
+        <FlowActionFooter
+          onClick={onConfirmSent}
+          disabled={isCompleting || !onConfirmSent}
+          showShimmer={!isCompleting}
+          helperText="We will complete your order and take you to the transaction details once you confirm."
+        >
+          <CheckCircle2 className="h-5 w-5" />
+          {isCompleting ? "Completing Order..." : "I have Sent The Money"}
+        </FlowActionFooter>
+      ) : initializedOrder ? (
+        <FlowActionFooter
+          onClick={onRetryInstructions}
+          disabled={isFetchingInstructions || !onRetryInstructions}
+          showShimmer={!isFetchingInstructions}
+          helperText="Retrying checks the existing payment and will not initialize another order."
+        >
+          {isFetchingInstructions ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
-            <FlowActionFooter
-              sticky={false}
-              onClick={onConfirm}
-              disabled={isSubmitting}
-              showShimmer={!isSubmitting}
-              helperText={paymentAction.depositHelperText}
-            >
-              {isSubmitting
-                ? paymentAction.depositLoadingAction
-                : paymentAction.depositAction}
-            </FlowActionFooter>
+            <RefreshCw className="h-5 w-5" />
           )}
-        </div>
-      </div>
+          {isFetchingInstructions
+            ? "Fetching Payment Details..."
+            : "Retry Payment Details"}
+        </FlowActionFooter>
+      ) : (
+        <FlowActionFooter
+          onClick={onConfirm}
+          disabled={isSubmitting}
+          showShimmer={!isSubmitting}
+          helperText={paymentAction.depositHelperText}
+        >
+          {isSubmitting
+            ? paymentAction.depositLoadingAction
+            : paymentAction.depositAction}
+        </FlowActionFooter>
+      )}
     </div>
   );
 }

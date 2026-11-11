@@ -253,7 +253,7 @@ export function BuyBankSelectionStep({
         />
 
         <div className="mt-8">
-          <h3 className="mb-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-3 text-xs font-light capitalize text-gray-500 dark:text-gray-400">
             Bank Details
           </h3>
           <p className="mb-5 max-w-xl text-sm leading-6 text-gray-500 dark:text-gray-400">
@@ -262,7 +262,7 @@ export function BuyBankSelectionStep({
 
           <div className="mb-5">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+              <h3 className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                 Saved Accounts
               </h3>
               {savedBanks.length ? (
@@ -347,7 +347,7 @@ export function BuyBankSelectionStep({
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-mid text-gray-30 dark:text-gray-40">
+                <label className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                   Account Number
                 </label>
                 <div className="relative">

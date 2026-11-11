@@ -20,6 +20,7 @@ const PROVIDER_FLOW_NETWORKS: Record<
   },
   ramphub: {
     buy: ["base", "bnb", "solana"],
+    sell: ["base", "bnb", "solana"],
   },
 };
 

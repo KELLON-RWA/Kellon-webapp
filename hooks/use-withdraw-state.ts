@@ -9,7 +9,6 @@ export type WithdrawStep = "asset" | "amount" | "provider" | "bank" | "review";
 export const WITHDRAW_STEPS: WithdrawStep[] = [
   "asset",
   "amount",
-  "provider",
   "bank",
   "review",
 ];

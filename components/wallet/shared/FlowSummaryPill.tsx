@@ -12,6 +12,7 @@ export interface FlowSummaryPillProps {
   networkName?: string | null;
   amount?: string | number | null;
   amountCurrency?: string | null;
+  fiatAmount?: string | number | null;
   fiatCurrency?: string | null;
   className?: string;
 }
@@ -36,6 +37,7 @@ export default function FlowSummaryPill({
   networkName,
   amount,
   amountCurrency,
+  fiatAmount,
   fiatCurrency,
   className,
 }: FlowSummaryPillProps) {
@@ -43,7 +45,8 @@ export default function FlowSummaryPill({
 
   const assetSymbol = asset.toUpperCase();
   const chainName = networkName || selectedChain?.name || null;
-  const displayCurrency = amountCurrency || fiatCurrency || null;
+  const displayCurrency =
+    amountCurrency || (fiatAmount ? assetSymbol : fiatCurrency) || null;
   const amountLabel =
     amount !== null && amount !== undefined && amount !== ""
       ? `${amount}${displayCurrency ? ` ${displayCurrency}` : ""}`
@@ -52,32 +55,33 @@ export default function FlowSummaryPill({
   return (
     <div
       className={cn(
-        "mx-auto mb-6 flex max-w-sm items-center justify-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-secondary-50 md:mb-10 md:gap-3 md:px-5 md:py-2.5",
+        "mx-auto mb-3 flex w-fit max-w-[calc(100vw-1.5rem)] items-center gap-1 overflow-x-auto rounded-full border border-black/5 bg-white px-2.5 py-1 text-[11px] backdrop-blur-sm dark:border-white/10 dark:bg-secondary-50 xs:gap-1.5 xs:px-3 xs:py-1.5 sm:mb-6 sm:gap-2 sm:px-4 sm:text-xs md:mb-10 md:max-w-2xl md:gap-3 md:px-5 md:py-2.5 scrollbar-none",
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
         <div className="relative shrink-0">
           <div className="absolute inset-0 rounded-full bg-primary-70/20 blur-sm" />
           <Image
             src={assetIconUrl || getAssetIconUrl(assetSymbol)}
             alt={`${assetSymbol} logo`}
-            width={16}
-            height={16}
-            className="relative rounded-full md:h-5 md:w-5"
+            width={14}
+            height={14}
+            className="relative h-3.5 w-3.5 rounded-full xs:h-4 xs:w-4 md:h-5 md:w-5"
           />
         </div>
-        <span className="truncate text-[11px] font-bold uppercase text-black dark:text-white md:text-xs">
+        <span className="whitespace-nowrap font-bold uppercase text-black dark:text-white">
           {assetSymbol}
         </span>
       </div>
 
       {chainName ? (
         <>
-          <ChevronRight className="h-3 w-3 shrink-0 text-gray-400 md:h-4 md:w-4" />
-          <div className="flex min-w-0 items-center gap-1.5">
-            <ChainIcon name={getChainIconName(chainName)} size={14} />
-            <span className="truncate text-[11px] font-medium text-gray-500 dark:text-gray-300 md:text-xs">
+          <ChevronRight className="h-2.5 w-2.5 shrink-0 text-gray-400 sm:h-3 sm:w-3 md:h-4 md:w-4" />
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <ChainIcon name={getChainIconName(chainName)} size={12} className="xs:hidden" />
+            <ChainIcon name={getChainIconName(chainName)} size={14} className="hidden xs:inline-flex" />
+            <span className="whitespace-nowrap font-medium text-gray-500 dark:text-gray-300">
               {chainName}
             </span>
           </div>
@@ -86,9 +90,18 @@ export default function FlowSummaryPill({
 
       {amountLabel ? (
         <>
-          <ChevronRight className="h-3 w-3 shrink-0 text-gray-400 md:h-4 md:w-4" />
-          <span className="truncate text-[11px] font-bold text-primary-60 md:text-xs">
+          <ChevronRight className="h-2.5 w-2.5 shrink-0 text-gray-400 sm:h-3 sm:w-3 md:h-4 md:w-4" />
+          <span className="shrink-0 whitespace-nowrap font-bold text-primary-60">
             {amountLabel}
+          </span>
+        </>
+      ) : null}
+
+      {fiatAmount ? (
+        <>
+          <ChevronRight className="h-2.5 w-2.5 shrink-0 text-gray-400 sm:h-3 sm:w-3 md:h-4 md:w-4" />
+          <span className="shrink-0 whitespace-nowrap font-bold text-primary-60">
+            {fiatCurrency ? `${fiatCurrency} ` : ""}{fiatAmount}
           </span>
         </>
       ) : null}

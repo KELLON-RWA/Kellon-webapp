@@ -1,7 +1,7 @@
 "use client";
 
 import { CreditCard, Landmark, Smartphone, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { PaymentRail } from "@/lib/payment-rails";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +19,16 @@ import { formatNumberWithCommas } from "@/lib/format-number-with-comma";
 import SummaryPill from "@/components/wallet/shared/FlowSummaryPill";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import Keypad from "@/components/Keypad";
+import {
+  getBestRateProviderId,
+  sortProvidersByRate,
+} from "@/lib/provider-rate-display";
+import {
+  SelectProviderModal,
+  type FlowProvider,
+  type ProviderRateDetails,
+} from "@/components/modals/SelectProviderModal";
+import { ProviderSelectorTrigger } from "@/components/wallet/shared/ProviderSelectorTrigger";
 import {
   Drawer,
   DrawerContent,
@@ -40,6 +50,11 @@ interface AmountEntryStepProps {
   isAmountValid: boolean;
   paymentRail: PaymentRail;
   paymentMethodLabel: string;
+  providers?: FlowProvider[];
+  selectedProviderId?: string | null;
+  onSelectProvider?: (id: string) => void;
+  providerRates?: Record<string, ProviderRateDetails | null>;
+  isRatesLoading?: boolean;
   onKeypadPress: (val: string) => void;
   onContinue: () => void;
   onAmountChange?: (value: string) => void;
@@ -72,11 +87,40 @@ export function AmountEntryStep({
   isAmountValid,
   paymentRail,
   paymentMethodLabel,
+  providers = [],
+  selectedProviderId = null,
+  onSelectProvider,
+  providerRates = {},
+  isRatesLoading = false,
   onKeypadPress,
   onContinue,
   onAmountChange,
 }: AmountEntryStepProps) {
   const [isAmountEditorOpen, setIsAmountEditorOpen] = useState(false);
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+
+  const sortedProviders = useMemo<FlowProvider[]>(() => {
+    return sortProvidersByRate(providers, providerRates, "buy");
+  }, [providers, providerRates]);
+
+  const bestRateProviderId = useMemo(() => {
+    return getBestRateProviderId(providers, providerRates, "buy");
+  }, [providers, providerRates]);
+
+  const selectedProvider =
+    sortedProviders.find((p: FlowProvider) => p.id === selectedProviderId) ||
+    sortedProviders[0] ||
+    null;
+  const isBestRate = Boolean(
+    selectedProvider && selectedProvider.id === bestRateProviderId,
+  );
+  const selectedProviderRate = selectedProvider
+    ? providerRates[selectedProvider.id]
+    : null;
+  const rateText =
+    selectedProviderRate?.cryptoAmount && selectedProviderRate.cryptoAmount > 0
+      ? `≈ ${selectedProviderRate.cryptoAmount.toFixed(4)} ${asset || ""}`.trim()
+      : null;
 
   // Form for desktop
   const form = useForm<AmountFormValues>({
@@ -142,19 +186,19 @@ export function AmountEntryStep({
           <button
             type="button"
             onClick={() => setIsAmountEditorOpen(true)}
-            className="mb-4 mt-8 flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5"
+            className="mb-4 mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5"
             aria-label="Edit amount"
           >
-            <span className="text-xl font-bold text-gray-400">
+            <span className="text-xl font-bold leading-none text-gray-400">
               {fiatCurrency}
             </span>
             <span className="inline-flex items-center gap-2">
-              <span className="text-2xl font-bold text-black dark:text-white">
+              <span className="text-2xl font-bold leading-none text-black dark:text-white">
                 {displayAmount}
               </span>
               <span
                 aria-hidden="true"
-                className="h-5 w-px shrink-0 animate-pulse rounded-full bg-primary-60"
+                className="h-5 w-px shrink-0 self-center animate-pulse rounded-full bg-primary-60"
               />
             </span>
           </button>
@@ -164,10 +208,23 @@ export function AmountEntryStep({
             <QuickAmountButtons />
           </div>
 
+          {/* Payment Provider Selection */}
+          {providers.length > 0 && (
+            <div className="mb-4 w-full">
+              <ProviderSelectorTrigger
+                selectedProvider={selectedProvider}
+                onClick={() => setIsProviderModalOpen(true)}
+                isRatesLoading={isRatesLoading}
+                rateText={rateText}
+                isBestRate={isBestRate}
+              />
+            </div>
+          )}
+
           {/* Informational until additional payment rails are enabled. */}
           <div className="mb-4 w-full">
             <div
-              className="flex w-full items-center justify-between rounded-2xl border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-secondary-50"
+              className="flex w-full items-center justify-between rounded-2xl border border-black/5 bg-white p-2.5 dark:border-white/10 dark:bg-secondary-50 xs:p-3 sm:p-4"
               aria-label={`Payment method: ${paymentMethodLabel}`}
             >
               <span className="text-[11px] font-medium text-gray-500">
@@ -233,6 +290,19 @@ export function AmountEntryStep({
             </Form>
           </div>
 
+          {/* Desktop payment provider selection */}
+          {providers.length > 0 && (
+            <div className="mt-4 w-full">
+              <ProviderSelectorTrigger
+                selectedProvider={selectedProvider}
+                onClick={() => setIsProviderModalOpen(true)}
+                isRatesLoading={isRatesLoading}
+                rateText={rateText}
+                isBestRate={isBestRate}
+              />
+            </div>
+          )}
+
           {/* Desktop payment method display */}
           <div className="mt-4 w-full">
             <div
@@ -271,7 +341,7 @@ export function AmountEntryStep({
             {isRateLoading
               ? "Fetching Rate..."
               : isAmountValid
-                ? "Select Provider"
+                ? "Continue"
                 : "Enter Amount"}
             {isAmountValid && !isRateLoading && (
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -288,12 +358,11 @@ export function AmountEntryStep({
           buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
           textClassName="text-sm"
           showShimmer={isAmountValid && !isRateLoading}
-          helperText="Enter the amount you want to spend • Providers will show you their best rates"
         >
           {isRateLoading
             ? "Fetching Rate..."
             : isAmountValid
-              ? "Select Provider"
+              ? "Continue"
               : "Enter Amount"}
           {isAmountValid && !isRateLoading && (
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -324,7 +393,7 @@ export function AmountEntryStep({
               {isRateLoading
                 ? "Fetching Rate..."
                 : isAmountValid
-                  ? "Select Provider"
+                  ? "Continue"
                   : "Enter Amount"}
               {isAmountValid && !isRateLoading && (
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -335,13 +404,22 @@ export function AmountEntryStep({
               className="gap-3"
               buttonClassName="h-14 rounded-2xl bg-white dark:bg-secondary-60"
             />
-            <p className="mt-3 px-4 text-center text-[11px] leading-relaxed text-gray-400">
-              Enter the amount you want to spend • Providers will show you their
-              best rates
-            </p>
           </div>
         </DrawerContent>
       </Drawer>
+
+      <SelectProviderModal
+        isOpen={isProviderModalOpen}
+        onClose={() => setIsProviderModalOpen(false)}
+        providers={sortedProviders}
+        selectedProviderId={selectedProviderId || null}
+        onSelectProvider={(id) => onSelectProvider?.(id)}
+        providerRates={providerRates}
+        isRatesLoading={isRatesLoading}
+        asset={asset}
+        fiatCurrency={fiatCurrency}
+        mode="buy"
+      />
     </div>
   );
 }

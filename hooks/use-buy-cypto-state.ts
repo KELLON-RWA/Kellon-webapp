@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getSupportedChainsForToken } from "@/lib/chains";
 
 export type Step = "asset" | "amount" | "provider" | "bank" | "review";
-export const STEPS: Step[] = ["asset", "amount", "provider", "bank", "review"];
+export const STEPS: Step[] = ["asset", "amount", "bank", "review"];
 
 type State = {
   step: Step;
