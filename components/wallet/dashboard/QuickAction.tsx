@@ -1,22 +1,22 @@
 import { ReactNode } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 interface QuickActionProps {
   icon: ReactNode;
   label: string;
   onClick?: () => void;
+  href?: string;
 }
 
 export default function QuickAction({
   icon,
   label,
   onClick,
+  href,
 }: QuickActionProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="group flex w-full cursor-pointer flex-col items-center text-cryptoNight outline-none dark:text-white md:rounded-lg md:border md:border-black/10 md:bg-white/75 md:p-3 md:text-left md:shadow-sm md:shadow-primary-90/10 md:transition md:duration-300 md:active:scale-98 md:hover:border-black/20 md:hover:bg-primary-99 md:dark:border-white/10 md:dark:bg-secondary-50 md:dark:text-white md:dark:shadow-none md:dark:hover:border-white/20 dark:md:hover:bg-secondary-60/50 min-[1024px]:!p-1.5 lg:p-2.5"
-    >
+  const content = (
+    <>
       <div
         className={cn(
           "flex h-16 w-full transform flex-col items-center justify-center space-y-1.5 rounded-xl border border-black/10 bg-white/85 px-1 shadow-sm shadow-primary-90/20 transition-all duration-300 md:transition-none md:duration-0",
@@ -34,6 +34,28 @@ export default function QuickAction({
       <span className="mt-2 hidden text-[11px] font-medium md:block min-[1024px]:mt-0.5 min-[1024px]:text-[10px] lg:text-xs">
         {label}
       </span>
+    </>
+  );
+
+  const containerClassName =
+    "group flex w-full cursor-pointer flex-col items-center text-cryptoNight outline-none dark:text-white md:rounded-lg md:border md:border-black/10 md:bg-white/75 md:p-3 md:text-left md:shadow-sm md:shadow-primary-90/10 md:transition md:duration-300 md:active:scale-98 md:hover:border-black/20 md:hover:bg-primary-99 md:dark:border-white/10 md:dark:bg-secondary-50 md:dark:text-white md:dark:shadow-none md:dark:hover:border-white/20 dark:md:hover:bg-secondary-60/50 min-[1024px]:!p-1.5 lg:p-2.5";
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        prefetch
+        onClick={onClick}
+        className={containerClassName}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button onClick={onClick} className={containerClassName}>
+      {content}
     </button>
   );
 }

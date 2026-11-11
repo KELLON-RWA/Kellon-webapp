@@ -93,17 +93,17 @@ export default function AmountStep({
             render={({ field }) => (
               <FormItem>
                 <div>
-                  <div className="flex min-h-14 w-full items-baseline justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5 md:hidden">
-                    <span className="text-xl font-bold text-gray-400">
+                  <div className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-center outline-none transition hover:bg-gray-95 focus-visible:ring-2 focus-visible:ring-primary-60/40 dark:hover:bg-white/5 md:hidden">
+                    <span className="text-xl font-bold leading-none text-gray-400">
                       {selectedAsset?.symbol || "Asset"}
                     </span>
                     <span className="inline-flex items-center gap-2">
-                      <span className="text-2xl font-bold text-black dark:text-white">
+                      <span className="text-2xl font-bold leading-none text-black dark:text-white">
                         {amount ? formatNumberWithCommas(amount) : "0"}
                       </span>
                       <span
                         aria-hidden="true"
-                        className="h-5 w-px shrink-0 animate-pulse rounded-full bg-primary-60"
+                        className="h-5 w-px shrink-0 self-center animate-pulse rounded-full bg-primary-60"
                       />
                     </span>
                   </div>

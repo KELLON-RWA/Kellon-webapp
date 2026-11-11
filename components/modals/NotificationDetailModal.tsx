@@ -146,7 +146,7 @@ export default function NotificationDetailModal({
 
       {!isSystem && details.length > 0 && (
         <div className="mb-7 overflow-hidden rounded-2xl border border-black/5 bg-white dark:border-white/10 dark:bg-secondary-60">
-          <div className="flex items-center gap-2 border-b border-black/5 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-gray-500 dark:border-white/10 dark:text-gray-400">
+          <div className="flex items-center gap-2 border-b border-black/5 px-4 py-3 text-xs font-light capitalize text-gray-500 dark:border-white/10 dark:text-gray-400">
             <Info className="h-4 w-4" />
             Details
           </div>

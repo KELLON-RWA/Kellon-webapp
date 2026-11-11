@@ -795,7 +795,7 @@ export default function TransactionDetails({
             <div key={section.title || `section-${sectionIndex}`}>
               {section.title ? (
                 <div className="border-b border-black/5 px-5 py-3 dark:border-white/5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <p className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
                     {section.title}
                   </p>
                 </div>

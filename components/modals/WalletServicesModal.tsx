@@ -8,7 +8,6 @@ import {
   FileText,
   Gift,
   MoreHorizontal,
-  Waypoints,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -58,11 +57,6 @@ export default function WalletServicesModal({
     router.push("/bridge");
   };
 
-  const handleSwap = () => {
-    onClose(false);
-    router.push("/swap");
-  };
-
   const content = (
     <div className="px-4 pb-8 md:px-0 md:pb-0">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -85,18 +79,12 @@ export default function WalletServicesModal({
         </button>
       </div>
 
-      <div className="space-y-4">
-        <ServiceOption
-          icon={<Waypoints className="h-6 w-6 text-pink-500" />}
-          title="Bridge"
-          description="Move USDC and USDT across networks"
-          onClick={handleBridge}
-        />
+      <div className="space-y-3.5">
         <ServiceOption
           icon={<ArrowLeftRight className="h-6 w-6 text-pink-500" />}
-          title="Swap"
-          description="Exchange tokens on supported networks"
-          onClick={handleSwap}
+          title="Bridge"
+          description="Transfer and swap stablecoins"
+          onClick={handleBridge}
         />
         <ServiceOption
           icon={<FileText className="h-6 w-6 text-pink-500" />}
@@ -124,7 +112,7 @@ export default function WalletServicesModal({
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[425px] bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2 border-none rounded-[32px] outline-none [&>button]:hidden">
+        <DialogContent className="sm:max-w-[440px] bg-linear-to-br from-violet1/10 via-gray-90 to-violet1/10 dark:bg-none dark:bg-black2 border-none rounded-[32px] outline-none [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>Wallet Services</DialogTitle>
           </DialogHeader>
@@ -164,21 +152,21 @@ function ServiceOption({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between rounded-[24px] border border-black/5 bg-white p-5 text-left outline-none transition-all group dark:border-white/10 dark:bg-secondary-60 cursor-pointer",
+        "flex w-full items-center justify-between gap-3 rounded-[24px] border border-black/5 bg-white p-4.5 text-left outline-none transition-all group dark:border-white/10 dark:bg-secondary-60 cursor-pointer",
         "hover:bg-gray-50 dark:hover:bg-secondary-60/50",
         muted && "opacity-75",
       )}
     >
-      <div className="flex min-w-0 items-center gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3.5 sm:gap-4">
         <div
           className={cn(
-            "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-black/5 bg-white dark:border-white/5 dark:bg-white/5",
+            "flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full border border-black/5 bg-white dark:border-white/5 dark:bg-white/5",
             muted && "bg-gray-95 dark:bg-white/5",
           )}
         >
           {icon}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-black dark:text-white">
             {title}
           </p>

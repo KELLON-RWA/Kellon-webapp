@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import AddFundsModal from "@/components/modals/AddFundsModal";
 import BridgeFundingOverlay, {
   type BridgeFundingRequest,
@@ -320,18 +320,33 @@ export default function SendFlow({ profile }: SendFlowProps) {
             onClick={handlePrimaryAction}
             disabled={primaryActionDisabled}
           >
-            {step === "review"
-              ? isSubmitting
-                ? "Sending..."
-                : "Send Now"
-              : step === "recipient" && isVerifyingRecipient
-                ? "Verifying..."
-                : step === "amount" || isCombinedAssetAndAmountStep
-                  ? "Review Send"
-                  : "Continue"}
-            {step !== "review" ? (
-              <ArrowRight className="h-5 w-5" />
-            ) : null}
+            {step === "review" ? (
+              isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Sending...</span>
+                </>
+              ) : (
+                <>
+                  <span>Send Now</span>
+                  <ArrowRight className="h-5 w-5" />
+                </>
+              )
+            ) : step === "recipient" && isVerifyingRecipient ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Verifying...</span>
+              </>
+            ) : (
+              <>
+                <span>
+                  {step === "amount" || isCombinedAssetAndAmountStep
+                    ? "Review Send"
+                    : "Continue"}
+                </span>
+                <ArrowRight className="h-5 w-5" />
+              </>
+            )}
           </FlowActionFooter>
         </div>
       </div>

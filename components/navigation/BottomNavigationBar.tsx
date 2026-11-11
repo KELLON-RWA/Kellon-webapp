@@ -27,6 +27,7 @@ const BottomNavigationBar: FC<BottomNavigationBarProps> = ({
     "/settings/profile",
     "/buy",
     "/bridge",
+    "/convert",
     "/withdraw",
     "/send",
     "/gifts",

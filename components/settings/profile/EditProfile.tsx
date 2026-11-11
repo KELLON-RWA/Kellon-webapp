@@ -190,7 +190,7 @@ const ProfilePage: FC<ProfilePageProps> = ({ initialProfile }) => {
                 </div>
 
                 <div className="flex-1 border-b border-slate-100 dark:border-gray-800 pb-3 sm:pb-4 min-w-0">
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wider mb-1">
+                  <p className="text-xs font-light capitalize text-slate-400 mb-1">
                     Email
                   </p>
 
@@ -327,7 +327,7 @@ const InfoItem = ({
       <Icon className="w-5 h-5" />
     </div>
     <div className="flex-1 border-b border-slate-100 dark:border-gray-800 pb-4">
-      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">
+      <p className="text-xs font-light capitalize text-slate-400 mb-1">
         {label}
       </p>
       <p className="text-sm font-medium">{value}</p>

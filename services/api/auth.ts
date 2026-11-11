@@ -110,6 +110,7 @@ export async function getSession(
         },
         credentials: "include",
         cache: "no-store",
+        signal: AbortSignal.timeout(8000),
       },
     );
 

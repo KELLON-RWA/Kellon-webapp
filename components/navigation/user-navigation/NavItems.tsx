@@ -5,7 +5,7 @@ import { LinkItemProps, NavItemProps } from "./user-navigation-types"
 
 
 export const SectionHeader: FC<{ label: string }> = ({ label }) => (
-  <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-30 dark:text-secondary-90">
+  <p className="px-3 py-2 text-xs font-light capitalize text-gray-30 dark:text-secondary-90">
     {label}
   </p>
 )

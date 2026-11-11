@@ -218,7 +218,7 @@ function AssetInfoMetric({
 }) {
   return (
     <div className="rounded-[24px] border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-secondary-60">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+      <p className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
         {label}
       </p>
       <p

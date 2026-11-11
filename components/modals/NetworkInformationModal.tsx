@@ -76,7 +76,7 @@ const NetworkInformationModal: FC<NetworkInformationModalProps> = ({
           <h2 className="text-xl font-bold text-black dark:text-white">
             Network Information
           </h2>
-          <p className="text-xs font-bold text-gray-20 dark:text-secondary-90 uppercase tracking-widest">
+          <p className="text-xs font-semibold text-gray-20 dark:text-secondary-90">
             Current Mode: <span className="text-primary-70">{IS_TESTNET ? "TESTNET" : "MAINNET"}</span>
           </p>
         </div>
@@ -84,7 +84,7 @@ const NetworkInformationModal: FC<NetworkInformationModalProps> = ({
 
       {/* Networks List Section */}
       <div className="space-y-4">
-        <h3 className="text-[10px] font-bold text-gray-20 dark:text-secondary-90 uppercase tracking-[0.2em] px-1">
+        <h3 className="px-1 text-xs font-light capitalize text-gray-20 dark:text-secondary-90">
           Active Networks:
         </h3>
 

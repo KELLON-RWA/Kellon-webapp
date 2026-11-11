@@ -18,6 +18,7 @@ import {
 import { Search, X, CheckCircle, Globe, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ALL_SUPPORTED_COUNTRIES } from "@/lib/supported-countries";
+import { getCurrencyForCountry, getCurrencySymbol } from "@/lib/country-currency-map";
 import { Input } from "@/components/ui/input";
 
 interface CountrySelectorModalProps {
@@ -48,7 +49,9 @@ export const CountrySelectorModal: React.FC<CountrySelectorModalProps> = ({
     const q = searchQuery.toLowerCase();
     return baseList.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
+        c.name.toLowerCase().includes(q) ||
+        c.code.toLowerCase().includes(q) ||
+        getCurrencyForCountry(c.code).toLowerCase().includes(q),
     );
   }, [searchQuery, countries]);
 
@@ -140,9 +143,12 @@ export const CountrySelectorModal: React.FC<CountrySelectorModalProps> = ({
                     >
                       {item.name}
                     </p>
-                    <p className="text-[10px] uppercase tracking-tight text-gray-500">
-                      {item.code}
-                    </p>
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-tight text-gray-500 dark:text-gray-400">
+                      <span>{getCurrencyForCountry(item.code)}</span>
+                      <span>({getCurrencySymbol(getCurrencyForCountry(item.code))})</span>
+                      <span>•</span>
+                      <span>{item.code}</span>
+                    </div>
                   </div>
                 </div>
                 {isSelected && (

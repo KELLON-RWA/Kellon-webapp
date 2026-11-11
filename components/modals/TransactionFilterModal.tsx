@@ -114,7 +114,7 @@ export default function TransactionFilterModal({
         </div>
 
         <div>
-          <label className="mb-2 block text-[10px] font-semibold uppercase tracking-tight text-gray-500 dark:text-gray-400">
+          <label className="mb-2 block text-xs font-light capitalize text-gray-500 dark:text-gray-400">
             Activity Type
           </label>
           <div className="flex flex-wrap gap-2">
@@ -205,7 +205,7 @@ function DateField({
 
   return (
     <div>
-      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-tight text-gray-500 dark:text-gray-400">
+      <label className="mb-1.5 block text-xs font-light capitalize text-gray-500 dark:text-gray-400">
         {label}
       </label>
       <Popover open={isOpen} onOpenChange={setIsOpen}>

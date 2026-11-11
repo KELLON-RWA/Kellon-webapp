@@ -35,7 +35,7 @@ export function AssetOverviewView({
     <main className="flex flex-1 flex-col gap-4 pt-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
         <section className="flex flex-col items-center rounded-2xl border border-black/5 bg-white p-5 text-center shadow-sm dark:border-white/10 dark:bg-secondary-50">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+          <p className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
             Total multi-chain balance
           </p>
           <h2 className="mt-3 text-3xl font-bold leading-none text-black dark:text-white md:text-4xl">

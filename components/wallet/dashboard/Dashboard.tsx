@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import AddFundsModal from "@/components/modals/AddFundsModal";
-import WalletServicesModal from "@/components/modals/WalletServicesModal";
+
+const AddFundsModal = dynamic(
+  () => import("@/components/modals/AddFundsModal"),
+);
+const WalletServicesModal = dynamic(
+  () => import("@/components/modals/WalletServicesModal"),
+);
 import { getGreeting } from "@/lib/utils";
 import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import type { User } from "@/types/db";
@@ -224,7 +230,9 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
 
   useEffect(() => {
     setGreeting(getGreeting());
-  }, []);
+    router.prefetch("/send");
+    router.prefetch("/withdraw");
+  }, [router]);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-32 pt-4 md:space-y-6 md:px-6 md:pb-12 md:pt-28 min-[1024px]:max-w-none min-[1024px]:space-y-4 min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8">
@@ -315,11 +323,15 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
         </aside>
       </div>
 
-      <AddFundsModal isOpen={isAddFundsOpen} onClose={setIsAddFundsOpen} />
-      <WalletServicesModal
-        isOpen={isWalletServicesOpen}
-        onClose={setIsWalletServicesOpen}
-      />
+      {isAddFundsOpen ? (
+        <AddFundsModal isOpen={isAddFundsOpen} onClose={setIsAddFundsOpen} />
+      ) : null}
+      {isWalletServicesOpen ? (
+        <WalletServicesModal
+          isOpen={isWalletServicesOpen}
+          onClose={setIsWalletServicesOpen}
+        />
+      ) : null}
     </div>
   );
 }

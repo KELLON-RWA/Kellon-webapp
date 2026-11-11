@@ -68,7 +68,7 @@ export function AssetChainView({
   return (
     <main className="mx-auto flex w-full flex-1 flex-col gap-6 pt-8">
       <section className="flex flex-col items-center text-center">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+        <p className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
           {activeChainBalance.label} balance
         </p>
         <h2 className="mt-3 text-3xl font-bold leading-none text-black dark:text-white md:text-5xl">

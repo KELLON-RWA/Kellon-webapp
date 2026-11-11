@@ -91,6 +91,8 @@ export interface ExecuteFundingPlanResult {
   transactions: BuiltBridgeTransaction[];
   alreadyOnTarget: string | boolean;
   groupId?: string;
+  jobId?: string;
+  requiresManualRedemption?: boolean;
 }
 
 export interface ExecuteFundingPlanOptions {

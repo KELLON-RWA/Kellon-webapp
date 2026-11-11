@@ -24,11 +24,13 @@ export default function QuickActionsPanel({
       <QuickAction
         icon={<ArrowUpRight size={18} />}
         label="Send"
+        href="/send"
         onClick={onSend}
       />
       <QuickAction
         icon={<ArrowUp size={18} />}
         label="Withdraw"
+        href="/withdraw"
         onClick={onWithdraw}
       />
       <QuickAction

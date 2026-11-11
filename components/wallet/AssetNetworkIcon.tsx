@@ -79,7 +79,11 @@ export default function AssetNetworkIcon({
           />
         ) : (
           <Image
-            src={`https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`}
+            src={
+              symbol.trim().toUpperCase() === "MUSDC"
+                ? "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/usdc.png"
+                : `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symbol.toLowerCase()}.png`
+            }
             alt={symbol}
             fill
             sizes={sizes.imageSize}

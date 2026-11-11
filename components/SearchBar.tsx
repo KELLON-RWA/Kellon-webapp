@@ -102,6 +102,12 @@ const kellonFeatures = [
     keywords: "withdraw sell offramp bank cash fiat",
   },
   {
+    label: "Convert",
+    description: "Swap stablecoins or bridge across networks",
+    href: "/convert",
+    keywords: "convert swap bridge exchange trade transfer crosschain",
+  },
+  {
     label: "Swap",
     description: "Exchange supported tokens",
     href: "/swap",
