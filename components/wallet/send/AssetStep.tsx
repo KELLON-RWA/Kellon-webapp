@@ -8,19 +8,43 @@ import ChainIcon from "@/components/wallet/ChainIcon";
 import FlowEmptyState from "@/components/wallet/shared/FlowEmptyState";
 import { getChainLabel } from "@/lib/chains";
 import { cn } from "@/lib/utils";
-import type { SendableAsset, SendableAssetGroup } from "./send-types";
+import type { RecipientKind, SendableAsset, SendableAssetGroup } from "./send-types";
 import { formatAssetAmount, groupSendableAssets } from "./send-utils";
 import NetworkPicker from "./NetworkPicker";
 
 interface AssetStepProps {
   sendableAssets: SendableAsset[];
   selectedAsset: SendableAsset | null;
+  recipientKind?: RecipientKind;
   onSelectAsset: (assetKey: string) => void;
   onOpenAddFunds: () => void;
 }
 
-function preferredNetwork(group: SendableAssetGroup): SendableAsset | null {
+function preferredNetwork(
+  group: SendableAssetGroup,
+  recipientKind?: RecipientKind,
+): SendableAsset | null {
   if (!group?.assets || group.assets.length === 0) return null;
+
+  if (recipientKind === "solana") {
+    const solanaAsset = group.assets.find(
+      (asset) => asset.chain.toLowerCase() === "solana",
+    );
+    if (solanaAsset) return solanaAsset;
+  } else if (recipientKind === "stellar") {
+    const stellarAsset = group.assets.find(
+      (asset) => asset.chain.toLowerCase() === "stellar",
+    );
+    if (stellarAsset) return stellarAsset;
+  } else if (recipientKind === "evm") {
+    const evmAsset = group.assets.find(
+      (asset) =>
+        asset.chain.toLowerCase() !== "solana" &&
+        asset.chain.toLowerCase() !== "stellar",
+    );
+    if (evmAsset) return evmAsset;
+  }
+
   return group.assets.reduce(
     (best, asset) => (asset.amount > best.amount ? asset : best),
     group.assets[0],
@@ -30,6 +54,7 @@ function preferredNetwork(group: SendableAssetGroup): SendableAsset | null {
 export default function AssetStep({
   sendableAssets,
   selectedAsset,
+  recipientKind,
   onSelectAsset,
   onOpenAddFunds,
 }: AssetStepProps) {
@@ -44,7 +69,7 @@ export default function AssetStep({
     activeGroup && selectedAsset?.symbol === activeGroup.symbol
       ? selectedAsset
       : activeGroup
-        ? preferredNetwork(activeGroup)
+        ? preferredNetwork(activeGroup, recipientKind)
         : null;
 
   if (!sendableAssets.length) {
@@ -94,7 +119,7 @@ export default function AssetStep({
                 type="button"
                 aria-pressed={isSelected}
                 onClick={() => {
-                  const preferred = preferredNetwork(group);
+                  const preferred = preferredNetwork(group, recipientKind);
                   if (preferred?.key) onSelectAsset(preferred.key);
                 }}
                 className={cn(

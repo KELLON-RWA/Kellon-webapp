@@ -21,6 +21,8 @@ describe("transfer verification", () => {
   it("preserves the exact OTP channel used by the bundler", () => {
     expect(resolveVerificationMethod(["totp", "email_otp"])).toBe("email_otp")
     expect(resolveVerificationMethod(["sms_otp"])).toBe("sms_otp")
+    expect(resolveVerificationMethod(["totp", "email_otp"], "totp")).toBe("totp")
+    expect(resolveVerificationMethod(["email_otp", "totp"], "totp")).toBe("totp")
   })
 
   it("exposes only supported verification choices without duplicates", () => {

@@ -22,10 +22,6 @@ import {
 } from "@/services/api/security"
 import { useWallets } from "@privy-io/react-auth"
 import {
-  useWallets as useSolanaWallets,
-  useSignTransaction as useSolanaSignTransaction,
-} from "@privy-io/react-auth/solana"
-import {
   useSmartAccount,
   setStickyVerificationCode,
   setStickyTransferMeta,
@@ -33,6 +29,7 @@ import {
 import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer"
 import { getActiveChains } from "@/lib/chains"
 import { normalizeBridgeChain } from "@/lib/bridge-assets"
+import { isStablecoinSymbol } from "@/lib/dashboard-utils"
 import { clampDust, toBaseUnits } from "@/lib/token-amount"
 import { beginOperation, endOperation } from "@/services/api"
 import {
@@ -51,11 +48,11 @@ import type {
   SendStep,
   VerifiedRecipient,
 } from "./send-types"
+import type { SendSuccessState } from "./SendSuccessModal"
 import {
   ASSET_NAMES,
   SEND_STEPS,
   amountSchema,
-  createAmountSchema,
   sanitizeAmountInput,
   getRecentRecipient,
   getRecipientKind,
@@ -251,9 +248,6 @@ export function useSendFlow(profile: User) {
   const searchParams = useSearchParams()
   const latestUrlParams = useRef(new URLSearchParams(searchParams.toString()))
   const { wallets, ready: walletsReady } = useWallets()
-  const { wallets: solanaWallets, ready: solanaWalletsReady } =
-    useSolanaWallets()
-  const { signTransaction: signSolanaTransaction } = useSolanaSignTransaction()
   const { getSmartAccountClient } = useSmartAccount()
 
   // ── Forms ──────────────────────────────────────────────────────────────────
@@ -271,98 +265,7 @@ export function useSendFlow(profile: User) {
     mode: "onChange",
   })
 
-  // ── Query on-chain mUSDC (Moonwell Base) balance for user's Base Safe ──────
-  const [mUsdcOnChainBalance, setMUsdcOnChainBalance] = useState<number>(0)
-  const baseSafeAddress = expectedSafeFor(profile.chainAccounts, "base")
-
-  useEffect(() => {
-    let active = true
-    if (!baseSafeAddress) return
-
-    async function fetchMUsdcBalance() {
-      try {
-        const client = createPublicClient({
-          transport: http("https://mainnet.base.org"),
-        })
-        const balance = await client.readContract({
-          address: "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22" as Address,
-          abi: erc20Abi,
-          functionName: "balanceOf",
-          args: [baseSafeAddress as Address],
-        })
-        if (active && balance > 0n) {
-          // mUSDC has 8 decimals
-          const formatted = Number(balance) / 1e8
-          setMUsdcOnChainBalance(formatted)
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    void fetchMUsdcBalance()
-    const interval = setInterval(fetchMUsdcBalance, 10_000)
-    return () => {
-      active = false
-      clearInterval(interval)
-    }
-  }, [baseSafeAddress])
-
-  // ── Query on-chain native balances (e.g. ETH on Base) ───────────────────
-  const [nativeOnChainBalances, setNativeOnChainBalances] = useState<
-    Record<string, number>
-  >({})
-
-  useEffect(() => {
-    let active = true
-
-    async function fetchNativeBalances() {
-      const activeChains = getActiveChains()
-      const entries: Array<[string, number]> = []
-
-      await Promise.all(
-        Object.entries(activeChains).map(async ([chainKey, chainConfig]) => {
-          if (chainConfig.type !== "evm") return
-          const safeAddr = expectedSafeFor(profile.chainAccounts, chainKey)
-          const rpcUrl = chainConfig.rpcUrls.default.http[0]
-          if (!safeAddr || !rpcUrl) return
-
-          try {
-            const client = createPublicClient({ transport: http(rpcUrl) })
-            const balance = await client.getBalance({
-              address: safeAddr as Address,
-            })
-            if (active && balance > 0n) {
-              const formatted = Number(
-                formatUnits(balance, chainConfig.nativeCurrency.decimals),
-              )
-              if (formatted > 0) {
-                entries.push([
-                  `${chainConfig.nativeCurrency.symbol}:${chainKey}`,
-                  formatted,
-                ])
-              }
-            }
-          } catch {
-            // ignore
-          }
-        }),
-      )
-
-      if (active && entries.length > 0) {
-        setNativeOnChainBalances(Object.fromEntries(entries))
-      }
-    }
-
-    void fetchNativeBalances()
-    const interval = setInterval(fetchNativeBalances, 12_000)
-    return () => {
-      active = false
-      clearInterval(interval)
-    }
-  }, [profile.chainAccounts])
-
-  // ── Sendable assets (derived from profile + on-chain tokens) ───────────────
+  // ── Sendable assets (strictly stablecoins: USDC, USDT) ───────────────────
   const sendableAssets = useMemo<SendableAsset[]>(() => {
     const grouped = new Map<string, SendableAsset>()
 
@@ -372,15 +275,10 @@ export function useSendFlow(profile: User) {
         const symbol = asset.symbol.toUpperCase()
         const chain = asset.chain || ""
         const amount = parseAssetAmount(asset.amount)
-        if (
-          amount <= 0 ||
-          !["USDC", "USDT", "MUSDC", "ETH"].includes(symbol)
-        )
-          return
+        if (amount <= 0 || !isStablecoinSymbol(symbol)) return
 
         const key = `${symbol}:${normalizeBridgeChain(chain)}`
         const current = grouped.get(key)
-        const isEth = symbol === "ETH"
         grouped.set(key, {
           id: asset.id,
           key,
@@ -389,63 +287,21 @@ export function useSendFlow(profile: User) {
           amount: (current?.amount || 0) + amount,
           chain,
           assetType: asset.assetType,
-          decimals: isEth ? 18 : symbol === "MUSDC" ? 8 : 6,
-          tokenAddress:
-            symbol === "MUSDC"
-              ? "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22"
-              : undefined,
+          decimals: 6,
         })
       })
 
-    // Surface native on-chain balances (e.g. ETH on Base)
-    Object.entries(nativeOnChainBalances).forEach(([key, bal]) => {
-      if (bal <= 0) return
-      const [symbol, chainKey] = key.split(":")
-      const chainConfig =
-        getActiveChains()[chainKey as keyof ReturnType<typeof getActiveChains>]
-      if (!chainConfig) return
-
-      const current = grouped.get(key)
-      grouped.set(key, {
-        id: `${symbol}-${chainKey}`,
-        key,
-        symbol,
-        name: ASSET_NAMES[symbol] || chainConfig.nativeCurrency.name || symbol,
-        amount: Math.max(current?.amount || 0, bal),
-        chain: chainConfig.name,
-        assetType: AssetType.CRYPTO,
-        decimals: chainConfig.nativeCurrency.decimals,
-      })
-    })
-
-    // Surface mUSDC if held on Base
-    if (mUsdcOnChainBalance > 0) {
-      const key = "MUSDC:base"
-      const current = grouped.get(key)
-      grouped.set(key, {
-        id: "mUSDC-base",
-        key,
-        symbol: "mUSDC",
-        name: "Moonwell USDC",
-        amount: (current?.amount || 0) + mUsdcOnChainBalance,
-        chain: "Base",
-        assetType: AssetType.CRYPTO,
-        tokenAddress: "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22",
-        decimals: 8,
-      })
-    }
-
     return Array.from(grouped.values()).sort((a, b) => {
-      const order = ["USDC", "USDT", "ETH", "MUSDC"]
+      const order = ["USDC", "USDT"]
       const aIndex = order.indexOf(a.symbol)
       const bIndex = order.indexOf(b.symbol)
       if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
       if (aIndex !== -1) return -1
       if (bIndex !== -1) return 1
       if (a.symbol !== b.symbol) return a.symbol.localeCompare(b.symbol)
-      return a.chain.localeCompare(b.chain)
+      return b.amount - a.amount
     })
-  }, [profile.assets, mUsdcOnChainBalance, nativeOnChainBalances])
+  }, [profile.assets])
 
   // ── Navigation reducer (initialised once from URL on mount) ───────────────
   const initialNavState = useMemo<NavState>(() => {
@@ -483,6 +339,10 @@ export function useSendFlow(profile: User) {
   const [recipientInput, setRecipientInput] = useState(
     () => searchParams.get("recipient") || "",
   )
+  const [candidateRecipient, setCandidateRecipient] =
+    useState<VerifiedRecipient | null>(null)
+  const [isRecipientConfirmed, setIsRecipientConfirmed] = useState(false)
+  const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false)
   const [verifiedRecipient, setVerifiedRecipient] =
     useState<VerifiedRecipient | null>(null)
   const [verifiedRecipientInput, setVerifiedRecipientInput] = useState("")
@@ -492,6 +352,7 @@ export function useSendFlow(profile: User) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
   const [verificationError, setVerificationError] = useState<string | null>(null)
+  const [successState, setSuccessState] = useState<SendSuccessState | null>(null)
   const [verificationRequest, setVerificationRequest] = useState<{
     verificationType: VerificationType
     availableMethods: VerificationMethod[]
@@ -513,6 +374,10 @@ export function useSendFlow(profile: User) {
 
   const recipientKind = getRecipientKind(recipientInput)
   const isRecipientValid = isSupportedRecipient(recipientKind)
+  const isWalletAddress =
+    recipientKind === "evm" ||
+    recipientKind === "solana" ||
+    recipientKind === "stellar"
   const normalizedRecipient = recipientInput.trim()
   const normalizedRecipientKey = normalizedRecipient.toLowerCase()
   const amountValue = Number(amount)
@@ -524,7 +389,8 @@ export function useSendFlow(profile: User) {
     /^\d+(\.\d+)?$/.test(amount)
   const isCurrentRecipientVerified =
     Boolean(verifiedRecipient) &&
-    verifiedRecipientInput === normalizedRecipientKey
+    verifiedRecipientInput === normalizedRecipientKey &&
+    isRecipientConfirmed
 
   // ── URL helper (memoised — was recreated on every render in original) ─────
   const updateUrl = useCallback(
@@ -618,38 +484,59 @@ export function useSendFlow(profile: User) {
     const recipientKey = normalizedRecipientKey
     const kind = getRecipientKind(recipient)
 
-    if (verifiedRecipient && verifiedRecipientInput === recipientKey) return
-
-    setVerifiedRecipient(null)
-    setVerifiedRecipientInput("")
+    if (
+      verifiedRecipient &&
+      verifiedRecipientInput === recipientKey &&
+      isRecipientConfirmed
+    ) {
+      return
+    }
 
     if (!recipient) {
       setRecipientLookupMessage("")
+      setCandidateRecipient(null)
+      setVerifiedRecipient(null)
+      setVerifiedRecipientInput("")
+      setIsRecipientConfirmed(false)
       return
     }
 
     if (isSelfRecipient(recipient)) {
       const message = "You can't send to yourself. Choose another recipient."
       setRecipientLookupMessage(message)
+      setCandidateRecipient(null)
+      setVerifiedRecipient(null)
+      setVerifiedRecipientInput("")
+      setIsRecipientConfirmed(false)
       recipientForm.setError("recipient", { message })
       return
     }
 
     if (!isSupportedRecipient(kind)) {
       setRecipientLookupMessage(
-        "Enter a valid email, username, @tag, EVM address, or Stellar address.",
+        "Enter a valid email, username, @tag, EVM address, Solana address, or Stellar address.",
       )
+      setCandidateRecipient(null)
+      setVerifiedRecipient(null)
+      setVerifiedRecipientInput("")
+      setIsRecipientConfirmed(false)
       return
     }
 
-    if (kind === "evm" || kind === "stellar") {
-      setVerifiedRecipient({ id: recipient, identifier: recipient })
-      setVerifiedRecipientInput(recipientKey)
-      setRecipientLookupMessage("Wallet address will be used as entered.")
+    if (kind === "evm" || kind === "stellar" || kind === "solana") {
+      setCandidateRecipient({ id: recipient, identifier: recipient })
+      setVerifiedRecipient(null)
+      setVerifiedRecipientInput("")
+      setIsRecipientConfirmed(false)
+      setRecipientLookupMessage("")
       recipientForm.clearErrors("recipient")
       return
     }
 
+    setCandidateRecipient(null)
+    setVerifiedRecipient(null)
+    setVerifiedRecipientInput("")
+    setIsRecipientConfirmed(false)
     setRecipientLookupMessage("Checking Kellon user...")
     setIsVerifyingRecipient(true)
 
@@ -662,27 +549,31 @@ export function useSendFlow(profile: User) {
 
         if (!recipientUser?.found) {
           const message = "No Kellon user found for this recipient."
+          setCandidateRecipient(null)
+          setVerifiedRecipient(null)
+          setVerifiedRecipientInput("")
+          setIsRecipientConfirmed(false)
           setRecipientLookupMessage(message)
           recipientForm.setError("recipient", { message })
           return
         }
 
-        setVerifiedRecipient({
+        const candidate: VerifiedRecipient = {
           id: lookupValue,
           name: recipientUser.name,
           addresses: recipientUser.addresses,
           identifier: recipient,
-        })
-        setVerifiedRecipientInput(recipientKey)
-        setRecipientLookupMessage(
-          recipientUser.name
-            ? `Verified as ${recipientUser.name}`
-            : "Kellon recipient verified",
-        )
+        }
+        setCandidateRecipient(candidate)
+        setRecipientLookupMessage("")
         recipientForm.clearErrors("recipient")
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unable to verify recipient."
+        setCandidateRecipient(null)
+        setVerifiedRecipient(null)
+        setVerifiedRecipientInput("")
+        setIsRecipientConfirmed(false)
         setRecipientLookupMessage(message)
         recipientForm.setError("recipient", { message })
       } finally {
@@ -695,6 +586,7 @@ export function useSendFlow(profile: User) {
       setIsVerifyingRecipient(false)
     }
   }, [
+    isRecipientConfirmed,
     isSelfRecipient,
     normalizedRecipient,
     normalizedRecipientKey,
@@ -731,13 +623,46 @@ export function useSendFlow(profile: User) {
   // Internal helper: navigate to asset step, optionally pre-selecting an asset.
   const enterAssetStep = useCallback(
     (assetOverride?: SendableAsset | null) => {
-      const target = assetOverride ?? selectedAsset ?? sendableAssets[0] ?? null
-      if (target) dispatch({ type: "SET_ASSET_ID", assetId: target.key })
-      dispatch({ type: "SET_STEP", step: "asset" })
-      updateUrl_Step("asset", target)
+      let target = assetOverride ?? selectedAsset;
+      if (recipientKind === "solana" && target?.chain?.toLowerCase() !== "solana") {
+        const solanaAsset = sendableAssets.find(
+          (a) => a.chain?.toLowerCase() === "solana",
+        );
+        if (solanaAsset) target = solanaAsset;
+      } else if (recipientKind === "stellar" && target?.chain?.toLowerCase() !== "stellar") {
+        const stellarAsset = sendableAssets.find(
+          (a) => a.chain?.toLowerCase() === "stellar",
+        );
+        if (stellarAsset) target = stellarAsset;
+      } else if (
+        recipientKind === "evm" &&
+        (target?.chain?.toLowerCase() === "solana" || target?.chain?.toLowerCase() === "stellar")
+      ) {
+        const evmAsset = sendableAssets.find(
+          (a) => a.chain?.toLowerCase() !== "solana" && a.chain?.toLowerCase() !== "stellar",
+        );
+        if (evmAsset) target = evmAsset;
+      }
+      if (!target) {
+        if (recipientKind === "solana") {
+          target = sendableAssets.find((a) => a.chain?.toLowerCase() === "solana") ?? null;
+        } else if (recipientKind === "stellar") {
+          target = sendableAssets.find((a) => a.chain?.toLowerCase() === "stellar") ?? null;
+        } else if (recipientKind === "evm") {
+          target =
+            sendableAssets.find(
+              (a) => a.chain?.toLowerCase() !== "solana" && a.chain?.toLowerCase() !== "stellar",
+            ) ?? null;
+        }
+      }
+      if (!target) target = sendableAssets[0] ?? null;
+
+      if (target?.key) dispatch({ type: "SET_ASSET_ID", assetId: target.key });
+      dispatch({ type: "SET_STEP", step: "asset" });
+      updateUrl_Step("asset", target);
     },
-    [selectedAsset, sendableAssets, updateUrl_Step],
-  )
+    [recipientKind, selectedAsset, sendableAssets, updateUrl_Step],
+  );
 
   // Public step setter — mirrors updateStep from the original but is now a
   // stable useCallback to avoid stale closure issues downstream.
@@ -807,12 +732,64 @@ export function useSendFlow(profile: User) {
     [amountForm, setAmountValue],
   )
 
+  const confirmRecipient = useCallback(
+    (target?: VerifiedRecipient | null) => {
+      const recipientToConfirm = target ?? candidateRecipient
+      if (!recipientToConfirm) return
+
+      if (isWalletAddress) {
+        setIsNewAddressModalOpen(true)
+        return
+      }
+
+      setVerifiedRecipient(recipientToConfirm)
+      setVerifiedRecipientInput(normalizedRecipientKey)
+      setIsRecipientConfirmed(true)
+      setCandidateRecipient(recipientToConfirm)
+      recipientForm.clearErrors("recipient")
+    },
+    [candidateRecipient, isWalletAddress, normalizedRecipientKey, recipientForm],
+  )
+
+  const confirmNewAddressAndProceed = useCallback(() => {
+    setIsNewAddressModalOpen(false)
+    const candidate: VerifiedRecipient = candidateRecipient || {
+      id: recipientInput.trim(),
+      identifier: recipientInput.trim(),
+    }
+    setVerifiedRecipient(candidate)
+    setVerifiedRecipientInput(normalizedRecipientKey)
+    setIsRecipientConfirmed(true)
+    setCandidateRecipient(candidate)
+    recipientForm.clearErrors("recipient")
+    enterAssetStep()
+  }, [
+    candidateRecipient,
+    enterAssetStep,
+    normalizedRecipientKey,
+    recipientForm,
+    recipientInput,
+  ])
+
+  const cancelNewAddressConfirmation = useCallback(() => {
+    setIsNewAddressModalOpen(false)
+  }, [])
+
+  const resetRecipientConfirmation = useCallback(() => {
+    setIsRecipientConfirmed(false)
+    setVerifiedRecipient(null)
+    setVerifiedRecipientInput("")
+  }, [])
+
   const handleRecipientChange = useCallback(
     (nextRecipient: string) => {
       setRecipientInput(nextRecipient)
+      setIsNewAddressModalOpen(false)
       if (nextRecipient.trim().toLowerCase() !== verifiedRecipientInput) {
+        setCandidateRecipient(null)
         setVerifiedRecipient(null)
         setVerifiedRecipientInput("")
+        setIsRecipientConfirmed(false)
       }
       // Reset all downstream nav state atomically.
       dispatch({ type: "RESET_FOR_RECIPIENT" })
@@ -858,10 +835,10 @@ export function useSendFlow(profile: User) {
         shouldTouch: true,
         shouldValidate: true,
       })
-      if (nextRecipient.trim().toLowerCase() !== verifiedRecipientInput) {
-        setVerifiedRecipient(null)
-        setVerifiedRecipientInput("")
-      }
+      setCandidateRecipient(null)
+      setVerifiedRecipient(null)
+      setVerifiedRecipientInput("")
+      setIsRecipientConfirmed(false)
       dispatch({ type: "RESET_FOR_RECIPIENT" })
       amountForm.setValue("amount", "", {
         shouldDirty: false,
@@ -879,7 +856,7 @@ export function useSendFlow(profile: User) {
         { replace: true },
       )
     },
-    [amountForm, recipientForm, updateUrl, verifiedRecipientInput],
+    [amountForm, recipientForm, updateUrl],
   )
 
   const verifyRecipient = useCallback(
@@ -899,10 +876,13 @@ export function useSendFlow(profile: User) {
         return
       }
 
+      if (candidateRecipient && !isRecipientConfirmed) {
+        confirmRecipient(candidateRecipient)
+        return
+      }
+
       if (kind !== "email" && kind !== "tag") {
-        setVerifiedRecipient({ id: recipient, identifier: recipient })
-        setVerifiedRecipientInput(recipient.toLowerCase())
-        enterAssetStep()
+        setIsNewAddressModalOpen(true)
         return
       }
 
@@ -922,13 +902,14 @@ export function useSendFlow(profile: User) {
           return
         }
 
-        setVerifiedRecipient({
+        const candidate: VerifiedRecipient = {
           id: lookupValue,
           name: recipientUser.name,
           addresses: recipientUser.addresses,
           identifier: recipient,
-        })
-        setVerifiedRecipientInput(recipient.toLowerCase())
+        }
+        setCandidateRecipient(candidate)
+        confirmRecipient(candidate)
         enterAssetStep()
       } catch (error) {
         recipientForm.setError("recipient", {
@@ -942,8 +923,11 @@ export function useSendFlow(profile: User) {
       }
     },
     [
+      candidateRecipient,
+      confirmRecipient,
       enterAssetStep,
       isCurrentRecipientVerified,
+      isRecipientConfirmed,
       isSelfRecipient,
       recipientForm,
     ],
@@ -1024,15 +1008,28 @@ export function useSendFlow(profile: User) {
         const trimmedRecipient = recipientInput.trim()
         const chainLower = normalizeBridgeChain(selectedAsset.chain)
 
+        if (
+          (recipientKind === "solana" && chainLower !== "solana") ||
+          (recipientKind === "stellar" && chainLower !== "stellar") ||
+          (recipientKind === "evm" &&
+            (chainLower === "solana" || chainLower === "stellar"))
+        ) {
+          throw new Error(
+            `The recipient address is not compatible with ${selectedAsset.chain}.`,
+          )
+        }
+
         const transferPayload = {
           amount: amountValue,
           symbol: selectedAsset.symbol,
           verificationCode: verification?.verificationCode,
           verificationType: verification?.verificationType,
           toAddress:
-            recipientKind === "evm" || recipientKind === "stellar"
+            recipientKind === "evm" ||
+            recipientKind === "stellar" ||
+            recipientKind === "solana"
               ? trimmedRecipient
-              : undefined,
+              : (verifiedRecipient?.addresses as Record<string, string | null | undefined>)?.[chainLower] || undefined,
           recipientEmail:
             recipientKind === "email"
               ? trimmedRecipient.toLowerCase()
@@ -1047,78 +1044,7 @@ export function useSendFlow(profile: User) {
         if (chainLower === "stellar") {
           response = await transferService.transferStellar(transferPayload)
         } else if (chainLower === "solana") {
-          const prepRes = await transferService.prepareSolanaSponsored({
-            amount: amountValue,
-            symbol: selectedAsset.symbol,
-            toAddress:
-              recipientKind !== "email" && recipientKind !== "tag"
-                ? trimmedRecipient
-                : undefined,
-            recipientEmail:
-              recipientKind === "email"
-                ? trimmedRecipient.toLowerCase()
-                : undefined,
-            recipientTag:
-              recipientKind === "tag"
-                ? trimmedRecipient.replace(/^@/, "")
-                : undefined,
-          })
-
-          if (!prepRes.success || !prepRes.data) {
-            throw new Error(
-              prepRes.message || "Failed to prepare Solana transaction",
-            )
-          }
-
-          const { serializedTx, destinationAddress } = prepRes.data
-
-          if (!solanaWalletsReady) {
-            throw new Error(
-              "Solana wallet is still loading. Please try again in a moment.",
-            )
-          }
-
-          const solanaWallet = solanaWallets[0]
-
-          if (!solanaWallet) {
-            throw new Error(
-              "Solana wallet not found. Please connect your Solana wallet via Privy.",
-            )
-          }
-
-          const binaryString = atob(serializedTx)
-          const len = binaryString.length
-          const txBytes = new Uint8Array(len)
-          for (let i = 0; i < len; i++) {
-            txBytes[i] = binaryString.charCodeAt(i)
-          }
-
-          const signResult = await signSolanaTransaction({
-            transaction: txBytes,
-            wallet: solanaWallet,
-          })
-
-          const signedTxBytes = signResult.signedTransaction
-
-          if (!signedTxBytes) {
-            throw new Error("Transaction signing was rejected or failed.")
-          }
-
-          let binary = ""
-          const signedLen = signedTxBytes.byteLength
-          for (let i = 0; i < signedLen; i++) {
-            binary += String.fromCharCode(signedTxBytes[i])
-          }
-          const signedTxBase64 = btoa(binary)
-
-          response = await transferService.submitSolanaSponsored({
-            amount: amountValue,
-            symbol: selectedAsset.symbol,
-            toAddress: destinationAddress,
-            signedTxBase64,
-            verificationCode: verification?.verificationCode,
-            verificationType: verification?.verificationType,
-          })
+          response = await transferService.transferSolana(transferPayload)
         } else {
           // Privy is still hydrating; `wallets` is [] until it settles, so a click
           // straight after page load would otherwise read as "no wallet".
@@ -1168,65 +1094,46 @@ export function useSendFlow(profile: User) {
           }
 
           const tokenSymbol = selectedAsset.symbol.toUpperCase()
-          const isNativeEth = tokenSymbol === "ETH"
-          const isMUsdc = tokenSymbol === "MUSDC"
+          if (!isStablecoinSymbol(tokenSymbol)) {
+            throw new Error(
+              `Only stablecoin transfers are supported. Received: ${tokenSymbol}`,
+            )
+          }
+
           const tokenAddress =
             selectedAsset.tokenAddress ||
-            (isNativeEth
-              ? "0x0000000000000000000000000000000000000000"
-              : isMUsdc
-                ? "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22"
-                : tokenSymbol === "USDC"
-                  ? chainConfig.usdcAddress
-                  : chainConfig.usdtAddress)
+            (tokenSymbol === "USDC"
+              ? chainConfig.usdcAddress
+              : chainConfig.usdtAddress)
 
-          if (!tokenAddress && !isNativeEth) {
+          if (!tokenAddress) {
             throw new Error(
               `Token ${tokenSymbol} not supported on ${selectedAsset.chain}`,
             )
           }
 
           const isBsc = chainConfig.id === 56 || chainConfig.id === 97
-          const decimals =
-            selectedAsset.decimals ?? (isNativeEth ? 18 : isMUsdc ? 8 : isBsc ? 18 : 6)
+          const decimals = selectedAsset.decimals ?? (isBsc ? 18 : 6)
           let amountBigInt = toBaseUnits(amountValue, decimals)
 
           const safeAddr = (smartAccountClient.account as { address?: string })
             ?.address
-          if (safeAddr) {
-            if (isNativeEth) {
-              const rpcUrl = chainConfig.rpcUrls.default.http[0]
-              const client = createPublicClient({ transport: http(rpcUrl) })
-              const balance = await client.getBalance({
-                address: safeAddr as Address,
-              })
-              if (balance < amountBigInt) {
-                amountBigInt = balance
-              }
-              if (amountBigInt <= 0n) {
-                throw new Error(
-                  "Insufficient ETH balance on-chain to complete this transfer.",
-                )
-              }
-            } else if (tokenAddress) {
-              amountBigInt = await verifyOnChainBalance(
-                chainLower,
-                tokenAddress,
-                safeAddr,
-                amountBigInt,
-                tokenSymbol,
-                decimals,
-              )
-            }
+          if (safeAddr && tokenAddress) {
+            amountBigInt = await verifyOnChainBalance(
+              chainLower,
+              tokenAddress,
+              safeAddr,
+              amountBigInt,
+              tokenSymbol,
+              decimals,
+            )
           }
 
-          const txData = isNativeEth
-            ? ("0x" as `0x${string}`)
-            : encodeFunctionData({
-                abi: erc20Abi,
-                functionName: "transfer",
-                args: [destinationAddress as `0x${string}`, amountBigInt],
-              })
+          const txData = encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [destinationAddress as `0x${string}`, amountBigInt],
+          })
 
           if (
             verification?.verificationCode &&
@@ -1251,9 +1158,9 @@ export function useSendFlow(profile: User) {
             ).sendTransaction({
               account: smartAccountClient.account,
               chain: smartAccountClient.chain,
-              to: (isNativeEth ? destinationAddress : tokenAddress) as `0x${string}`,
+              to: tokenAddress as `0x${string}`,
               data: txData,
-              value: isNativeEth ? amountBigInt : 0n,
+              value: 0n,
             })
             setStickyVerificationCode(null)
             setStickyTransferMeta(null)
@@ -1290,7 +1197,27 @@ export function useSendFlow(profile: User) {
         toast.success(
           response.data?.message || "Transfer completed successfully",
         )
-        router.push("/transactions")
+        const rawData = response.data as
+          | {
+              id?: string
+              transactionId?: string
+              transaction?: { id?: string }
+              hash?: string
+              message?: string
+            }
+          | undefined
+        const directTxId =
+          rawData?.transactionId || rawData?.id || rawData?.transaction?.id
+
+        setSuccessState({
+          amount: amountValue,
+          symbol: selectedAsset.symbol,
+          recipient: trimmedRecipient,
+          recipientKind,
+          chain: selectedAsset.chain,
+          txHash: rawData?.hash,
+          transactionId: directTxId,
+        })
       } catch (error) {
         const verificationChallenge = findTransferVerificationRequiredError(error)
         const isVerifying = Boolean(verification?.verificationCode)
@@ -1390,9 +1317,6 @@ export function useSendFlow(profile: User) {
       recipientKind,
       router,
       selectedAsset,
-      signSolanaTransaction,
-      solanaWallets,
-      solanaWalletsReady,
       verifiedRecipient,
       wallets,
       walletsReady,
@@ -1426,7 +1350,7 @@ export function useSendFlow(profile: User) {
   }, [isSubmitting, updateStep])
 
   const requestTransferOtp = useCallback(
-    async (method: VerificationMethod) => {
+    async (method: VerificationMethod, isAutoSend = false) => {
       const channel = getOtpChannelForMethod(method)
       if (!verificationRequest || !channel || isResendingVerification) return
 
@@ -1444,14 +1368,21 @@ export function useSendFlow(profile: User) {
         )
         toast.success(
           response.message ||
-            `Verification code sent by ${channel === "sms" ? "SMS" : "email"}.`,
+            `Verification code sent to your ${channel === "sms" ? "phone" : "email"}.`,
         )
       } catch (error) {
-        toast.error(
+        const message =
           error instanceof Error
             ? error.message
-            : "Unable to send verification code",
-        )
+            : "Unable to send verification code"
+        const isRateLimited = /wait|minute|cooldown|rate/i.test(message)
+        if (isAutoSend && isRateLimited) {
+          toast.info(
+            `A verification code was recently sent to your ${channel === "sms" ? "phone" : "email"}. Check your inbox or wait a moment to resend.`,
+          )
+        } else {
+          toast.error(message)
+        }
       } finally {
         setIsResendingVerification(false)
       }
@@ -1472,11 +1403,11 @@ export function useSendFlow(profile: User) {
               ...current,
               selectedMethod: method,
               verificationType: getVerificationTypeForMethod(method),
-              otpSent: channel === null,
+              otpSent: true,
             }
           : current,
       )
-      if (channel) void requestTransferOtp(method)
+      if (channel) void requestTransferOtp(method, true)
     },
     [requestTransferOtp, verificationRequest],
   )
@@ -1493,7 +1424,7 @@ export function useSendFlow(profile: User) {
       (!isRecipientValid ||
         isVerifyingRecipient ||
         Boolean(selfRecipientError) ||
-        !isCurrentRecipientVerified)) ||
+        (!isWalletAddress && !isCurrentRecipientVerified))) ||
     (step === "asset" && !selectedAsset) ||
     (step === "amount" && !isAmountValid) ||
     (step === "review" && isSubmitting)
@@ -1538,6 +1469,15 @@ export function useSendFlow(profile: User) {
     submitTransferVerification,
     selectTransferVerificationMethod,
     resendTransferVerification,
+    candidateRecipient,
+    isRecipientConfirmed,
+    isNewAddressModalOpen,
+    confirmNewAddressAndProceed,
+    cancelNewAddressConfirmation,
+    confirmRecipient,
+    resetRecipientConfirmation,
+    successState,
+    clearSuccessState: () => setSuccessState(null),
     verifiedRecipient,
     verifyRecipient,
   }

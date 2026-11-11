@@ -150,13 +150,21 @@ export function resolveVerificationType(
   return "email_otp"
 }
 
-/** Preserves the exact verification channel required by the bundler. */
+/** Preserves the exact verification channel required by the bundler, prioritizing caller preference (e.g. TOTP). */
 export function resolveVerificationMethod(
   availableMethods?: string[],
   fallback: VerificationMethod = "email_otp",
 ): VerificationMethod {
   if (!availableMethods?.length) return fallback
   const methods = availableMethods.map((method) => method.toLowerCase())
+
+  // If a preferred/fallback method was explicitly requested and is available, honor it!
+  const normalizedFallback = fallback?.toLowerCase() as VerificationMethod
+  if (normalizedFallback && methods.includes(normalizedFallback)) {
+    return normalizedFallback
+  }
+
+  // Otherwise default priority order:
   if (methods.includes("email_otp")) return "email_otp"
   if (methods.includes("otp")) return "email_otp"
   if (methods.includes("sms_otp")) return "sms_otp"

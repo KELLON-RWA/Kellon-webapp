@@ -163,10 +163,8 @@ export default function TransferVerificationModal({
   );
   const isOtpMethod = activeMethod !== "totp";
   const trimmedCode = code.replace(/\D/g, "").slice(0, 6);
-  const canSubmit =
-    trimmedCode.length === 6 && !isSubmitting && (!isOtpMethod || otpSent);
+  const canSubmit = trimmedCode.length === 6 && !isSubmitting;
   const showMethodPicker = methods.length > 1 && Boolean(onMethodChange);
-  const isChoosingOtpChannel = isOtpMethod && !otpSent && Boolean(onResend);
   const methodLabel =
     activeMethod === "sms_otp"
       ? "SMS"
@@ -282,13 +280,11 @@ export default function TransferVerificationModal({
                 ? "Scan the QR code or enter the key to link your authenticator app."
                 : "Verify your email address to secure your account and complete transfers."
               : description ||
-                (isOtpMethod && !otpSent
-                  ? activeMethod === "email_otp"
-                    ? "We'll send a verification code to your email to authorize this transaction."
-                    : showMethodPicker
-                      ? "Choose a verification method, then request your code."
-                      : `Request your ${methodLabel} code to complete this ${actionNoun}.`
-                  : `Enter your ${methodLabel} code to complete this ${actionNoun}.`)}
+                (activeMethod === "totp"
+                  ? "Enter the 6-digit code from your authenticator app to authorize this transaction."
+                  : activeMethod === "sms_otp"
+                    ? "Enter the verification code sent to your phone to authorize this transaction."
+                    : "Enter the verification code sent to your email to authorize this transaction.")}
           </p>
 
           {requiresSecuritySetup ? (
@@ -547,18 +543,18 @@ export default function TransferVerificationModal({
             </div>
           ) : null}
 
-          {!requiresSecuritySetup && isOtpMethod && onResend && otpSent ? (
+          {!requiresSecuritySetup && isOtpMethod && onResend ? (
             <button
               type="button"
               onClick={() => onResend()}
               disabled={isSubmitting || isResending}
               className="mt-3 cursor-pointer text-xs font-semibold text-primary-50 transition hover:text-primary-30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-80 dark:hover:text-primary-90"
             >
-              {isResending ? "Sending code..." : `Resend by ${methodLabel}`}
+              {isResending ? "Sending code..." : `Resend code`}
             </button>
           ) : null}
 
-          {!requiresSecuritySetup && (!isOtpMethod || otpSent) ? (
+          {!requiresSecuritySetup ? (
             <div className="w-full">
               <Input
                 value={trimmedCode}
@@ -578,7 +574,8 @@ export default function TransferVerificationModal({
                 autoComplete="one-time-code"
                 pattern="[0-9]{6}"
                 maxLength={6}
-                placeholder="Enter code"
+                placeholder="Enter 6-digit code"
+                autoFocus
                 className={cn(
                   "mt-5 h-12 rounded-2xl bg-gray-95 text-center text-base font-semibold tracking-[0.35em] text-cryptoNight placeholder:tracking-normal placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 dark:bg-secondary-60 dark:text-white transition-all",
                   errorMessage
@@ -664,27 +661,18 @@ export default function TransferVerificationModal({
             ) : (
               <button
                 type="button"
-                onClick={
-                  isChoosingOtpChannel
-                    ? () => onResend?.()
-                    : () => onSubmit(trimmedCode)
-                }
-                disabled={
-                  isChoosingOtpChannel
-                    ? isSubmitting || isResending
-                    : !canSubmit
-                }
-                className="h-11 rounded-xl bg-primary-50 text-sm font-semibold text-white transition hover:bg-primary-40 disabled:opacity-60 dark:bg-primary-70 dark:hover:bg-primary-80 cursor-pointer"
+                onClick={() => onSubmit(trimmedCode)}
+                disabled={!canSubmit}
+                className="h-11 rounded-xl bg-primary-50 text-sm font-semibold text-white transition hover:bg-primary-40 disabled:opacity-60 dark:bg-primary-70 dark:hover:bg-primary-80 cursor-pointer flex items-center justify-center gap-2"
               >
-                {isChoosingOtpChannel
-                  ? isResending
-                    ? "Sending..."
-                    : activeMethod === "email_otp"
-                      ? "Send code"
-                      : `Send ${methodLabel} code`
-                  : isSubmitting
-                    ? "Confirming..."
-                    : "Confirm"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Confirming...</span>
+                  </>
+                ) : (
+                  "Confirm"
+                )}
               </button>
             )}
           </div>

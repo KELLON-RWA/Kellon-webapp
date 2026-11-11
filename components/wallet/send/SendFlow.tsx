@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import AddFundsModal from "@/components/modals/AddFundsModal";
 import BridgeFundingOverlay, {
@@ -9,15 +10,20 @@ import BridgeFundingOverlay, {
 import StepIndicator from "@/components/wallet/shared/FlowStepIndicator";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
-import type { User } from "@/types/db";
+import { TransactionType, type User } from "@/types/db";
 import { useUser } from "@/hooks/use-user";
 import AmountStep from "./AmountStep";
 import AssetStep from "./AssetStep";
-import RecentsPanel from "./RecentsPanel";
 import RecipientStep from "./RecipientStep";
 import ReviewStep from "./ReviewStep";
+import NewAddressConfirmationModal from "./NewAddressConfirmationModal";
+import SendSuccessModal from "./SendSuccessModal";
 import TransferVerificationModal from "./TransferVerificationModal";
-import { SEND_STEPS, stepTitles } from "./send-utils";
+import {
+  getTransactionDetailsPath,
+  resolveFlowTransactionId,
+} from "@/lib/transaction-navigation";
+import { SEND_STEPS, getRecipientLabel, stepTitles } from "./send-utils";
 import { useSendFlow } from "./use-send-flow";
 
 interface SendFlowProps {
@@ -25,6 +31,7 @@ interface SendFlowProps {
 }
 
 export default function SendFlow({ profile }: SendFlowProps) {
+  const router = useRouter();
   const [bridgeRequest, setBridgeRequest] =
     useState<BridgeFundingRequest | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -37,12 +44,24 @@ export default function SendFlow({ profile }: SendFlowProps) {
     return () => mediaQuery.removeEventListener("change", updateViewport);
   }, []);
 
+  useEffect(() => {
+    router.prefetch("/transactions");
+    router.prefetch("/");
+  }, [router]);
+
   const { data: liveProfile } = useUser(profile, { live: true });
   const activeProfile = liveProfile || profile;
   const {
     amount,
     amountForm,
     amountValue,
+    candidateRecipient,
+    isRecipientConfirmed,
+    isNewAddressModalOpen,
+    confirmNewAddressAndProceed,
+    cancelNewAddressConfirmation,
+    confirmRecipient,
+    resetRecipientConfirmation,
     closeTransferVerification,
     closeSend,
     goBack,
@@ -56,13 +75,11 @@ export default function SendFlow({ profile }: SendFlowProps) {
     isSubmitting,
     isVerifyingRecipient,
     primaryButtonDisabled,
-    recentRecipients,
     recipientForm,
     recipientInput,
     recipientKind,
     recipientLookupMessage,
     selectedAsset,
-    selectRecentRecipient,
     selectTransferVerificationMethod,
     sendableAssets,
     setAmount,
@@ -77,9 +94,67 @@ export default function SendFlow({ profile }: SendFlowProps) {
     verificationRequest,
     verificationError,
     setVerificationError,
+    successState,
+    clearSuccessState,
     verifiedRecipient,
     verifyRecipient,
   } = useSendFlow(activeProfile);
+
+  const [resolvedTransactionId, setResolvedTransactionId] = useState<string | null>(null);
+
+  const hasTransferred = Boolean(successState);
+
+  useEffect(() => {
+    if (!successState) {
+      setResolvedTransactionId(null);
+      return;
+    }
+
+    let isMounted = true;
+    void resolveFlowTransactionId({
+      transactionId: successState.transactionId,
+      txHash: successState.txHash,
+      type: TransactionType.TRANSFER_OUT,
+      symbol: successState.symbol,
+      amount: successState.amount,
+    }).then((id) => {
+      if (isMounted && id) {
+        setResolvedTransactionId(id);
+        router.prefetch(getTransactionDetailsPath(id, "flow"));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [successState, router]);
+
+  const handleSuccessDone = () => {
+    // Keep modal visible over the review step while Next.js routes home
+    router.push("/");
+  };
+
+  const handleViewTransactions = async () => {
+    let targetId: string | null | undefined =
+      resolvedTransactionId || successState?.transactionId;
+
+    if (!targetId && successState) {
+      targetId = await resolveFlowTransactionId({
+        transactionId: successState.transactionId,
+        txHash: successState.txHash,
+        type: TransactionType.TRANSFER_OUT,
+        symbol: successState.symbol,
+        amount: successState.amount,
+        maxAttempts: 2,
+      });
+    }
+
+    if (targetId) {
+      router.push(getTransactionDetailsPath(targetId, "flow"));
+    } else {
+      router.push("/transactions");
+    }
+  };
 
   const isCombinedAssetAndAmountStep =
     isDesktop && (step === "asset" || step === "amount");
@@ -95,9 +170,10 @@ export default function SendFlow({ profile }: SendFlowProps) {
     : SEND_STEPS.indexOf(step);
   const primaryActionDisabled = isCombinedAssetAndAmountStep
     ? !isAmountValid
-    : primaryButtonDisabled;
+    : primaryButtonDisabled || hasTransferred;
 
   const handlePrimaryAction = () => {
+    if (hasTransferred) return;
     if (step === "review") {
       submitTransfer();
       return;
@@ -148,9 +224,13 @@ export default function SendFlow({ profile }: SendFlowProps) {
               isRecipientValid={isRecipientValid}
               selfRecipientError={selfRecipientError}
               verifiedRecipient={verifiedRecipient}
+              candidateRecipient={candidateRecipient}
+              isRecipientConfirmed={isRecipientConfirmed}
               isVerifyingRecipient={isVerifyingRecipient}
               recipientLookupMessage={recipientLookupMessage}
               onVerifyRecipient={verifyRecipient}
+              onConfirmRecipient={confirmRecipient}
+              onResetConfirmation={resetRecipientConfirmation}
               onRecipientChange={handleRecipientChange}
             />
           ) : null}
@@ -160,6 +240,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
               <AssetStep
                 sendableAssets={sendableAssets}
                 selectedAsset={selectedAsset}
+                recipientKind={recipientKind}
                 onSelectAsset={setSelectedAssetId}
                 onOpenAddFunds={() => setIsAddFundsOpen(true)}
               />
@@ -190,6 +271,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
             <AssetStep
               sendableAssets={sendableAssets}
               selectedAsset={selectedAsset}
+              recipientKind={recipientKind}
               onSelectAsset={setSelectedAssetId}
               onOpenAddFunds={() => setIsAddFundsOpen(true)}
             />
@@ -227,13 +309,6 @@ export default function SendFlow({ profile }: SendFlowProps) {
         </section>
 
         <div className="flex min-w-0 flex-col gap-5">
-          {step === "recipient" ? (
-            <RecentsPanel
-              recentRecipients={recentRecipients}
-              onSelectRecipient={selectRecentRecipient}
-            />
-          ) : null}
-
           <FlowActionFooter
             sticky={false}
             className={
@@ -263,6 +338,13 @@ export default function SendFlow({ profile }: SendFlowProps) {
       </div>
 
       <AddFundsModal isOpen={isAddFundsOpen} onClose={setIsAddFundsOpen} />
+      <NewAddressConfirmationModal
+        isOpen={isNewAddressModalOpen}
+        address={recipientInput.trim()}
+        networkLabel={getRecipientLabel(recipientKind)}
+        onCancel={cancelNewAddressConfirmation}
+        onConfirm={confirmNewAddressAndProceed}
+      />
       <TransferVerificationModal
         isOpen={Boolean(verificationRequest)}
         isSubmitting={isSubmitting}
@@ -282,6 +364,12 @@ export default function SendFlow({ profile }: SendFlowProps) {
         profile={activeProfile}
         request={bridgeRequest}
         onOpenChange={(open) => !open && setBridgeRequest(null)}
+      />
+      <SendSuccessModal
+        open={Boolean(successState)}
+        state={successState}
+        onDone={handleSuccessDone}
+        onViewTransactions={handleViewTransactions}
       />
     </div>
   );

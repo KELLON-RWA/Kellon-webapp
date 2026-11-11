@@ -12,8 +12,6 @@ export const SEND_STEPS = ["recipient", "asset", "amount", "review"] as const;
 export const ASSET_NAMES: Record<string, string> = {
   USDC: "USD Coin",
   USDT: "Tether USD",
-  MUSDC: "Moonwell USDC",
-  ETH: "Ethereum",
 };
 
 export const stepTitles = {
@@ -30,7 +28,7 @@ export const recipientSchema = z.object({
     .min(1, "Enter a recipient")
     .refine(
       (value) => isSupportedRecipient(getRecipientKind(value)),
-      "Enter a valid email, username, @tag, EVM address, or Stellar address.",
+      "Enter a valid email, username, @tag, EVM address, Solana address, or Stellar address.",
     ),
 });
 
@@ -151,7 +149,8 @@ export function getRecipientKind(value: string): RecipientKind {
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "email";
   if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return "evm";
   if (/^G[A-Z2-7]{55}$/.test(trimmed)) return "stellar";
-  if (/^@?[a-zA-Z0-9_.-]{3,}$/.test(trimmed)) return "tag";
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return "solana";
+  if (/^@?[a-zA-Z0-9_.-]{3,30}$/.test(trimmed)) return "tag";
 
   return "unknown";
 }
@@ -170,6 +169,8 @@ export function getRecipientLabel(kind: RecipientKind): string {
       return "Kellon tag";
     case "evm":
       return "EVM address";
+    case "solana":
+      return "Solana address";
     case "stellar":
       return "Stellar address";
     default:
@@ -179,7 +180,8 @@ export function getRecipientLabel(kind: RecipientKind): string {
 
 export function getRecipientPendingLabel(kind: RecipientKind): string {
   if (kind === "email" || kind === "tag") return "Ready to verify";
-  if (kind === "evm" || kind === "stellar") return "Wallet address format";
+  if (kind === "evm" || kind === "solana" || kind === "stellar")
+    return "Wallet address format";
   return "Check recipient";
 }
 
@@ -207,4 +209,24 @@ export function getRecentRecipient(transaction: Transaction) {
 export function truncateMiddle(value: string, visible = 7): string {
   if (value.length <= visible * 2 + 3) return value;
   return `${value.slice(0, visible)}...${value.slice(-visible)}`;
+}
+
+export function getRecipientInitials(
+  name?: string | null,
+  identifier?: string | null,
+): string {
+  if (name && name.trim().length > 0) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  if (identifier && identifier.trim().length > 0) {
+    const clean = identifier.replace(/^@/, "").trim();
+    return clean.slice(0, 2).toUpperCase();
+  }
+
+  return "U";
 }

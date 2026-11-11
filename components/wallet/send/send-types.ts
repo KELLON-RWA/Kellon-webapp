@@ -3,7 +3,13 @@ import type { AssetType } from "@/types/db";
 import type { amountSchema, recipientSchema } from "./send-utils";
 
 export type SendStep = "recipient" | "asset" | "amount" | "review";
-export type RecipientKind = "email" | "tag" | "evm" | "stellar" | "unknown";
+export type RecipientKind =
+  | "email"
+  | "tag"
+  | "evm"
+  | "solana"
+  | "stellar"
+  | "unknown";
 
 export interface SendableAsset {
   id: string;
