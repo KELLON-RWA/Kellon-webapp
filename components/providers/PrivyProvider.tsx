@@ -1,6 +1,7 @@
 "use client"
 
 import { PrivyProvider } from "@privy-io/react-auth"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit"
 
 export default function MyPrivyProvider({
   children,
@@ -8,21 +9,25 @@ export default function MyPrivyProvider({
   children: React.ReactNode
 }) {
   const getPrivyClientId = () => {
-    const privyClientId = process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID
-
-    if (!privyClientId || privyClientId.length === 0)
-      throw new Error("Missing NEXT_PUBLIC_PRIVY_CLIENT_ID")
-
-    return privyClientId
+    return (
+      process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID ||
+      "client-WY6VpEQUwtESj9Yhc6gmi1dKNfPFeJUbYSELrKmeb4CqM"
+    )
   }
 
   const getPrivyAppId = () => {
-    const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID
-    if (!privyAppId || privyAppId.length === 0)
-      throw new Error("Missing NEXT_PUBLIC_PRIVY_APP_ID")
-
-    return privyAppId
+    return (
+      process.env.NEXT_PUBLIC_PRIVY_APP_ID ||
+      "cml0yvf8n02sml10cnmrvjead"
+    )
   }
+
+  const solanaRpcUrl =
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+    `https://solana-mainnet.rpc.privy.systems?privyAppId=${getPrivyAppId()}`
+  const solanaWsUrl =
+    process.env.NEXT_PUBLIC_SOLANA_WS_URL ||
+    `wss://solana-mainnet.rpc.privy.systems?privyAppId=${getPrivyAppId()}`
 
   return (
     <PrivyProvider
@@ -33,6 +38,15 @@ export default function MyPrivyProvider({
         embeddedWallets: {
           ethereum: {
             createOnLogin: "off",
+          },
+        },
+        solana: {
+          rpcs: {
+            "solana:mainnet": {
+              rpc: createSolanaRpc(solanaRpcUrl),
+              rpcSubscriptions: createSolanaRpcSubscriptions(solanaWsUrl),
+              blockExplorerUrl: "https://solscan.io",
+            },
           },
         },
       }}
