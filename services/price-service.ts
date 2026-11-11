@@ -299,22 +299,23 @@ class PriceService {
       return cached.data;
     }
 
-    // 1. Try Paycrest buy rate first (1 USDC in target local currency)
+    // 1. Try Paycrest sell rate first (1 USDC in target local currency)
     try {
       const res = await providerService.getPaycrestRate({
         token: "USDC",
         amount: 1,
         currency,
         network: "base",
-        side: "buy",
+        side: "sell",
       });
       const paycrestRate =
         this.parseNumber(res.data?.rate) ??
         this.parseNumber(res.data?.price) ??
         this.parseNumber(res.data?.data?.rate) ??
         this.parseNumber(res.data?.data?.price) ??
-        this.parseNumber(res.data?.buy?.rate) ??
-        this.parseNumber(res.data?.buy?.price) ??
+        this.parseNumber(res.data?.sell?.rate) ??
+        this.parseNumber(res.data?.sell?.price) ??
+        this.parseNumber(res.data?.receiveAmount) ??
         this.parseNumber(res.data?.fiatAmount);
 
       if (res.success && paycrestRate && paycrestRate > 0) {
@@ -328,17 +329,18 @@ class PriceService {
       // Continue to next provider fallback
     }
 
-    // 2. Try other providers as fallback: Ramphub
+    // 2. Try other providers as fallback: Ramphub (sell rate)
     try {
       const res = await providerService.getRamphubQuote({
         token: "USDC",
         amount: 1,
         currency,
         network: "base",
-        side: "buy",
+        side: "sell",
       });
       const ramphubRate =
         this.parseNumber(res.data?.rate) ??
+        this.parseNumber(res.data?.receiveAmount) ??
         this.parseNumber(res.data?.fiatAmount);
 
       if (res.success && res.data?.available && ramphubRate && ramphubRate > 0) {
@@ -352,15 +354,17 @@ class PriceService {
       // Continue to next provider fallback
     }
 
-    // 3. Try other providers as fallback: Centiiv
+    // 3. Try other providers as fallback: Centiiv (sell rate)
     try {
       const res = await providerService.getCentiivQuote({
-        fromAsset: currency,
-        toAsset: "USDC",
+        fromAsset: "USDC",
+        toAsset: currency,
         amount: 1,
         network: "stellar",
       });
-      const centiivRate = this.parseNumber(res.data?.rate);
+      const centiivRate =
+        this.parseNumber(res.data?.rate) ??
+        this.parseNumber(res.data?.estimatedReceivableAmount);
 
       if (res.success && centiivRate && centiivRate > 0) {
         this.exchangeRateCache.set(cacheKey, {
