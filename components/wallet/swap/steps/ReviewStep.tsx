@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowRight, Clock3 } from "lucide-react";
+import { ArrowRight, Clock3, Loader2 } from "lucide-react";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import type { SwapAssetOption } from "@/lib/swap-assets";
 import type { Route } from "@/services/api/swap";
@@ -45,7 +45,7 @@ export function SwapReviewStep({
           <div className="min-w-0 text-right">
             <p className="text-xs text-gray-500">You receive</p>
             <p className="mt-1 text-2xl font-bold text-primary-60">
-              ≈ {formatSwapAmount(getRouteReceiveAmount(route))}{" "}
+              {formatSwapAmount(getRouteReceiveAmount(route))}{" "}
               {destination.symbol}
             </p>
           </div>
@@ -59,7 +59,7 @@ export function SwapReviewStep({
           />
           <Row
             label="Network cost"
-            value={`≈ $${formatSwapAmount(getRouteFeeUsd(route), 2)}`}
+            value={`$${formatSwapAmount(getRouteFeeUsd(route), 2)}`}
           />
           {duration > 0 ? (
             <Row
@@ -76,8 +76,17 @@ export function SwapReviewStep({
         disabled={isSubmitting}
         helperText="Confirm the amounts and route before signing."
       >
-        {isSubmitting ? "Submitting…" : "Confirm swap"}
-        <ArrowRight className="h-4 w-4" />
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Submitting…</span>
+          </>
+        ) : (
+          <>
+            <span>Confirm swap</span>
+            <ArrowRight className="h-4 w-4" />
+          </>
+        )}
       </FlowActionFooter>
     </div>
   );

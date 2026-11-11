@@ -46,16 +46,20 @@ export async function POST(request: Request) {
       ...body,
       options: {
         integrator: "Kellon",
-        slippage: 0.005,
+        slippage: 0.01,
         order: "CHEAPEST",
-        allowSwitchChain: false,
+        allowSwitchChain: body.fromChainId !== body.toChainId,
         maxPriceImpact: 0.1,
       },
     });
     return NextResponse.json({ routes: result.routes });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Unable to find swap routes";
+      error instanceof z.ZodError
+        ? error.issues.map((i) => i.message).join(", ")
+        : error instanceof Error
+          ? error.message
+          : "Unable to find swap routes";
     return NextResponse.json({ message }, { status: 400 });
   }
 }

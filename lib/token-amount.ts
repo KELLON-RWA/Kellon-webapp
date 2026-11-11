@@ -22,3 +22,22 @@ export function clampDust(
     ? balance
     : requested;
 }
+
+/**
+ * Truncates an asset balance down so that clicking MAX never rounds up
+ * or overshoots the on-chain balance due to IEEE 754 floating-point precision.
+ */
+export function formatMaxInputAmount(
+  val: number | string | null | undefined,
+  maxDecimals: number = 6,
+): string {
+  if (val === null || val === undefined || val === "") return "0";
+  const num = typeof val === "number" ? val : parseFloat(String(val).trim());
+  if (!Number.isFinite(num) || num <= 0) return "0";
+
+  // Use toFixed(18) to avoid scientific notation, then truncate without rounding
+  const str = typeof val === "number" ? val.toFixed(18) : String(val).trim();
+  const [whole, fraction = ""] = str.split(".");
+  const truncated = fraction.slice(0, maxDecimals).replace(/0+$/, "");
+  return truncated ? `${whole}.${truncated}` : whole;
+}

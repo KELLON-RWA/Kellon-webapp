@@ -12,6 +12,7 @@ export interface BridgeAssetOption {
   chainId: number | string;
   chainType: "evm" | "stellar" | "solana";
   balance: number;
+  decimals?: number;
 }
 
 const ASSET_NAMES: Record<BridgeSymbol, string> = {

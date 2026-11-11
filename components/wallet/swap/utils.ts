@@ -36,6 +36,10 @@ export function getRouteProvider(route: Route) {
   );
 }
 
+export function getRouteProviderLogo(route: Route): string | undefined {
+  return route.steps[0]?.toolDetails?.logoURI;
+}
+
 export function getRouteFeeUsd(route: Route) {
   const feeCosts = route.steps.flatMap((step) => step.estimate.feeCosts || []);
   return (

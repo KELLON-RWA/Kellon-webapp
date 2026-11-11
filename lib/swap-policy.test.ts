@@ -32,22 +32,37 @@ describe("swap policy", () => {
     ).toBe(false);
   });
 
-  it("allows native-to-stable swaps only on the same network", () => {
-    const baseSwap = {
+  it("allows stablecoin swaps across different chains and rejects native tokens", () => {
+    const nativeToStable = {
       fromChainId: 8453,
       toChainId: 8453,
       fromTokenAddress: "0x0000000000000000000000000000000000000000",
       toTokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     };
 
-    expect(isNativeToStableSwap(baseSwap)).toBe(true);
-    expect(isNativeToStableSwap({ ...baseSwap, fromChainId: 56 })).toBe(false);
+    expect(isNativeToStableSwap(nativeToStable)).toBe(false);
+
+    // Stable to native on same network is also rejected
     expect(
       isNativeToStableSwap({
-        ...baseSwap,
-        fromTokenAddress: baseSwap.toTokenAddress,
+        fromChainId: 8453,
+        toChainId: 8453,
+        fromTokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        toTokenAddress: "0x0000000000000000000000000000000000000000",
       }),
     ).toBe(false);
+
+    // Cross-chain stablecoin swap (e.g. Base USDC -> Polygon USDT) is allowed
+    const usdc = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const usdtPolygon = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
+    expect(
+      isNativeToStableSwap({
+        fromChainId: 8453,
+        toChainId: 137,
+        fromTokenAddress: usdc,
+        toTokenAddress: usdtPolygon,
+      }),
+    ).toBe(true);
   });
 
   it("allows only different stablecoin pairs on the same network", () => {

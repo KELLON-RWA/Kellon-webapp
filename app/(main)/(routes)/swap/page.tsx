@@ -1,18 +1,36 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import SwapFlow from "@/components/wallet/swap/SwapFlow";
+import BridgeFlow from "@/components/wallet/bridge/BridgeFlow";
 import { currentProfile } from "@/lib/current-profile";
 import type { User } from "@/types/db";
 
 export const metadata: Metadata = {
   title: "Swap",
-  description:
-    "Convert native network tokens received by mistake into USDC or USDT.",
+  description: "Swap between USDC and USDT on supported networks.",
   alternates: { canonical: "/swap" },
 };
 
-export default async function SwapPage() {
+interface SwapPageProps {
+  searchParams: Promise<{ asset?: string; network?: string }>;
+}
+
+export default async function SwapPage({ searchParams }: SwapPageProps) {
   const profile = (await currentProfile()) as User;
   if (!profile) redirect("/");
-  return <SwapFlow profile={profile} />;
+
+  const { asset, network } = await searchParams;
+  const normalizedAsset = asset?.toUpperCase();
+  const initialSymbol =
+    normalizedAsset === "USDC" || normalizedAsset === "USDT"
+      ? normalizedAsset
+      : undefined;
+
+  return (
+    <BridgeFlow
+      profile={profile}
+      initialMode="swap"
+      initialSymbol={initialSymbol}
+      initialSourceChain={network?.toLowerCase()}
+    />
+  );
 }

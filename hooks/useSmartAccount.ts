@@ -10,7 +10,6 @@ import {
   type Address,
   type Chain,
   fallback,
-  parseAbi,
 } from "viem"
 import {
   base,
@@ -23,8 +22,6 @@ import {
   polygonAmoy,
   bscTestnet,
 } from "viem/chains"
-
-const SAFE_OWNERS_ABI = parseAbi(["function getOwners() view returns (address[])"])
 
 const arc = defineChain({
   id: 5042,
@@ -104,24 +101,32 @@ const CHAIN_MAP: Record<string, { chain: Chain; slug: string }> = IS_TESTNET
 const PUBLIC_RPC_URLS: Record<string, string[]> = {
   base: [
     "https://mainnet.base.org",
+    "https://base.llamarpc.com",
     "https://base.publicnode.com",
     "https://rpc.ankr.com/base",
   ],
-  celo: ["https://forno.celo.org", "https://rpc.ankr.com/celo"],
+  celo: [
+    "https://forno.celo.org",
+    "https://celo.publicnode.com",
+    "https://rpc.ankr.com/celo",
+  ],
   arc: ["https://rpc.mainnet.arc.io"],
   polygon: [
+    "https://polygon.llamarpc.com",
     "https://polygon.drpc.org",
     "https://rpc.ankr.com/polygon",
     "https://polygon-rpc.com",
   ],
   bnb: [
+    "https://binance.llamarpc.com",
+    "https://bsc.publicnode.com",
     "https://bsc-dataseed.binance.org",
-    "https://bsc-dataseed1.defibit.io",
     "https://rpc.ankr.com/bsc",
   ],
   bsc: [
+    "https://binance.llamarpc.com",
+    "https://bsc.publicnode.com",
     "https://bsc-dataseed.binance.org",
-    "https://bsc-dataseed1.defibit.io",
     "https://rpc.ankr.com/bsc",
   ],
 }
@@ -188,7 +193,7 @@ export function useSmartAccount() {
           throw new SignerMismatchError()
         }
 
-        const cacheKey = `${privyWallet.address}_${targetChainKey}_${expectedSafe?.toLowerCase() ?? "own"}`
+        const cacheKey = `${privyWallet.address}_${targetChainKey}`
         const existing = clientCache.get(cacheKey)
         if (existing) {
           assertOwnsSafe(existing.account?.address)
@@ -367,34 +372,59 @@ export function useSmartAccount() {
                 throw e
               }
 
-              const err = e as Error & { response?: unknown; status?: number }
+              const err = e as Error & {
+                response?: unknown
+                status?: number
+                code?: number
+                data?: unknown
+                error?: unknown
+              }
               console.error("[useSmartAccount] Bundler proxy error:", err)
               const rpcError = new Error(
                 err.message || "Unknown RPC Error",
-              ) as Error & { response?: unknown; status?: number }
+                { cause: err }
+              ) as Error & {
+                response?: unknown
+                status?: number
+                code?: number
+                data?: unknown
+                error?: unknown
+                details?: string
+              }
               rpcError.response = err.response
               rpcError.status = err.status
+              rpcError.code = err.code
+              rpcError.data = err.data
+              rpcError.error = err.error
+              rpcError.details = err.message
               throw rpcError
             }
           },
         })
 
-        // PUBLIC_RPC_URLS is keyed by chain alone and lists mainnet endpoints. viem does not check
-        // the chain id on reads, so in testnet a mainnet RPC would silently answer for the testnet
-        // chain, so testnet uses only the chain's own RPCs.
+        // Route through our secure server RPC proxy (using ALCHEMY_RPC_KEY) first,
+        // then fall back to public RPC endpoints if the proxy or key is unconfigured.
+        const proxyRpcUrl =
+          typeof window !== "undefined"
+            ? `${window.location.origin}/api/rpc/${targetChainKey}`
+            : `/api/rpc/${targetChainKey}`;
+
+        const fallbackUrls = IS_TESTNET
+          ? (chain.rpcUrls?.default?.http ?? [])
+          : [
+              ...(PUBLIC_RPC_URLS[targetChainKey] || []),
+              ...(chain.rpcUrls?.default?.http ?? []),
+            ];
+
         const rpcUrls = Array.from(
-          new Set(
-            IS_TESTNET
-              ? (chain.rpcUrls?.default?.http ?? [])
-              : [...(PUBLIC_RPC_URLS[targetChainKey] || []), ...(chain.rpcUrls?.default?.http ?? [])],
-          ),
-        )
+          new Set([proxyRpcUrl, ...fallbackUrls]),
+        );
         const publicClient = createPublicClient({
           transport: fallback(
             rpcUrls.map((url) =>
               http(url, {
-                timeout: 10000,
-                retryCount: 2,
+                timeout: 5000,
+                retryCount: 1,
               }),
             ),
           ),
@@ -415,28 +445,16 @@ export function useSmartAccount() {
           transport: custom(provider),
         })
 
-        const safeConfig = {
+        const safeAccount = await toSafeSmartAccount({
           client: publicClient,
           owners: [ownerClient],
-          version: "1.4.1" as const,
+          version: "1.4.1",
           entryPoint: {
             address: entryPoint07Address,
-            version: "0.7" as const,
+            version: "0.7",
           },
-        }
-        let safeAccount = await toSafeSmartAccount(safeConfig)
+        })
 
-        // A recovered account keeps its Safe under a new owner, whose own Safe is a different
-        // address. Drive the account's Safe only when the chain says this signer owns it.
-        if (expectedSafe && safeAccount.address.toLowerCase() !== expectedSafe.toLowerCase()) {
-          const owners = await publicClient
-            .readContract({ address: expectedSafe as Address, abi: SAFE_OWNERS_ABI, functionName: "getOwners" })
-            .catch(() => [] as readonly Address[])
-          if (!owners.some((o) => o.toLowerCase() === privyWallet.address.toLowerCase())) {
-            assertOwnsSafe(safeAccount.address)
-          }
-          safeAccount = await toSafeSmartAccount({ ...safeConfig, address: expectedSafe as Address })
-        }
         assertOwnsSafe(safeAccount.address)
 
         cachedAddresses.set(cacheKey, safeAccount.address)

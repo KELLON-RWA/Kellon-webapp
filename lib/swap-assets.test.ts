@@ -62,31 +62,25 @@ const tokens: Token[] = [
 ];
 
 describe("swap assets", () => {
-  it("keeps only native tokens and configured stablecoins on Kellon chains", () => {
+  it("keeps only configured stablecoins (USDC and USDT) on supported EVM chains", () => {
     const catalog = getSwapTokens(tokens);
 
-    const nativeTokens = catalog
-      .filter(isNativeSwapToken)
-      .map((token) => `${token.chainKey}:${token.symbol}`);
-    expect(nativeTokens).toHaveLength(7);
-    expect(nativeTokens).toEqual(
-      expect.arrayContaining([
-        "arc:USDC",
-        "base:ETH",
-        "bnb:BNB",
-        "celo:CELO",
-        "polygon:POL",
-        "solana:SOL",
-        "stellar:XLM",
-      ]),
-    );
+    // Native tokens must not be in swap catalog
+    const nativeTokens = catalog.filter(isNativeSwapToken);
+    expect(nativeTokens).toHaveLength(0);
+
+    // Random non-stable tokens and native gas tokens are omitted
     expect(catalog.some((token) => token.symbol === "AERO")).toBe(false);
-    expect(
-      new Set(catalog.map((token) => token.chainType)),
-    ).toEqual(new Set(["evm", "solana", "stellar"]));
+    expect(catalog.some((token) => token.symbol === "POL")).toBe(false);
+    expect(catalog.some((token) => token.symbol === "ETH")).toBe(false);
+
+    // Only USDC and USDT symbols exist in catalog
+    expect(catalog.every((token) => ["USDC", "USDT"].includes(token.symbol))).toBe(true);
+    expect(catalog.some((token) => token.chainKey === "base" && token.symbol === "USDC")).toBe(true);
+    expect(catalog.some((token) => token.chainKey === "base" && token.symbol === "USDT")).toBe(true);
   });
 
-  it("uses funded native and stablecoin balances as swap sources", () => {
+  it("uses funded stablecoin balances as swap sources and ignores native/unsupported assets", () => {
     const catalog = getSwapTokens(tokens);
     const sources = getSwapSources(
       [
@@ -97,43 +91,47 @@ describe("swap assets", () => {
       catalog,
     );
 
-    expect(sources.find((source) => source.chainKey === "base" && source.symbol === "ETH")).toMatchObject({
-      symbol: "ETH",
-      chainKey: "base",
-      balance: 0.1,
-    });
-    expect(sources.find((source) => source.chainKey === "base" && source.symbol === "USDC")?.balance).toBe(20);
+    // ETH and AERO are excluded
+    expect(sources.find((source) => source.symbol === "ETH")).toBeUndefined();
+    expect(sources.find((source) => source.symbol === "AERO")).toBeUndefined();
+
+    // USDC is included with proper balance
+    const usdcSource = sources.find((source) => source.chainKey === "base" && source.symbol === "USDC");
+    expect(usdcSource).toBeDefined();
+    expect(usdcSource?.balance).toBe(20);
   });
 
-  it("uses the live on-chain native balance without double counting profile data", () => {
+  it("offers only opposite same-network stablecoin destinations", () => {
     const catalog = getSwapTokens(tokens);
-    const sources = getSwapSources(
-      [{ symbol: "ETH", chain: "Base", amount: "0.1", metadata: null }],
-      catalog,
-      [{ chainKey: "base", amount: 0.4 }],
-    );
-
-    expect(sources.find((source) => source.chainKey === "base" && source.symbol === "ETH")?.balance).toBe(0.4);
-  });
-
-  it("offers only same-network USDC and USDT destinations", () => {
-    const catalog = getSwapTokens(tokens);
-    const source = getSwapSources([], catalog, [
-      { chainKey: "base", amount: 0.25 },
-    ]).find((token) => token.chainKey === "base" && isNativeSwapToken(token));
-    const destinations = getSwapDestinations(source || null, catalog);
-
-    expect(destinations.map((token) => token.symbol)).toEqual(["USDC", "USDT"]);
-    expect(getDefaultSwapDestination(source || null, destinations)?.symbol).toBe(
-      "USDC",
-    );
-  });
-
-  it("allows a stablecoin source to select only the other stablecoin", () => {
-    const catalog = getSwapTokens(tokens);
-    const source = catalog.find(
+    const baseUsdc = catalog.find(
       (token) => token.chainKey === "base" && token.symbol === "USDC",
     );
-    expect(getSwapDestinations(source || null, catalog).map((token) => token.symbol)).toEqual(["USDT"]);
+    expect(baseUsdc).toBeDefined();
+
+    const destinations = getSwapDestinations(baseUsdc || null, catalog);
+
+    // Destination should only be USDT on Base
+    expect(destinations.map((token) => `${token.chainKey}:${token.symbol}`)).toEqual([
+      "base:USDT",
+    ]);
+    expect(getDefaultSwapDestination(baseUsdc || null, destinations)?.symbol).toBe(
+      "USDT",
+    );
+  });
+
+  it("offers USDC when source is USDT on the same network", () => {
+    const catalog = getSwapTokens(tokens);
+    const baseUsdt = catalog.find(
+      (token) => token.chainKey === "base" && token.symbol === "USDT",
+    );
+    expect(baseUsdt).toBeDefined();
+
+    const destinations = getSwapDestinations(baseUsdt || null, catalog);
+    expect(destinations.map((token) => `${token.chainKey}:${token.symbol}`)).toEqual([
+      "base:USDC",
+    ]);
+    expect(
+      getDefaultSwapDestination(baseUsdt || null, destinations)?.symbol,
+    ).toBe("USDC");
   });
 });

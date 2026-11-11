@@ -679,7 +679,7 @@ export default function BridgeFundingOverlay({
       ) : (
         <>
           <section className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            <p className="text-xs font-light capitalize text-gray-500 dark:text-gray-400">
               Source networks
             </p>
             <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">

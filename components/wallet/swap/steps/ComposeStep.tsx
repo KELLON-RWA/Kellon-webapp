@@ -8,6 +8,7 @@ import { SWAP_CARD_CLASS, SWAP_FORM_CARD_CLASS } from "../constants";
 import { SwapRoutesPanel } from "../SwapRoutesPanel";
 import { SwapTokenSelector } from "../SwapTokenSelector";
 import { formatSwapAmount, getTokenIcon } from "../utils";
+import { formatMaxInputAmount } from "@/lib/token-amount";
 
 interface Props {
   sources: SwapAssetOption[];
@@ -29,6 +30,7 @@ interface Props {
   onRouteSelect: (route: Route) => void;
   onShowAllRoutes: () => void;
   onReview: () => void;
+  onFlip?: () => void;
 }
 
 function TokenPill({ token }: { token: SwapAssetOption }) {
@@ -63,13 +65,13 @@ export function SwapComposeStep(props: Props) {
         <div className="rounded-2xl border border-dashed border-black/10 p-8 text-left dark:border-white/10">
           <p className="font-semibold text-black dark:text-white">
             {props.isLoadingTokens
-              ? "Checking native balances"
-              : "No native tokens to recover"}
+              ? "Checking balances"
+              : "No stablecoins available to swap"}
           </p>
           <p className="mt-2 text-sm text-gray-500">
             {props.isLoadingTokens
               ? "Checking supported Kellon networks."
-              : "Native tokens sent to your supported EVM wallets will appear here."}
+              : "Supported stablecoins (USDC and USDT) on EVM networks will appear here."}
           </p>
         </div>
       </div>
@@ -135,7 +137,14 @@ export function SwapComposeStep(props: Props) {
                 {source ? (
                   <button
                     type="button"
-                    onClick={() => props.onAmountChange(String(source.balance))}
+                    onClick={() =>
+                      props.onAmountChange(
+                        formatMaxInputAmount(
+                          source.balance,
+                          Math.min(source.decimals, 6),
+                        ),
+                      )
+                    }
                     className="cursor-pointer font-bold uppercase text-primary-60"
                   >
                     Max
@@ -144,9 +153,14 @@ export function SwapComposeStep(props: Props) {
               </div>
             </div>
             <div className="relative z-10 -my-3 flex items-center justify-center">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-primary-60/30 bg-primary-70/10 text-primary-60 shadow-sm dark:border-primary-60/40 dark:bg-secondary-60">
+              <button
+                type="button"
+                onClick={props.onFlip}
+                aria-label="Switch swap direction"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-primary-60/30 bg-primary-70/10 text-primary-60 shadow-sm transition hover:scale-105 hover:bg-primary-70/20 active:scale-95 dark:border-primary-60/40 dark:bg-secondary-60 dark:hover:bg-secondary-50 cursor-pointer"
+              >
                 <ArrowDown className="h-4 w-4" />
-              </span>
+              </button>
             </div>
             <div className="rounded-2xl border border-black/5 bg-white p-3 shadow-sm min-[320px]:p-4 dark:border-white/10 dark:bg-secondary-50">
               <p className="text-sm font-bold text-black dark:text-white">Receive</p>
@@ -203,8 +217,8 @@ export function SwapComposeStep(props: Props) {
       </div>
       <SwapTokenSelector
         open={selector === "source"}
-        title="Select native token"
-        description="Native balances across all Kellon networks"
+        title="Select stablecoin to swap"
+        description="Available USDC and USDT balances across supported networks"
         tokens={props.sources}
         selectedKey={source?.key}
         showBalance
@@ -213,7 +227,7 @@ export function SwapComposeStep(props: Props) {
       />
       <SwapTokenSelector
         open={selector === "destination"}
-        title="Select token to receive"
+        title="Select stablecoin to receive"
         description="Choose USDC or USDT on the same network"
         tokens={props.destinations}
         selectedKey={destination?.key}

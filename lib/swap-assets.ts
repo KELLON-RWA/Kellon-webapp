@@ -2,7 +2,7 @@ import type { Token } from "@/services/api/swap";
 import type { Asset } from "@/types/db";
 import { normalizeBridgeChain } from "./bridge-assets";
 import { getActiveChains, type SupportedChainKeys } from "./chains";
-import { isNativeSwapAddress, isStableSwapToken } from "./swap-policy";
+import { isStableSwapToken } from "./swap-policy";
 
 export interface SwapAssetOption {
   key: string;
@@ -64,7 +64,6 @@ export function getSwapTokens(tokens: Token[]): SwapAssetOption[] {
     const supported = chains.get(Number(token.chainId));
     if (!supported || !/^0x[a-fA-F0-9]{40}$/.test(token.address)) return [];
     if (
-      !isNativeSwapAddress(token.address) &&
       !isStableSwapToken(Number(token.chainId), token.address, token.symbol)
     ) {
       return [];
@@ -88,34 +87,14 @@ export function getSwapTokens(tokens: Token[]): SwapAssetOption[] {
         priceUSD: token.priceUSD,
         coinKey: token.coinKey,
         verificationStatus: tokenWithStatus.verificationStatus,
-        isNative: isNativeSwapAddress(token.address),
+        isNative: false,
       },
     ];
   });
 
   Object.entries(getActiveChains()).forEach(([rawKey, chain]) => {
+    if (chain.type !== "evm") return;
     const chainKey = rawKey as SupportedChainKeys;
-    const nativeAddress =
-      chain.type === "evm"
-        ? "0x0000000000000000000000000000000000000000"
-        : `native:${chainKey}`;
-    const nativeKey = tokenKey(chain.id, nativeAddress);
-    if (!catalog.some((token) => token.key === nativeKey)) {
-      catalog.push({
-        key: nativeKey,
-        symbol: chain.nativeCurrency.symbol,
-        name: chain.nativeCurrency.name,
-        chainKey,
-        chainName: chain.name,
-        chainId: chain.id,
-        chainType: chain.type,
-        tokenAddress: nativeAddress,
-        decimals: chain.nativeCurrency.decimals,
-        balance: 0,
-        coinKey: chain.nativeCurrency.symbol,
-        isNative: true,
-      });
-    }
 
     (["USDC", "USDT"] as const).forEach((symbol) => {
       const address = symbol === "USDC" ? chain.usdcAddress : chain.usdtAddress;
@@ -131,7 +110,7 @@ export function getSwapTokens(tokens: Token[]): SwapAssetOption[] {
         chainId: chain.id,
         chainType: chain.type,
         tokenAddress: address,
-        decimals: chain.type === "stellar" ? 7 : 6,
+        decimals: chain.id === 56 ? 18 : 6,
         balance: 0,
         coinKey: symbol,
         isNative: false,
@@ -140,9 +119,6 @@ export function getSwapTokens(tokens: Token[]): SwapAssetOption[] {
   });
 
   return catalog.sort((left, right) => {
-    const leftVerified = left.verificationStatus === "verified" ? 0 : 1;
-    const rightVerified = right.verificationStatus === "verified" ? 0 : 1;
-    if (leftVerified !== rightVerified) return leftVerified - rightVerified;
     const leftPreferred = PREFERRED_DESTINATIONS.indexOf(
       left.symbol.toUpperCase(),
     );
@@ -155,12 +131,15 @@ export function getSwapTokens(tokens: Token[]): SwapAssetOption[] {
       if (leftPreferred !== rightPreferred)
         return leftPreferred - rightPreferred;
     }
-    return left.symbol.localeCompare(right.symbol);
+    if (left.symbol !== right.symbol) {
+      return left.symbol.localeCompare(right.symbol);
+    }
+    return left.chainName.localeCompare(right.chainName);
   });
 }
 
-export function isNativeSwapToken(token: SwapAssetOption) {
-  return token.isNative === true || isNativeSwapAddress(token.tokenAddress);
+export function isNativeSwapToken(_token: SwapAssetOption) {
+  return false;
 }
 
 function getMetadataAddress(asset: Pick<Asset, "metadata">) {
@@ -180,21 +159,19 @@ export function getSwapSources(
     Pick<Asset, "symbol" | "chain" | "amount" | "metadata"> | null | undefined
   >,
   tokens: SwapAssetOption[],
-  liveNativeBalances: NativeSwapBalance[] = [],
+  _liveNativeBalances?: NativeSwapBalance[],
 ): SwapAssetOption[] {
   const balances = new Map<string, number>();
-  const sourceTokens = tokens.filter(
-    (token) =>
-      isNativeSwapToken(token) ||
-      ["USDC", "USDT"].includes(token.symbol.toUpperCase()),
+  const sourceTokens = tokens.filter((token) =>
+    ["USDC", "USDT"].includes(token.symbol.toUpperCase()),
   );
-  const nativeTokens = sourceTokens.filter(isNativeSwapToken);
 
   assets.forEach((asset) => {
     if (!asset?.chain) return;
     const chainKey = normalizeBridgeChain(asset.chain);
     const amount = Number(asset.amount);
     if (!chainKey || !Number.isFinite(amount) || amount <= 0) return;
+    if (!["USDC", "USDT"].includes(asset.symbol.toUpperCase())) return;
 
     const address = getMetadataAddress(asset);
     const candidates = sourceTokens.filter(
@@ -217,22 +194,15 @@ export function getSwapSources(
     balances.set(token.key, (balances.get(token.key) || 0) + amount);
   });
 
-  liveNativeBalances.forEach(({ chainKey, amount }) => {
-    if (!Number.isFinite(amount) || amount < 0) return;
-    const token = nativeTokens.find(
-      (candidate) => candidate.chainKey === chainKey,
-    );
-    if (!token) return;
-    balances.set(token.key, Math.max(balances.get(token.key) || 0, amount));
-  });
-
   return sourceTokens
     .map((token) => ({ ...token, balance: balances.get(token.key) || 0 }))
-    .sort(
-      (left, right) =>
+    .sort((left, right) => {
+      if (right.balance !== left.balance) return right.balance - left.balance;
+      return (
         NATIVE_CHAIN_ORDER.indexOf(left.chainKey) -
-        NATIVE_CHAIN_ORDER.indexOf(right.chainKey),
-    );
+        NATIVE_CHAIN_ORDER.indexOf(right.chainKey)
+      );
+    });
 }
 
 export function getSwapDestinations(
@@ -240,14 +210,35 @@ export function getSwapDestinations(
   tokens: SwapAssetOption[],
 ) {
   if (!source) return [];
-  const sourceIsNative = isNativeSwapToken(source);
-  return tokens.filter(
-    (token) =>
-      token.chainKey === source.chainKey &&
-      !isNativeSwapToken(token) &&
-      ["USDC", "USDT"].includes(token.symbol.toUpperCase()) &&
-      (sourceIsNative || token.symbol.toUpperCase() !== source.symbol.toUpperCase()),
-  );
+  return tokens
+    .filter((token) => {
+      if (token.chainKey !== source.chainKey) return false;
+      if (
+        token.key === source.key ||
+        token.tokenAddress.toLowerCase() === source.tokenAddress.toLowerCase()
+      ) {
+        return false;
+      }
+      return (
+        ["USDC", "USDT"].includes(token.symbol.toUpperCase()) &&
+        token.symbol.toUpperCase() !== source.symbol.toUpperCase()
+      );
+    })
+    .sort((left, right) => {
+      const leftPreferred = PREFERRED_DESTINATIONS.indexOf(
+        left.symbol.toUpperCase(),
+      );
+      const rightPreferred = PREFERRED_DESTINATIONS.indexOf(
+        right.symbol.toUpperCase(),
+      );
+      if (leftPreferred >= 0 || rightPreferred >= 0) {
+        if (leftPreferred < 0) return 1;
+        if (rightPreferred < 0) return -1;
+        if (leftPreferred !== rightPreferred)
+          return leftPreferred - rightPreferred;
+      }
+      return left.symbol.localeCompare(right.symbol);
+    });
 }
 
 export function getDefaultSwapDestination(
@@ -255,9 +246,9 @@ export function getDefaultSwapDestination(
   destinations: SwapAssetOption[],
 ) {
   if (!source || !destinations.length) return null;
+  const targetSymbol = source.symbol.toUpperCase() === "USDC" ? "USDT" : "USDC";
   return (
-    destinations.find((token) => token.symbol.toUpperCase() === "USDC") ||
-    destinations.find((token) => token.symbol.toUpperCase() === "USDT") ||
+    destinations.find((token) => token.symbol.toUpperCase() === targetSymbol) ||
     destinations[0]
   );
 }

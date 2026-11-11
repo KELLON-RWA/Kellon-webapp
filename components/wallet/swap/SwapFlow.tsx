@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useWallets } from "@privy-io/react-auth";
 import { encodeFunctionData, erc20Abi, parseUnits } from "viem";
 import { toast } from "sonner";
+import { extractHumanErrorMessage } from "@/lib/utils";
 import TransferVerificationModal from "@/components/wallet/send/TransferVerificationModal";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
 import FlowStepIndicator from "@/components/wallet/shared/FlowStepIndicator";
@@ -15,7 +16,6 @@ import {
   getSwapSources,
   getSwapTokens,
 } from "@/lib/swap-assets";
-import { getNativeSwapBalances } from "@/lib/swap-native-balances";
 import { isNativeSwapAddress } from "@/lib/swap-policy";
 import {
   setStickyTransferMeta,
@@ -37,8 +37,15 @@ import {
 } from "@/services/api/security";
 import { swapService, type Route } from "@/services/api/swap";
 import type { User } from "@/types/db";
+import {
+  getTransactionDetailsPath,
+  resolveFlowTransactionId,
+} from "@/lib/transaction-navigation";
 import { SwapComposeStep } from "./steps/ComposeStep";
 import { SwapReviewStep } from "./steps/ReviewStep";
+import BridgeSuccessModal, {
+  type ConvertSuccessState,
+} from "../bridge/BridgeSuccessModal";
 import type { SwapSmartAccountClient, SwapVerification } from "./types";
 import { getRouteReceiveAmount } from "./utils";
 
@@ -46,6 +53,11 @@ export default function SwapFlow({ profile }: { profile: User }) {
   const router = useRouter();
   const { wallets, ready: walletsReady } = useWallets();
   const { getSmartAccountClient } = useSmartAccount();
+
+  useEffect(() => {
+    router.prefetch("/transactions");
+    router.prefetch("/");
+  }, [router]);
   const tokensQuery = useQuery({
     queryKey: ["swap-token-catalog"],
     queryFn: swapService.getTokens,
@@ -56,27 +68,9 @@ export default function SwapFlow({ profile }: { profile: User }) {
     () => getSwapTokens(tokensQuery.data || []),
     [tokensQuery.data],
   );
-  const nativeBalancesQuery = useQuery({
-    queryKey: [
-      "swap-native-balances",
-      profile.id,
-      tokenCatalog.map((token) => token.key).join(","),
-    ],
-    queryFn: () =>
-      getNativeSwapBalances(profile.chainAccounts || [], tokenCatalog),
-    enabled: tokenCatalog.length > 0,
-    staleTime: 15_000,
-    refetchOnMount: "always",
-    retry: 1,
-  });
   const sources = useMemo(
-    () =>
-      getSwapSources(
-        profile.assets || [],
-        tokenCatalog,
-        nativeBalancesQuery.data || [],
-      ),
-    [profile.assets, tokenCatalog, nativeBalancesQuery.data],
+    () => getSwapSources(profile.assets || [], tokenCatalog),
+    [profile.assets, tokenCatalog],
   );
   const [sourceKey, setSourceKey] = useState("");
   const [destinationKey, setDestinationKey] = useState("");
@@ -90,6 +84,46 @@ export default function SwapFlow({ profile }: { profile: User }) {
     null,
   );
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [successState, setSuccessState] = useState<ConvertSuccessState | null>(null);
+  const [resolvedTransactionId, setResolvedTransactionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!successState) {
+      setResolvedTransactionId(null);
+      return;
+    }
+
+    let isMounted = true;
+    void resolveFlowTransactionId({
+      transactionId: successState.transactionId,
+      txHash: successState.txHash,
+      type: ["SWAP", "TRANSFER_OUT"],
+      symbol: successState.symbol,
+      amount: successState.amount,
+    }).then((id) => {
+      if (isMounted && id) {
+        setResolvedTransactionId(id);
+        router.prefetch(getTransactionDetailsPath(id, "flow"));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [successState, router]);
+
+  const cachedSwapCallsRef = useRef<{
+    routeId: string;
+    calls: Array<{
+      to: `0x${string}`;
+      data?: `0x${string}`;
+      value?: bigint;
+    }>;
+  } | null>(null);
+
+  useEffect(() => {
+    cachedSwapCallsRef.current = null;
+  }, [sourceKey, destinationKey, amount]);
 
   const source = sources.find((item) => item.key === sourceKey) || null;
   const destinations = useMemo(
@@ -199,6 +233,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
     code?: string,
     methodOverride?: VerificationMethod,
   ) => {
+    if (successState) return;
     if (!source || !destination || !selectedRoute) return;
     if (source.chainType !== "evm" || destination.chainType !== "evm") {
       toast.error("This network is not supported by the swap provider.");
@@ -228,62 +263,75 @@ export default function SwapFlow({ profile }: { profile: User }) {
       );
       setStickyTransferMeta({ amount: amountValue, symbol: source.symbol });
 
-      const calls: Array<{
+      let calls: Array<{
         to: `0x${string}`;
         data?: `0x${string}`;
         value?: bigint;
       }> = [];
-      const approved = new Set<string>();
-      for (const routeStep of selectedRoute.steps) {
-        const { step } = await swapService.getStepTransaction(routeStep);
-        const request = step.transactionRequest;
-        if (!request?.to || !request.data)
-          throw new Error(
-            "The route returned incomplete transaction instructions.",
-          );
-        const spender = step.estimate.approvalAddress as `0x${string}`;
-        const token = step.action.fromToken.address as `0x${string}`;
-        const approvalKey =
-          spender && token
-            ? `${token.toLowerCase()}:${spender.toLowerCase()}`
-            : "";
-        if (
-          !step.estimate.skipApproval &&
-          spender &&
-          token &&
-          !isNativeSwapAddress(token) &&
-          !approved.has(approvalKey)
-        ) {
-          if (step.estimate.approvalReset) {
+
+      if (
+        cachedSwapCallsRef.current &&
+        cachedSwapCallsRef.current.routeId === selectedRoute.id
+      ) {
+        calls = cachedSwapCallsRef.current.calls;
+      } else {
+        const approved = new Set<string>();
+        for (const routeStep of selectedRoute.steps) {
+          const { step } = await swapService.getStepTransaction(routeStep);
+          const request = step.transactionRequest;
+          if (!request?.to || !request.data)
+            throw new Error(
+              "The route returned incomplete transaction instructions.",
+            );
+          const spender = step.estimate.approvalAddress as `0x${string}`;
+          const token = step.action.fromToken.address as `0x${string}`;
+          const approvalKey =
+            spender && token
+              ? `${token.toLowerCase()}:${spender.toLowerCase()}`
+              : "";
+          if (
+            !step.estimate.skipApproval &&
+            spender &&
+            token &&
+            !isNativeSwapAddress(token) &&
+            !approved.has(approvalKey)
+          ) {
+            if (step.estimate.approvalReset) {
+              calls.push({
+                to: token,
+                data: encodeFunctionData({
+                  abi: erc20Abi,
+                  functionName: "approve",
+                  args: [spender, 0n],
+                }),
+                value: 0n,
+              });
+            }
             calls.push({
               to: token,
               data: encodeFunctionData({
                 abi: erc20Abi,
                 functionName: "approve",
-                args: [spender, 0n],
+                args: [spender, BigInt(step.action.fromAmount)],
               }),
               value: 0n,
             });
+            approved.add(approvalKey);
           }
           calls.push({
-            to: token,
-            data: encodeFunctionData({
-              abi: erc20Abi,
-              functionName: "approve",
-              args: [spender, BigInt(step.action.fromAmount)],
-            }),
-            value: 0n,
+            to: request.to as `0x${string}`,
+            data: request.data as `0x${string}`,
+            value: BigInt(request.value || 0),
           });
-          approved.add(approvalKey);
         }
-        calls.push({
-          to: request.to as `0x${string}`,
-          data: request.data as `0x${string}`,
-          value: BigInt(request.value || 0),
-        });
+        if (!calls.length)
+          throw new Error("No executable swap transaction was returned.");
+
+        cachedSwapCallsRef.current = {
+          routeId: selectedRoute.id,
+          calls,
+        };
       }
-      if (!calls.length)
-        throw new Error("No executable swap transaction was returned.");
       setStickyTransferMeta({
         amount: amountValue,
         symbol: source.symbol,
@@ -296,15 +344,30 @@ export default function SwapFlow({ profile }: { profile: User }) {
         chain: smartAccount.chain,
         calls,
       });
+      cachedSwapCallsRef.current = null;
       setVerification(null);
       setVerificationError(null);
       toast.success("Swap submitted", {
         description: `${amount} ${source.symbol} is being swapped to ${destination.symbol}. Transaction: ${hash.slice(0, 10)}…`,
       });
-      router.push("/");
+      setSuccessState({
+        mode: "swap",
+        amount,
+        symbol: source.symbol,
+        receiveAmount: selectedRoute ? String(getRouteReceiveAmount(selectedRoute)) : undefined,
+        destinationSymbol: destination.symbol,
+        sourceChainName: source.chainName,
+        destinationChainName: destination.chainName,
+        txHash: hash,
+        provider: selectedRoute?.steps?.[0]?.toolDetails?.name || undefined,
+        submissionPhase: "completed",
+      });
     } catch (error) {
       const verificationChallenge = findTransferVerificationRequiredError(error);
       const isVerifying = Boolean(code);
+      if (!verificationChallenge) {
+        cachedSwapCallsRef.current = null;
+      }
       if (verificationChallenge) {
         let userEnabledMethods: VerificationMethod[] | null = null;
         try {
@@ -334,7 +397,11 @@ export default function SwapFlow({ profile }: { profile: User }) {
               : selectedMethod,
           verificationType: getVerificationTypeForMethod(selectedMethod),
           action: verificationChallenge.action,
-          otpSent: hasNoSecurityMethods ? false : isVerifying ? true : selectedMethod !== "totp",
+          otpSent: hasNoSecurityMethods
+            ? false
+            : isVerifying
+              ? true
+              : selectedMethod === "totp",
         }));
         if (isVerifying) {
           const msg = "Invalid verification code. Please try again.";
@@ -342,22 +409,13 @@ export default function SwapFlow({ profile }: { profile: User }) {
           toast.error(msg);
         } else {
           setVerificationError(null);
-          if (!hasNoSecurityMethods) {
-            if (selectedMethod !== "totp") {
-              toast.info(
-                selectedMethod === "sms_otp"
-                  ? "We sent a verification code to your phone. Enter it to continue."
-                  : "We sent a verification code to your email. Enter it to continue.",
-              );
-            } else {
-              toast.info("Enter your authenticator code to continue.");
-            }
+          if (!hasNoSecurityMethods && selectedMethod === "totp") {
+            toast.info("Enter your authenticator code to continue.");
           }
         }
         return;
       }
-      const fallbackMsg =
-        error instanceof Error ? error.message : "Unable to submit swap";
+      const fallbackMsg = extractHumanErrorMessage(error);
       if (isVerifying) {
         setVerificationError(fallbackMsg);
       } else {
@@ -445,8 +503,11 @@ export default function SwapFlow({ profile }: { profile: User }) {
           destination={destination}
           amount={amountValue}
           route={selectedRoute}
-          isSubmitting={isSubmitting}
-          onSubmit={() => void executeSwap()}
+          isSubmitting={isSubmitting || Boolean(successState)}
+          onSubmit={() => {
+            if (successState) return;
+            void executeSwap();
+          }}
         />
       ) : (
         <SwapComposeStep
@@ -457,9 +518,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
           amount={amount}
           receiveAmount={getRouteReceiveAmount(selectedRoute)}
           isAmountValid={isAmountValid}
-          isLoadingTokens={
-            tokensQuery.isLoading || nativeBalancesQuery.isLoading
-          }
+          isLoadingTokens={tokensQuery.isLoading}
           routes={routes}
           selectedRoute={selectedRoute}
           isLoadingRoutes={quoteQuery.isFetching}
@@ -506,6 +565,39 @@ export default function SwapFlow({ profile }: { profile: User }) {
         errorMessage={verificationError}
         onClearError={() => setVerificationError(null)}
       />
+
+      {/* Success Modal */}
+      {successState ? (
+        <BridgeSuccessModal
+          open={Boolean(successState)}
+          state={successState}
+          onViewTransactions={async () => {
+            let targetId: string | null | undefined =
+              resolvedTransactionId || successState.transactionId;
+            if (!targetId) {
+              targetId = await resolveFlowTransactionId({
+                transactionId: successState.transactionId,
+                txHash: successState.txHash,
+                type: ["SWAP", "TRANSFER_OUT"],
+                symbol: successState.symbol,
+                amount: successState.amount,
+                maxAttempts: 2,
+              });
+            }
+            if (targetId) {
+              router.push(getTransactionDetailsPath(targetId, "flow"));
+            } else {
+              router.push("/transactions");
+            }
+          }}
+          onDone={() => {
+            router.push("/");
+          }}
+          onDismiss={() => {
+            router.push("/");
+          }}
+        />
+      ) : null}
     </section>
   );
 }

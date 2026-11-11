@@ -11,14 +11,14 @@ export const metadata: Metadata = {
 };
 
 interface BridgePageProps {
-  searchParams: Promise<{ asset?: string; network?: string }>;
+  searchParams: Promise<{ asset?: string; network?: string; mode?: "swap" | "bridge" | "auto" }>;
 }
 
 export default async function BridgePage({ searchParams }: BridgePageProps) {
   const profile = (await currentProfile()) as User;
   if (!profile) redirect("/");
 
-  const { asset, network } = await searchParams;
+  const { asset, network, mode } = await searchParams;
   const normalizedAsset = asset?.toUpperCase();
   const initialSymbol =
     normalizedAsset === "USDC" || normalizedAsset === "USDT"
@@ -28,6 +28,7 @@ export default async function BridgePage({ searchParams }: BridgePageProps) {
   return (
     <BridgeFlow
       profile={profile}
+      initialMode={mode || "auto"}
       initialSymbol={initialSymbol}
       initialSourceChain={network?.toLowerCase()}
     />

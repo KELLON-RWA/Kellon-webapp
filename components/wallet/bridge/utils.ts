@@ -19,7 +19,18 @@ export function getRouteId(route?: BridgeRateOption | null): string {
 }
 
 export function getRouteDuration(route: BridgeRateOption): number {
-  return route.executionDuration || route.estimatedTime || 0;
+  if (route.executionDuration && route.executionDuration > 0) {
+    return route.executionDuration;
+  }
+  if (route.estimatedTime && route.estimatedTime > 0) {
+    return route.estimatedTime;
+  }
+  // Circle CCTP requires L1 Ethereum finality for L2 rollups (Base, Arbitrum, OP), which takes ~15-20 mins
+  const name = `${route.provider} ${route.messenger || ""} ${route.messengerName || ""}`.toLowerCase();
+  if (name.includes("cctp") || name.includes("circle")) {
+    return 900; // ~15m
+  }
+  return 180; // ~3m default for cross-chain relays
 }
 
 export function getRouteReceiveAmount(route: BridgeRateOption): number {

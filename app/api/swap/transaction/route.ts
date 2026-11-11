@@ -47,8 +47,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // Skip LI.FI's slow on-chain simulation: ERC-4337 bundlers and Pimlico paymaster
+    // simulate user operations directly during gas estimation. Skipping LI.FI simulation
+    // cuts 3-7s of latency and avoids spurious InsufficientOutput failures from pool drift.
     const executableStep = await lifiRequest<LiFiStep>(
-      "/advanced/stepTransaction",
+      "/advanced/stepTransaction?skipSimulation=true",
       step,
     );
     return NextResponse.json({ step: executableStep });

@@ -28,19 +28,27 @@ export function isStableSwapToken(
   return supportedAddresses.includes(address.toLowerCase());
 }
 
-export function isNativeToStableSwap(input: {
+export function isSupportedSwapPair(input: {
   fromChainId: number;
   toChainId: number;
   fromTokenAddress: string;
   toTokenAddress: string;
 }) {
-  if (input.fromChainId !== input.toChainId) return false;
-  const nativeToStable =
-    isNativeSwapAddress(input.fromTokenAddress) &&
-    isStableSwapToken(input.toChainId, input.toTokenAddress);
-  const stableToDifferentStable =
-    isStableSwapToken(input.fromChainId, input.fromTokenAddress) &&
-    isStableSwapToken(input.toChainId, input.toTokenAddress) &&
-    input.fromTokenAddress.toLowerCase() !== input.toTokenAddress.toLowerCase();
-  return nativeToStable || stableToDifferentStable;
+  if (
+    input.fromChainId === input.toChainId &&
+    input.fromTokenAddress.toLowerCase() === input.toTokenAddress.toLowerCase()
+  ) {
+    return false;
+  }
+  const fromIsStable = isStableSwapToken(
+    input.fromChainId,
+    input.fromTokenAddress,
+  );
+  const toIsStable = isStableSwapToken(
+    input.toChainId,
+    input.toTokenAddress,
+  );
+  return fromIsStable && toIsStable;
 }
+
+export const isNativeToStableSwap = isSupportedSwapPair;

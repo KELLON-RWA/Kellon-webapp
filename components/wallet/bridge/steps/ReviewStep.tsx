@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowRight, Clock3 } from "lucide-react";
+import { ArrowRight, Clock3, Loader2 } from "lucide-react";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
 import type { BridgeAssetOption } from "@/lib/bridge-assets";
 import type { BridgeRateOption } from "@/services/api/bridge";
@@ -56,7 +56,7 @@ export function BridgeReviewStep({
               You receive
             </p>
             <p className="mt-1 text-2xl font-bold text-primary-60">
-              ≈ {formatBridgeBalance(receive)} {destination.symbol}
+              {formatBridgeBalance(receive)} {destination.symbol}
             </p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               on {destination.chainName}
@@ -73,7 +73,7 @@ export function BridgeReviewStep({
           />
           <PreviewRow
             label="You receive"
-            value={`≈ ${formatBridgeBalance(receive)} ${destination.symbol}`}
+            value={`${formatBridgeBalance(receive)} ${destination.symbol}`}
           />
           {route.messengerName ? (
             <PreviewRow label="Protocol" value={getRouteProvider(route)} />
@@ -81,7 +81,7 @@ export function BridgeReviewStep({
           <PreviewRow label="Aggregator" value={getRouteAggregator(route)} />
           <PreviewRow
             label="Estimated fee"
-            value={`≈ ${formatBridgeBalance(fee)} ${source.symbol}`}
+            value={`${formatBridgeBalance(fee)} ${source.symbol}`}
           />
           {duration > 0 ? (
             <PreviewRow
@@ -99,8 +99,17 @@ export function BridgeReviewStep({
         disabled={isSubmitting}
         helperText="Confirm the route and amounts before signing."
       >
-        {isSubmitting ? "Submitting…" : "Start bridging"}
-        <ArrowRight className="h-4 w-4" />
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Submitting…</span>
+          </>
+        ) : (
+          <>
+            <span>Start bridging</span>
+            <ArrowRight className="h-4 w-4" />
+          </>
+        )}
       </FlowActionFooter>
     </div>
   );

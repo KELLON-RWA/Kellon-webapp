@@ -154,7 +154,7 @@ export const MAINNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
       default: { name: "BscScan", url: "https://bscscan.com" },
     },
     type: "evm",
-    usdcAddress: "0x8AC76a51cc950d9822D68b83E1Ad6dF2C52deB",
+    usdcAddress: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
     usdtAddress: "0x55d398326f99059fF775485246999027B3197955",
     primaryToken: "USDT",
     paymaster: { enabled: true, pimlicoPaymaster: true },
@@ -177,21 +177,6 @@ export const TESTNET_CHAINS: Record<SupportedChainKeys, ChainConfig> = {
   },
   solana: {
     ...MAINNET_CHAINS.solana,
-    id: "devnet",
-    name: "Solana Devnet",
-    rpcUrls: {
-      default: { http: ["https://api.devnet.solana.com"] },
-      public: { http: ["https://api.devnet.solana.com"] },
-    },
-    blockExplorers: {
-      default: {
-        name: "Solscan",
-        url: "https://solscan.io?cluster=devnet",
-      },
-    },
-    // Do not advertise Solana devnet until its token mints are configured.
-    usdcAddress: undefined,
-    usdtAddress: undefined,
   },
   base: {
     ...MAINNET_CHAINS.base,

@@ -1,6 +1,7 @@
 import { ArrowRight, ArrowUpDown } from "lucide-react";
 import { AssetLogo } from "@/components/invoices/create-invoice/AssetLogo";
 import FlowActionFooter from "@/components/wallet/shared/FlowActionFooter";
+import { formatMaxInputAmount } from "@/lib/token-amount";
 import type { BridgeAssetOption } from "@/lib/bridge-assets";
 import type { BridgeRateOption } from "@/services/api/bridge";
 import { BridgeRoutesPanel } from "../BridgeRoutesPanel";
@@ -169,7 +170,15 @@ export function BridgeComposeStep({
                 </span>
                 <button
                   type="button"
-                  onClick={() => source && onAmountChange(String(source.balance))}
+                  onClick={() =>
+                    source &&
+                    onAmountChange(
+                      formatMaxInputAmount(
+                        source.balance,
+                        Math.min(source.decimals ?? 6, 6),
+                      ),
+                    )
+                  }
                   className="cursor-pointer font-bold uppercase text-primary-60"
                 >
                   Max
@@ -207,7 +216,7 @@ export function BridgeComposeStep({
               </div>
               <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                 {selectedRoute
-                  ? `Estimated ${destination?.symbol || selectedSymbol || ""} after routing`
+                  ? `Estimated ${destination?.symbol || selectedSymbol || ""} after bridge`
                   : "Your estimated receive amount will appear here"}
               </p>
             </div>
