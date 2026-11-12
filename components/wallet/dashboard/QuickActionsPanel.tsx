@@ -3,8 +3,8 @@ import QuickAction from "@/components/wallet/dashboard/QuickAction";
 
 interface QuickActionsPanelProps {
   onAddFunds: () => void;
-  onSend: () => void;
-  onWithdraw: () => void;
+  onSend?: () => void;
+  onWithdraw?: () => void;
   onMore: () => void;
 }
 

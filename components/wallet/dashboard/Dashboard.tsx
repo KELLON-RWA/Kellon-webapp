@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 const AddFundsModal = dynamic(
   () => import("@/components/modals/AddFundsModal"),
+  { ssr: false },
 );
 const WalletServicesModal = dynamic(
   () => import("@/components/modals/WalletServicesModal"),
+  { ssr: false },
 );
 import { getGreeting } from "@/lib/utils";
 import { getCompanyLogoUrl } from "@/lib/stock-branding";
@@ -232,6 +234,9 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
     setGreeting(getGreeting());
     router.prefetch("/send");
     router.prefetch("/withdraw");
+    // Preload quick action modals so opening them is instantaneous and never triggers route suspense
+    void import("@/components/modals/AddFundsModal");
+    void import("@/components/modals/WalletServicesModal");
   }, [router]);
 
   return (
@@ -268,8 +273,6 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
           <div className="hidden min-[1024px]:order-2 min-[1024px]:block min-[1280px]:hidden">
             <QuickActionsPanel
               onAddFunds={() => setIsAddFundsOpen(true)}
-              onSend={() => router.push("/send")}
-              onWithdraw={() => router.push("/withdraw")}
               onMore={() => setIsWalletServicesOpen(true)}
             />
           </div>
@@ -296,8 +299,6 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
           <div className="order-2 min-[1024px]:hidden min-[1280px]:order-none min-[1280px]:block min-[1280px]:w-full">
             <QuickActionsPanel
               onAddFunds={() => setIsAddFundsOpen(true)}
-              onSend={() => router.push("/send")}
-              onWithdraw={() => router.push("/withdraw")}
               onMore={() => setIsWalletServicesOpen(true)}
             />
           </div>
@@ -323,15 +324,17 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
         </aside>
       </div>
 
-      {isAddFundsOpen ? (
-        <AddFundsModal isOpen={isAddFundsOpen} onClose={setIsAddFundsOpen} />
-      ) : null}
-      {isWalletServicesOpen ? (
-        <WalletServicesModal
-          isOpen={isWalletServicesOpen}
-          onClose={setIsWalletServicesOpen}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {isAddFundsOpen ? (
+          <AddFundsModal isOpen={isAddFundsOpen} onClose={setIsAddFundsOpen} />
+        ) : null}
+        {isWalletServicesOpen ? (
+          <WalletServicesModal
+            isOpen={isWalletServicesOpen}
+            onClose={setIsWalletServicesOpen}
+          />
+        ) : null}
+      </Suspense>
     </div>
   );
 }
