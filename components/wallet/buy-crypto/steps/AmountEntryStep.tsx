@@ -35,6 +35,10 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  getMinFiatBuyAmount,
+  getQuickBuyAmounts,
+} from "@/lib/stablecoin-amounts";
 
 interface AmountEntryStepProps {
   asset: string | null;
@@ -48,6 +52,7 @@ interface AmountEntryStepProps {
   exchangeRate: number;
   isRateLoading: boolean;
   isAmountValid: boolean;
+  minFiatAmount?: number;
   paymentRail: PaymentRail;
   paymentMethodLabel: string;
   providers?: FlowProvider[];
@@ -60,23 +65,6 @@ interface AmountEntryStepProps {
   onAmountChange?: (value: string) => void;
 }
 
-// Validation schema
-const amountSchema = z.object({
-  amount: z
-    .string()
-    .min(1, "Amount is required")
-    .regex(/^\d+(\.\d{0,2})?$/, "Invalid amount format (max 2 decimal places)")
-    .refine(
-      (val) => Number.isFinite(Number(val)) && Number(val) > 0,
-      "Amount must be greater than 0",
-    ),
-});
-
-type AmountFormValues = z.infer<typeof amountSchema>;
-
-// Quick amount suggestions - arranged as a compact 3-by-2 grid.
-const QUICK_AMOUNTS = [500, 2000, 5000, 10000, 25000, 50000];
-
 export function AmountEntryStep({
   asset,
   selectedChain,
@@ -85,6 +73,7 @@ export function AmountEntryStep({
   fiatSymbol,
   isRateLoading,
   isAmountValid,
+  minFiatAmount,
   paymentRail,
   paymentMethodLabel,
   providers = [],
@@ -98,6 +87,24 @@ export function AmountEntryStep({
 }: AmountEntryStepProps) {
   const [isAmountEditorOpen, setIsAmountEditorOpen] = useState(false);
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+
+  const minAmount = minFiatAmount ?? getMinFiatBuyAmount(fiatCurrency);
+  const quickAmounts = useMemo(
+    () => getQuickBuyAmounts(fiatCurrency),
+    [fiatCurrency],
+  );
+
+  const numAmount = parseFloat(amount);
+  const isBelowMinimum =
+    !isNaN(numAmount) && numAmount > 0 && numAmount < minAmount;
+
+  const continueButtonText = isRateLoading
+    ? "Fetching Rate..."
+    : isAmountValid
+      ? "Continue"
+      : isBelowMinimum
+        ? `Min ${fiatSymbol}${formatNumberWithCommas(minAmount.toString())}`
+        : "Enter Amount";
 
   const sortedProviders = useMemo<FlowProvider[]>(() => {
     return sortProvidersByRate(providers, providerRates, "buy");
@@ -123,6 +130,26 @@ export function AmountEntryStep({
       : null;
 
   // Form for desktop
+  const amountSchema = useMemo(
+    () =>
+      z.object({
+        amount: z
+          .string()
+          .min(1, "Amount is required")
+          .regex(
+            /^\d+(\.\d{0,2})?$/,
+            "Invalid amount format (max 2 decimal places)",
+          )
+          .refine(
+            (val) => Number.isFinite(Number(val)) && Number(val) >= minAmount,
+            `Minimum amount is ${fiatSymbol}${formatNumberWithCommas(minAmount.toString())}`,
+          ),
+      }),
+    [minAmount, fiatSymbol],
+  );
+
+  type AmountFormValues = z.infer<typeof amountSchema>;
+
   const form = useForm<AmountFormValues>({
     resolver: zodResolver(amountSchema),
     defaultValues: {
@@ -141,7 +168,7 @@ export function AmountEntryStep({
   };
 
   const handleFormSubmit = (data: AmountFormValues) => {
-    if (parseFloat(data.amount) > 0) {
+    if (parseFloat(data.amount) >= minAmount) {
       onContinue();
     }
   };
@@ -150,7 +177,7 @@ export function AmountEntryStep({
 
   const QuickAmountButtons = () => (
     <div className="grid grid-cols-3 gap-3">
-      {QUICK_AMOUNTS.map((quickAmount) => (
+      {quickAmounts.map((quickAmount) => (
         <button
           key={quickAmount}
           type="button"
@@ -202,6 +229,12 @@ export function AmountEntryStep({
               />
             </span>
           </button>
+          {isBelowMinimum && (
+            <p className="-mt-2 mb-4 text-center text-xs font-medium text-amber-500">
+              Minimum amount is {fiatSymbol}
+              {formatNumberWithCommas(minAmount.toString())}
+            </p>
+          )}
 
           {/* Quick Amount Buttons */}
           <div className="mb-6">
@@ -280,6 +313,12 @@ export function AmountEntryStep({
                           </FormControl>
                         </div>
                         <FormMessage className="text-center text-sm" />
+                        {isBelowMinimum && !form.formState.errors.amount && (
+                          <p className="mt-2 text-center text-xs font-medium text-amber-500">
+                            Minimum amount is {fiatSymbol}
+                            {formatNumberWithCommas(minAmount.toString())}
+                          </p>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -338,11 +377,7 @@ export function AmountEntryStep({
             buttonClassName={cn(!isAmountValid && "from-gray-400 to-gray-500")}
             showShimmer={isAmountValid && !isRateLoading}
           >
-            {isRateLoading
-              ? "Fetching Rate..."
-              : isAmountValid
-                ? "Continue"
-                : "Enter Amount"}
+            {continueButtonText}
             {isAmountValid && !isRateLoading && (
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             )}
@@ -359,11 +394,7 @@ export function AmountEntryStep({
           textClassName="text-sm"
           showShimmer={isAmountValid && !isRateLoading}
         >
-          {isRateLoading
-            ? "Fetching Rate..."
-            : isAmountValid
-              ? "Continue"
-              : "Enter Amount"}
+          {continueButtonText}
           {isAmountValid && !isRateLoading && (
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           )}
@@ -390,15 +421,17 @@ export function AmountEntryStep({
               textClassName="text-sm"
               showShimmer={isAmountValid && !isRateLoading}
             >
-              {isRateLoading
-                ? "Fetching Rate..."
-                : isAmountValid
-                  ? "Continue"
-                  : "Enter Amount"}
+              {continueButtonText}
               {isAmountValid && !isRateLoading && (
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               )}
             </FlowActionFooter>
+            {isBelowMinimum && (
+              <p className="-mt-2 mb-3 text-center text-xs font-medium text-amber-500">
+                Minimum amount is {fiatSymbol}
+                {formatNumberWithCommas(minAmount.toString())}
+              </p>
+            )}
             <Keypad
               onPress={onKeypadPress}
               className="gap-3"

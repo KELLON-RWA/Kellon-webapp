@@ -16,7 +16,10 @@ import {
   getCurrencyDecimals,
 } from "@/lib/country-currency-map";
 import { getChainById, getActiveChainKey } from "@/lib/chains";
-import { MIN_STABLECOIN_AMOUNT } from "@/lib/stablecoin-amounts";
+import {
+  MIN_STABLECOIN_AMOUNT,
+  getMinFiatBuyAmount,
+} from "@/lib/stablecoin-amounts";
 import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
 import { ACTIVE_PAYMENT_RAIL, getPaymentRailConfig } from "@/lib/payment-rails";
 import { CountrySelectorModal } from "@/components/modals/CountrySelectorModal";
@@ -255,6 +258,11 @@ export default function BuyCryptoFlow({
   } = useProviders(country, asset, networkName, fiatCurrency);
 
   // Derived amount values
+  const minFiatAmount = useMemo(
+    () => getMinFiatBuyAmount(fiatCurrency),
+    [fiatCurrency],
+  );
+
   const cryptoAmountValue = useMemo(() => {
     if (!amount || exchangeRate === 0) return 0;
     return Number(amount) / exchangeRate;
@@ -262,9 +270,9 @@ export default function BuyCryptoFlow({
 
   const isAmountValid = useMemo(() => {
     const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) return false;
+    if (isNaN(numAmount) || numAmount < minFiatAmount) return false;
     return cryptoAmountValue >= MIN_STABLECOIN_AMOUNT;
-  }, [cryptoAmountValue, amount]);
+  }, [cryptoAmountValue, amount, minFiatAmount]);
 
   const fiatAmountNum = useMemo(() => parseFloat(amount) || 0, [amount]);
 
@@ -720,10 +728,11 @@ export default function BuyCryptoFlow({
     if (step === "amount") {
       // Ensure amount validity is in sync
       const isValid =
-        parseFloat(amount) > 0 && cryptoAmountValue >= MIN_STABLECOIN_AMOUNT;
+        parseFloat(amount) >= minFiatAmount &&
+        cryptoAmountValue >= MIN_STABLECOIN_AMOUNT;
       setIsDesktopAmountValid(isValid);
     }
-  }, [amount, cryptoAmountValue, step]);
+  }, [amount, cryptoAmountValue, minFiatAmount, step]);
 
   return (
     <div className="container mx-auto flex min-h-[100dvh] max-w-2xl flex-col pb-[env(safe-area-inset-bottom)] md:min-h-[90dvh] md:pb-32 md:pt-20">
@@ -772,6 +781,7 @@ export default function BuyCryptoFlow({
             exchangeRate={exchangeRate}
             isRateLoading={isRateLoading}
             isAmountValid={isAmountValid}
+            minFiatAmount={minFiatAmount}
             paymentRail={paymentRail}
             paymentMethodLabel={paymentRailConfig.label}
             providers={providers}
