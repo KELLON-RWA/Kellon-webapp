@@ -16,8 +16,14 @@ export function getDisplayProviderRate(
   fiatAmount: number | null | undefined,
   cryptoAmount: number | null | undefined,
 ): number | null {
-  if (normalizeProviderName(providerName) !== "centiiv") {
-    return rawRate && rawRate > 0 ? rawRate : null;
+  const isCentiiv = normalizeProviderName(providerName) === "centiiv";
+  if (isCentiiv && fiatAmount && fiatAmount > 0 && cryptoAmount && cryptoAmount > 0) {
+    const effectiveRate = fiatAmount / cryptoAmount;
+    return Number.isFinite(effectiveRate) ? effectiveRate : null;
+  }
+
+  if (rawRate && rawRate > 0) {
+    return rawRate;
   }
 
   if (fiatAmount && fiatAmount > 0 && cryptoAmount && cryptoAmount > 0) {
@@ -25,7 +31,7 @@ export function getDisplayProviderRate(
     return Number.isFinite(effectiveRate) ? effectiveRate : null;
   }
 
-  return rawRate && rawRate > 0 ? rawRate : null;
+  return null;
 }
 
 export interface ProviderRateLike {

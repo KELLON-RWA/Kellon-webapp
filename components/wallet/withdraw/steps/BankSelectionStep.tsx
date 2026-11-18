@@ -39,6 +39,7 @@ interface BankSelectionStepProps {
   selectedBank: BankDetail | null;
   savedBanks: BankDetail[];
   providerName: string | null;
+  routeProvider?: string | null;
   selectedProviderBank: SelectableBank | null;
   onSelectSavedBank: (bank: BankDetail) => void;
   onSelectProviderBank: (bank: SelectableBank | null) => void;
@@ -58,6 +59,7 @@ export function WithdrawBankSelectionStep({
   selectedBank,
   savedBanks,
   providerName,
+  routeProvider,
   selectedProviderBank,
   onSelectSavedBank,
   onSelectProviderBank,
@@ -146,6 +148,7 @@ export function WithdrawBankSelectionStep({
               bankCode: selectedProviderBank.value,
               accountNumber,
               bankName: selectedProviderBank.label,
+              provider: routeProvider || undefined,
               save: false,
             })
           : isPaycrest
@@ -215,6 +218,7 @@ export function WithdrawBankSelectionStep({
     isKenyanPayout,
     isPaycrest,
     isRamphub,
+    routeProvider,
     verificationSource,
     selectedProviderBank,
     accountRule,

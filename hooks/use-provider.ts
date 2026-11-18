@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getActiveChainKey } from "@/lib/chains";
 import {
   supportsProviderAsset,
   supportsProviderNetwork,
@@ -40,6 +41,12 @@ export function useProviders(
       }
       setIsLoading(true);
       try {
+        const networkKey = (
+          getActiveChainKey(networkName) ||
+          networkName ||
+          ""
+        ).toLowerCase();
+
         const [response, feesResponse] = await Promise.all([
           // Discover enabled providers for the corridor, then apply the
           // current network policy below. This avoids stale provider network
@@ -47,6 +54,7 @@ export function useProviders(
           providerService.listProviders({
             country,
             currency,
+            network: networkKey,
             type,
           }),
           providerService.getProviderFees().catch(() => null),
@@ -54,13 +62,12 @@ export function useProviders(
 
         if (cancelled) return;
 
+        console.log(
+          `[useProviders] provider list result for ${country}/${currency}/${networkKey} (${type}):`,
+          response,
+        );
+
         if (response.success && response.data) {
-          if (process.env.NODE_ENV !== "production") {
-            console.log(
-              `[useProviders] fetched for ${country}/${currency}/${networkName} (${type}):`,
-              response.data,
-            );
-          }
           const mapped = response.data
             .filter(
               (p: PaymentProvider) =>
@@ -91,6 +98,7 @@ export function useProviders(
                 isRecommended: p.metadata?.isRecommended || false,
               };
             });
+          console.log("[useProviders] mapped providers after network/asset filter:", mapped);
           setProviders(mapped);
           setSelectedProviderId((currentProviderId) => {
             if (!mapped.length) {
@@ -104,6 +112,7 @@ export function useProviders(
             return "";
           });
         } else {
+          console.warn("[useProviders] provider list response was not successful or empty:", response);
           setProviders([]);
           setSelectedProviderId("");
         }

@@ -1203,11 +1203,20 @@ export function useSendFlow(profile: User) {
               transactionId?: string
               transaction?: { id?: string }
               hash?: string
+              txHash?: string
+              userOpHash?: string
               message?: string
             }
           | undefined
         const directTxId =
           rawData?.transactionId || rawData?.id || rawData?.transaction?.id
+
+        const resolvedTxHash =
+          rawData?.hash ||
+          rawData?.txHash ||
+          rawData?.userOpHash ||
+          (response as unknown as { hash?: string; userOpHash?: string })?.userOpHash ||
+          (response as unknown as { hash?: string })?.hash
 
         setSuccessState({
           amount: amountValue,
@@ -1215,7 +1224,7 @@ export function useSendFlow(profile: User) {
           recipient: trimmedRecipient,
           recipientKind,
           chain: selectedAsset.chain,
-          txHash: rawData?.hash,
+          txHash: resolvedTxHash,
           transactionId: directTxId,
         })
       } catch (error) {

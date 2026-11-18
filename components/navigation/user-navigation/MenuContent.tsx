@@ -130,12 +130,12 @@ export const MenuContent: FC<MenuContentProps> = ({
       <LinkItem
         icon={<Shield className="w-4 h-4" />}
         label="Privacy Policy"
-        href="https://www.kellon.xyz/privacy-policy"
+        href="https://kellon.xyz/privacy-policy"
       />
       <LinkItem
         icon={<FileText className="w-4 h-4" />}
         label="Terms of Use"
-        href="https://www.kellon.xyz/terms-of-use"
+        href="https://kellon.xyz/terms-of-use"
       />
       <LinkItem
         icon={<AlertCircle className="w-4 h-4" />}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWallets } from "@privy-io/react-auth";
 import { encodeFunctionData, erc20Abi, formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
@@ -140,6 +140,7 @@ export default function BridgeFlow({
   const [isResending, setIsResending] = useState(false);
   const [verification, setVerification] = useState<BridgeVerification | null>(null);
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [successState, setSuccessState] = useState<ConvertSuccessState | null>(null);
   const [resolvedTransactionId, setResolvedTransactionId] = useState<string | null>(null);
 
@@ -153,14 +154,20 @@ export default function BridgeFlow({
       return;
     }
 
+    void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+
     let isMounted = true;
     void resolveFlowTransactionId({
       transactionId: successState.transactionId,
       txHash: successState.txHash,
       groupId: successState.tracking?.groupId,
-      type: successState.mode === "swap" ? ["SWAP", "TRANSFER_OUT"] : "BRIDGE",
+      type:
+        successState.mode === "swap"
+          ? ["SWAP", "TRANSFER_OUT"]
+          : ["BRIDGE", "SWAP"],
       symbol: successState.symbol,
       amount: successState.amount,
+      maxAttempts: 6,
     }).then((id) => {
       if (isMounted && id) {
         setResolvedTransactionId(id);
@@ -171,7 +178,7 @@ export default function BridgeFlow({
     return () => {
       isMounted = false;
     };
-  }, [successState, router]);
+  }, [successState, router, queryClient]);
 
   // Cache prepared transaction instructions and plans to skip re-fetching/re-calculating
   // when resuming execution after OTP verification.
@@ -1240,10 +1247,10 @@ export default function BridgeFlow({
                 type:
                   successState.mode === "swap"
                     ? ["SWAP", "TRANSFER_OUT"]
-                    : "BRIDGE",
+                    : ["BRIDGE", "SWAP"],
                 symbol: successState.symbol,
                 amount: successState.amount,
-                maxAttempts: 2,
+                maxAttempts: 5,
               });
             }
             if (targetId) {

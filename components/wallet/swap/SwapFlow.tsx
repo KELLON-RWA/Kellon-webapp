@@ -581,7 +581,7 @@ export default function SwapFlow({ profile }: { profile: User }) {
                 type: ["SWAP", "TRANSFER_OUT"],
                 symbol: successState.symbol,
                 amount: successState.amount,
-                maxAttempts: 2,
+                maxAttempts: 5,
               });
             }
             if (targetId) {

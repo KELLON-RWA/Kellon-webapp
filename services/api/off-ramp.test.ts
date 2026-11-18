@@ -114,4 +114,34 @@ describe("withdrawal quote recovery", () => {
       { signed: true },
     );
   });
+
+  it("initiates Ramphub off-ramp with sanitized payload", async () => {
+    respond(
+      {
+        data: {
+          transactionId: "ramphub-tx-123",
+          status: "PENDING",
+        },
+      },
+      200,
+    );
+    await expect(
+      offrampService.initiateRamphub({
+        ...payload,
+        bankDetail: {
+          bankName: "Access Bank",
+          accountNumber: "0123456789",
+          accountName: "John Doe",
+          bankCode: "044",
+        },
+      }),
+    ).resolves.toMatchObject({
+      data: { transactionId: "ramphub-tx-123", status: "PENDING" },
+    });
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/api/offramp/ramphub",
+      expect.objectContaining({ method: "POST" }),
+      { signed: true },
+    );
+  });
 });

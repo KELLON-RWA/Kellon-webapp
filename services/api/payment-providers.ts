@@ -1,88 +1,106 @@
-import { ApiResponse, handleResponse } from "./index";
-import { getCachedApiResponse } from "./cache";
+import { ApiResponse, getAuthToken, handleResponse } from "./index"
+import { getCachedApiResponse } from "./cache"
+
+function getProviderRequestHeaders(extraHeaders?: HeadersInit): Headers {
+  const headers = new Headers(extraHeaders)
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json")
+  }
+  const token = typeof window !== "undefined" ? getAuthToken() : undefined
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`)
+  }
+  return headers
+}
 
 /**
  * --- Strict Request Interfaces ---
  */
 export interface ProviderListQuery {
-  country?: string;
-  currency?: string;
-  network?: string;
-  type?: string;
+  country?: string
+  currency?: string
+  network?: string
+  type?: string
 }
 
 export interface PaycrestRateParams {
-  token: string;
-  amount: number;
-  currency: string;
-  network: string;
-  side?: "buy" | "sell";
+  token: string
+  amount: number
+  currency: string
+  network: string
+  side?: "buy" | "sell"
 }
 
 export interface CentiivQuoteRequest {
-  fromAsset: string;
-  toAsset: string;
-  amount: number;
+  fromAsset: string
+  toAsset: string
+  amount: number
   /** Chain key. Omitting it makes Centiiv quote STELLAR regardless of the order's chain. */
-  network?: string;
+  network?: string
 }
 
 export interface BankVerificationRequest {
-  bankCode: string;
-  accountNumber: string;
-  save?: boolean;
-  bankName?: string;
-  accountName?: string;
+  bankCode: string
+  accountNumber: string
+  save?: boolean
+  bankName?: string
+  accountName?: string
 }
 
 export interface PaycrestAccountVerificationRequest {
-  institution: string;
-  accountIdentifier: string;
-  currency?: string;
-  save?: boolean;
-  bankName?: string;
-  accountName?: string;
+  institution: string
+  accountIdentifier: string
+  currency?: string
+  save?: boolean
+  bankName?: string
+  accountName?: string
 }
 
 export interface RamphubQuoteParams {
-  token: string;
-  amount: number;
-  currency: string;
-  network: string;
-  side?: "buy" | "sell";
+  token: string
+  amount: number
+  currency?: string
+  network?: string
+  side?: "buy" | "sell"
 }
 
 export interface RamphubQuoteResponse {
-  available: boolean;
-  provider?: string;
-  rate?: number;
-  fiatAmount?: number;
-  receiveAmount?: number;
-  receiveCurrency?: string;
-  quoteId?: string;
-  expiresAt?: string;
-  maxCryptoDebit?: string;
-  validationError?: string;
+  available: boolean
+  provider?: string
+  rate?: number | string
+  fiatAmount?: number | string
+  receiveAmount?: number | string
+  receiveCurrency?: string
+  quoteId?: string
+  expiresAt?: string
+  maxCryptoDebit?: string
+  fees?: number | string
+  fee?: number | string
+  feeCurrency?: string
+  validationError?: string
+  message?: string
+  error?: string
 }
 
 export interface RamphubBank {
-  code: string;
-  name: string;
+  code: string
+  name: string
 }
 
 export interface RamphubAccountVerificationRequest {
-  bankCode: string;
-  accountNumber: string;
-  bankName?: string;
-  save?: boolean;
+  bankCode: string
+  accountNumber: string
+  bankName?: string
+  provider?: string
+  save?: boolean
 }
 
 export interface PaycrestWebhookDeliveriesQuery {
-  status?: string;
-  event?: string;
-  orderId?: string;
-  page?: number;
-  pageSize?: number;
+  status?: string
+  event?: string
+  orderId?: string
+  page?: number
+  pageSize?: number
 }
 
 /**
@@ -90,154 +108,154 @@ export interface PaycrestWebhookDeliveriesQuery {
  * Defined based on backend controller property access
  */
 export interface PaymentProvider {
-  id: string;
-  name: string;
-  slug: string;
-  isEnabled: boolean;
-  logo?: string;
-  processingTime?: string;
-  features?: string[];
+  id: string
+  name: string
+  slug: string
+  isEnabled: boolean
+  logo?: string
+  processingTime?: string
+  features?: string[]
   metadata?: {
-    isRecommended?: boolean;
-    [key: string]: unknown;
-  };
-  fees?: ProviderFee;
+    isRecommended?: boolean
+    [key: string]: unknown
+  }
+  fees?: ProviderFee
   health?: {
-    state: string;
-    isHealthy: boolean;
-  };
+    state: string
+    isHealthy: boolean
+  }
 }
 
 export interface ProviderFee {
-  percentage?: number;
-  fixed?: number;
+  percentage?: number
+  fixed?: number
 }
 
-export type ProviderFeesResponse = Record<string, ProviderFee>;
+export type ProviderFeesResponse = Record<string, ProviderFee>
 
 export interface PaycrestRateResponse {
-  quoteId?: string;
-  expiresAt?: string;
-  maxCryptoDebit?: string;
+  quoteId?: string
+  expiresAt?: string
+  maxCryptoDebit?: string
   buy?: {
-    rate: string; // e.g. "1381.57"
-    price?: number | string;
-    providerIds: string[];
-    orderType: string;
-    refundTimeoutMinutes: number;
-  };
+    rate: string // e.g. "1381.57"
+    price?: number | string
+    providerIds: string[]
+    orderType: string
+    refundTimeoutMinutes: number
+  }
   sell?: {
-    rate: string;
-    price?: number | string;
-    providerIds: string[];
-    orderType: string;
-    refundTimeoutMinutes: number;
-  };
-  rate?: number | string;
-  price?: number | string;
-  sendAmount?: string;
-  sendCurrency?: string;
-  fiatAmount?: number;
-  fees?: number;
-  feeCurrency?: string;
-  receiveAmount?: number;
-  receiveCurrency?: string;
+    rate: string
+    price?: number | string
+    providerIds: string[]
+    orderType: string
+    refundTimeoutMinutes: number
+  }
+  rate?: number | string
+  price?: number | string
+  sendAmount?: string
+  sendCurrency?: string
+  fiatAmount?: number
+  fees?: number
+  feeCurrency?: string
+  receiveAmount?: number
+  receiveCurrency?: string
   data?: {
-    rate?: number | string;
-    price?: number | string;
-    [key: string]: unknown;
-  };
+    rate?: number | string
+    price?: number | string
+    [key: string]: unknown
+  }
 }
 
 export interface CentiivQuoteResponse {
-  quoteId?: string;
-  expiresAt?: string;
-  maxCryptoDebit?: string;
-  rate: string;
-  estimatedReceivableAmount: string;
-  fees: string;
+  quoteId?: string
+  expiresAt?: string
+  maxCryptoDebit?: string
+  rate: string
+  estimatedReceivableAmount: string
+  fees: string
 }
 
 export interface BankAccountData {
-  accountName: string;
-  accountNumber: string;
-  bankName: string;
-  bankCode: string;
-  bank_name?: string;
-  account_name?: string;
-  raw?: unknown;
-  [key: string]: unknown;
+  accountName: string
+  accountNumber: string
+  bankName: string
+  bankCode: string
+  bank_name?: string
+  account_name?: string
+  raw?: unknown
+  [key: string]: unknown
 }
 
 export interface CentiivBank {
-  name: string;
-  code: string;
+  name: string
+  code: string
 }
 
 export interface PaycrestInstitution {
-  name?: string;
-  code?: string;
-  id?: string;
-  institution?: string;
-  logo?: string;
-  logoUrl?: string;
-  image?: string;
-  imageUrl?: string;
-  icon?: string;
-  avatar?: string;
-  metadata?: Record<string, unknown>;
-  [key: string]: unknown;
+  name?: string
+  code?: string
+  id?: string
+  institution?: string
+  logo?: string
+  logoUrl?: string
+  image?: string
+  imageUrl?: string
+  icon?: string
+  avatar?: string
+  metadata?: Record<string, unknown>
+  [key: string]: unknown
 }
 
 export interface PaycrestAccountData {
-  accountName?: string;
-  account_name?: string;
-  accountNumber?: string;
-  account_number?: string;
-  bankCode?: string;
-  bank_code?: string;
-  name?: string;
-  institutionName?: string;
-  bankName?: string;
-  raw?: unknown;
-  [key: string]: unknown;
+  accountName?: string
+  account_name?: string
+  accountNumber?: string
+  account_number?: string
+  bankCode?: string
+  bank_code?: string
+  name?: string
+  institutionName?: string
+  bankName?: string
+  raw?: unknown
+  [key: string]: unknown
 }
 
 export interface PaycrestMarket {
-  [key: string]: unknown;
+  [key: string]: unknown
 }
 
 export interface PaycrestWebhookDelivery {
-  id?: string;
-  status?: string;
-  event?: string;
-  orderId?: string;
-  [key: string]: unknown;
+  id?: string
+  status?: string
+  event?: string
+  orderId?: string
+  [key: string]: unknown
 }
 
 export interface PaycrestWebhookDeliveriesResponse {
-  deliveries?: PaycrestWebhookDelivery[];
-  items?: PaycrestWebhookDelivery[];
-  page?: number;
-  pageSize?: number;
-  total?: number;
-  [key: string]: unknown;
+  deliveries?: PaycrestWebhookDelivery[]
+  items?: PaycrestWebhookDelivery[]
+  page?: number
+  pageSize?: number
+  total?: number
+  [key: string]: unknown
 }
 
 export interface PaycrestWebhookRetryResponse {
-  [key: string]: unknown;
+  [key: string]: unknown
 }
 
 function buildQuery(params: Record<string, string | number | undefined>) {
-  const query = new URLSearchParams();
+  const query = new URLSearchParams()
 
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== "") {
-      query.set(key, String(value));
+      query.set(key, String(value))
     }
-  });
+  })
 
-  return query.toString();
+  return query.toString()
 }
 
 function buildProviderListQuery(params: ProviderListQuery) {
@@ -246,54 +264,54 @@ function buildProviderListQuery(params: ProviderListQuery) {
     currency: params.currency,
     network: params.network,
     type: params.type,
-  });
+  })
 }
 
 function getStringValue(value: unknown): string | undefined {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  return undefined;
+  if (typeof value === "string" && value.trim()) return value.trim()
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  return undefined
 }
 
 function findNestedStringValue(
   data: unknown,
   keys: string[],
 ): string | undefined {
-  const directValue = getStringValue(data);
-  if (directValue && keys.includes("__self")) return directValue;
+  const directValue = getStringValue(data)
+  if (directValue && keys.includes("__self")) return directValue
 
-  const queue: unknown[] = [data];
-  const visited = new WeakSet<object>();
+  const queue: unknown[] = [data]
+  const visited = new WeakSet<object>()
 
   while (queue.length) {
-    const current = queue.shift();
-    if (!current || typeof current !== "object") continue;
-    if (visited.has(current)) continue;
-    visited.add(current);
+    const current = queue.shift()
+    if (!current || typeof current !== "object") continue
+    if (visited.has(current)) continue
+    visited.add(current)
 
-    const record = current as Record<string, unknown>;
+    const record = current as Record<string, unknown>
 
     for (const key of keys) {
-      const value = getStringValue(record[key]);
-      if (value) return value;
+      const value = getStringValue(record[key])
+      if (value) return value
     }
 
     Object.values(record).forEach((value) => {
       if (value && typeof value === "object") {
-        queue.push(value);
+        queue.push(value)
       }
-    });
+    })
   }
 
-  return undefined;
+  return undefined
 }
 
 function normalizeBankVerificationResponse(
   raw: unknown,
   fallback: {
-    accountNumber: string;
-    bankCode: string;
-    bankName?: string;
+    accountNumber: string
+    bankCode: string
+    bankName?: string
   },
 ): BankAccountData {
   const accountName =
@@ -312,7 +330,7 @@ function normalizeBankVerificationResponse(
       "verifiedName",
       "verified_name",
       "name",
-    ]) || "";
+    ]) || ""
 
   const accountNumber =
     findNestedStringValue(raw, [
@@ -321,7 +339,7 @@ function normalizeBankVerificationResponse(
       "accountIdentifier",
       "account_identifier",
       "number",
-    ]) || fallback.accountNumber;
+    ]) || fallback.accountNumber
 
   const bankName =
     findNestedStringValue(raw, [
@@ -332,7 +350,7 @@ function normalizeBankVerificationResponse(
       "institution",
     ]) ||
     fallback.bankName ||
-    "";
+    ""
 
   const bankCode =
     findNestedStringValue(raw, [
@@ -342,7 +360,7 @@ function normalizeBankVerificationResponse(
       "institutionCode",
       "institution_code",
       "code",
-    ]) || fallback.bankCode;
+    ]) || fallback.bankCode
 
   return {
     accountName,
@@ -351,11 +369,11 @@ function normalizeBankVerificationResponse(
     bankName,
     bankCode,
     raw,
-  };
+  }
 }
 
-const PROVIDER_REFERENCE_TTL = 5 * 60 * 1000;
-const BANK_DIRECTORY_TTL = 30 * 60 * 1000;
+const PROVIDER_REFERENCE_TTL = 5 * 60 * 1000
+const BANK_DIRECTORY_TTL = 30 * 60 * 1000
 
 /**
  * --- Provider Service ---
@@ -368,21 +386,23 @@ export const providerService = {
   listProviders: async (
     params: ProviderListQuery,
   ): Promise<ApiResponse<PaymentProvider[]>> => {
-    const query = buildProviderListQuery(params);
-    const endpoint = query ? `/api/providers?${query}` : "/api/providers";
+    const query = buildProviderListQuery(params)
+    const endpoint = query ? `/api/providers?${query}` : "/api/providers"
 
-    return getCachedApiResponse(
+    const response = await getCachedApiResponse(
       `providers:list:${query || "all"}`,
       PROVIDER_REFERENCE_TTL,
       async () => {
         const res = await fetch(endpoint, {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: getProviderRequestHeaders(),
           credentials: "include",
-        });
-        return handleResponse(res);
+        })
+        return handleResponse<PaymentProvider[]>(res)
       },
-    );
+    )
+    console.log("[providerService.listProviders] endpoint:", endpoint, "response:", response)
+    return response
   },
 
   /**
@@ -396,12 +416,12 @@ export const providerService = {
       async () => {
         const res = await fetch("/api/providers/fees", {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: getProviderRequestHeaders(),
           credentials: "include",
-        });
-        return handleResponse(res);
+        })
+        return handleResponse(res)
       },
-    );
+    )
   },
 
   /**
@@ -418,15 +438,15 @@ export const providerService = {
       currency: params.currency,
       network: params.network,
       side: params.side,
-    });
+    })
 
     const res = await fetch(`/api/providers/paycrest/rate?${query}`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: getProviderRequestHeaders(),
       credentials: "include",
       signal,
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
 
   /**
@@ -443,14 +463,14 @@ export const providerService = {
       currency: params.currency,
       network: params.network,
       side: params.side,
-    });
+    })
     const res = await fetch(`/api/providers/ramphub/quote?${query}`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: getProviderRequestHeaders(),
       credentials: "include",
       signal,
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
 
   /**
@@ -458,23 +478,21 @@ export const providerService = {
    * controller: getRamphubBanksHandler
    */
   getRamphubBanks: async (
-    provider: string,
+    provider?: string | null,
   ): Promise<ApiResponse<RamphubBank[]>> => {
-    return getCachedApiResponse(
-      `providers:ramphub:banks:${provider}`,
-      BANK_DIRECTORY_TTL,
-      async () => {
-        const res = await fetch(
-          `/api/providers/ramphub/banks?${buildQuery({ provider })}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-          },
-        );
-        return handleResponse(res);
-      },
-    );
+    const cacheKey = provider
+      ? `providers:ramphub:banks:${provider}`
+      : "providers:ramphub:banks:all"
+    const query = provider ? `?${buildQuery({ provider })}` : ""
+
+    return getCachedApiResponse(cacheKey, BANK_DIRECTORY_TTL, async () => {
+      const res = await fetch(`/api/providers/ramphub/banks${query}`, {
+        method: "GET",
+        headers: getProviderRequestHeaders(),
+        credentials: "include",
+      })
+      return handleResponse(res)
+    })
   },
 
   /**
@@ -486,11 +504,11 @@ export const providerService = {
   ): Promise<ApiResponse<BankAccountData>> => {
     const res = await fetch("/api/providers/ramphub/verify-account", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getProviderRequestHeaders(),
       credentials: "include",
       body: JSON.stringify(body),
-    });
-    const response = await handleResponse<unknown>(res);
+    })
+    const response = await handleResponse<unknown>(res)
     return {
       ...response,
       data: normalizeBankVerificationResponse(response.data, {
@@ -498,7 +516,7 @@ export const providerService = {
         bankCode: body.bankCode,
         bankName: body.bankName,
       }),
-    };
+    }
   },
 
   /**
@@ -511,12 +529,12 @@ export const providerService = {
   ): Promise<ApiResponse<CentiivQuoteResponse>> => {
     const res = await fetch("/api/providers/centiiv/quote", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getProviderRequestHeaders(),
       credentials: "include",
       body: JSON.stringify(body),
       signal,
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
 
   /**
@@ -531,8 +549,8 @@ export const providerService = {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(body),
-    });
-    const response = await handleResponse<unknown>(res);
+    })
+    const response = await handleResponse<unknown>(res)
     return {
       ...response,
       data: normalizeBankVerificationResponse(response.data, {
@@ -540,7 +558,7 @@ export const providerService = {
         bankCode: body.bankCode,
         bankName: body.bankName,
       }),
-    };
+    }
   },
 
   /**
@@ -556,10 +574,10 @@ export const providerService = {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-        });
-        return handleResponse(res);
+        })
+        return handleResponse(res)
       },
-    );
+    )
   },
 
   /**
@@ -569,7 +587,7 @@ export const providerService = {
   getPaycrestInstitutions: async (
     currency: string,
   ): Promise<ApiResponse<PaycrestInstitution[]>> => {
-    const normalizedCurrency = currency.toUpperCase();
+    const normalizedCurrency = currency.toUpperCase()
     return getCachedApiResponse(
       `providers:paycrest:institutions:${normalizedCurrency}`,
       BANK_DIRECTORY_TTL,
@@ -581,10 +599,10 @@ export const providerService = {
             headers: { "Content-Type": "application/json" },
             credentials: "include",
           },
-        );
-        return handleResponse(res);
+        )
+        return handleResponse(res)
       },
-    );
+    )
   },
 
   /**
@@ -599,8 +617,8 @@ export const providerService = {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(body),
-    });
-    const response = await handleResponse<unknown>(res);
+    })
+    const response = await handleResponse<unknown>(res)
     return {
       ...response,
       data: normalizeBankVerificationResponse(response.data, {
@@ -608,7 +626,7 @@ export const providerService = {
         bankCode: body.institution,
         bankName: body.bankName,
       }),
-    };
+    }
   },
 
   /**
@@ -620,8 +638,8 @@ export const providerService = {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
 
   /**
@@ -637,17 +655,17 @@ export const providerService = {
       orderId: params.orderId,
       page: params.page,
       pageSize: params.pageSize,
-    });
+    })
     const endpoint = query
       ? `/api/providers/paycrest/webhook-deliveries?${query}`
-      : "/api/providers/paycrest/webhook-deliveries";
+      : "/api/providers/paycrest/webhook-deliveries"
 
     const res = await fetch(endpoint, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-    });
-    return handleResponse(res);
+    })
+    return handleResponse(res)
   },
 
   /**
@@ -658,7 +676,7 @@ export const providerService = {
     id: string,
     sync = true,
   ): Promise<ApiResponse<PaycrestWebhookRetryResponse>> => {
-    const query = buildQuery({ sync: String(sync) });
+    const query = buildQuery({ sync: String(sync) })
     const res = await fetch(
       `/api/providers/paycrest/webhook-deliveries/${encodeURIComponent(id)}/retry?${query}`,
       {
@@ -666,7 +684,7 @@ export const providerService = {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
       },
-    );
-    return handleResponse(res);
+    )
+    return handleResponse(res)
   },
-};
+}

@@ -1,6 +1,6 @@
 import type { Transaction } from "@/types/db"
 import { transactionService } from "@/services/api/transactions"
-import { getTransactionHash } from "@/lib/dashboard-utils"
+import { getTransactionDisplayAmount, getTransactionHash } from "@/lib/dashboard-utils"
 
 export type TransactionNavigationOrigin = "flow"
 
@@ -50,12 +50,48 @@ export function findMatchingTransaction(
   if (targetHash) {
     const hashMatch = transactions.find((t) => {
       const h = getTransactionHash(t)?.toLowerCase()
-      return (
+      if (
         h &&
         (h === targetHash ||
           h.includes(targetHash) ||
           targetHash.includes(h))
-      )
+      ) {
+        return true
+      }
+      const uoh = t.userOpHash?.toLowerCase()
+      if (
+        uoh &&
+        (uoh === targetHash ||
+          uoh.includes(targetHash) ||
+          targetHash.includes(uoh))
+      ) {
+        return true
+      }
+      const ref = t.providerReference?.toLowerCase()
+      if (
+        ref &&
+        (ref === targetHash ||
+          ref.includes(targetHash) ||
+          targetHash.includes(ref))
+      ) {
+        return true
+      }
+      const meta = t.metadata as Record<string, unknown> | null
+      const metaHash = (
+        meta?.txHash ||
+        meta?.hash ||
+        meta?.transactionHash ||
+        meta?.userOpHash
+      )?.toString().toLowerCase()
+      if (
+        metaHash &&
+        (metaHash === targetHash ||
+          metaHash.includes(targetHash) ||
+          targetHash.includes(metaHash))
+      ) {
+        return true
+      }
+      return false
     })
     if (hashMatch) return hashMatch
   }
@@ -83,12 +119,12 @@ export function findMatchingTransaction(
     if (groupMatch) return groupMatch
   }
 
-  // 4. Recent transaction fallback (created within last 5 minutes)
-  const now = Date.now()
-  const recentCandidates = transactions.filter((t) => {
-    const age = now - new Date(t.createdAt).getTime()
-    return !Number.isNaN(age) && age >= 0 && age < 5 * 60 * 1000
-  })
+  // 4. Candidate matching
+  // Sort transactions descending by createdAt so the newest is first
+  const sorted = [...transactions].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )
 
   const types = params.type
     ? (Array.isArray(params.type) ? params.type : [params.type]).map((t) =>
@@ -99,30 +135,119 @@ export function findMatchingTransaction(
   const targetSymbol = params.symbol?.trim().toUpperCase()
   const targetAmountNum =
     params.amount !== undefined && params.amount !== null
-      ? Number(params.amount)
+      ? Math.abs(Number(params.amount))
       : null
 
-  const candidateMatches = recentCandidates.filter((t) => {
-    if (types && !types.includes(t.type.toUpperCase())) return false
-    if (targetSymbol && t.symbol.toUpperCase() !== targetSymbol) return false
-    if (targetAmountNum !== null && Number.isFinite(targetAmountNum)) {
-      const tAmountNum = Number(t.amount)
-      if (
-        Number.isFinite(tAmountNum) &&
-        Math.abs(tAmountNum - targetAmountNum) > 0.0001
-      ) {
+  const now = Date.now()
+
+  // Find candidate matches within recent window (15 mins, allowing 5 mins clock skew into future)
+  const candidateMatches = sorted.filter((t) => {
+    const txTime = new Date(t.createdAt).getTime()
+    if (!Number.isNaN(txTime)) {
+      const diff = now - txTime
+      if (diff > 15 * 60 * 1000 || diff < -5 * 60 * 1000) {
         return false
       }
     }
+
+    if (types) {
+      const matchesType = types.some((expectedType) => {
+        const tType = t.type?.toUpperCase()
+        if (tType === expectedType) return true
+        if (
+          expectedType === "TRANSFER_OUT" &&
+          ["TRANSFER", "SEND", "TRANSFER_OUT", "TRANSFER_PAYMENT"].includes(
+            tType,
+          )
+        ) {
+          return true
+        }
+        if (
+          expectedType === "BRIDGE" &&
+          ["BRIDGE", "SWAP", "CROSS_CHAIN"].includes(tType)
+        ) {
+          return true
+        }
+        if (
+          expectedType === "SWAP" &&
+          ["SWAP", "TRANSFER_OUT"].includes(tType)
+        ) {
+          return true
+        }
+        return false
+      })
+      if (!matchesType) return false
+    }
+
+    if (targetSymbol && t.symbol) {
+      const tSym = t.symbol.toUpperCase()
+      if (!tSym.includes(targetSymbol) && !targetSymbol.includes(tSym)) {
+        return false
+      }
+    }
+
+    if (targetAmountNum !== null && Number.isFinite(targetAmountNum)) {
+      const rawNum = Number(t.amount)
+      const displayNum = getTransactionDisplayAmount(t)
+      const absAmount = Math.abs(
+        Number.isFinite(displayNum) && displayNum !== null
+          ? displayNum
+          : rawNum,
+      )
+
+      if (Number.isFinite(absAmount)) {
+        const diff = Math.abs(absAmount - targetAmountNum)
+        const threshold = Math.max(0.001, targetAmountNum * 0.02)
+        if (diff > threshold) {
+          return false
+        }
+      }
+    }
+
     return true
   })
 
   if (candidateMatches.length > 0) {
-    candidateMatches.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
     return candidateMatches[0]
+  }
+
+  // 5. Ultimate fallback for immediate flow matching (created within last 3 minutes)
+  if (types) {
+    const looseMatch = sorted.find((t) => {
+      const txTime = new Date(t.createdAt).getTime()
+      if (!Number.isNaN(txTime)) {
+        const diff = now - txTime
+        if (diff > 3 * 60 * 1000 || diff < -5 * 60 * 1000) {
+          return false
+        }
+      }
+      const tType = t.type?.toUpperCase()
+      const matchesType = types.some((expectedType) => {
+        if (tType === expectedType) return true
+        if (
+          expectedType === "TRANSFER_OUT" &&
+          ["TRANSFER", "SEND", "TRANSFER_OUT"].includes(tType)
+        ) {
+          return true
+        }
+        if (
+          expectedType === "BRIDGE" &&
+          ["BRIDGE", "SWAP"].includes(tType)
+        ) {
+          return true
+        }
+        return false
+      })
+      if (!matchesType) return false
+      if (targetSymbol && t.symbol) {
+        const tSym = t.symbol.toUpperCase()
+        if (!tSym.includes(targetSymbol) && !targetSymbol.includes(tSym)) {
+          return false
+        }
+      }
+      return true
+    })
+    if (looseMatch) return looseMatch
   }
 
   return null
@@ -135,7 +260,7 @@ export async function resolveFlowTransactionId(
     return params.transactionId
   }
 
-  const maxAttempts = params.maxAttempts ?? 3
+  const maxAttempts = params.maxAttempts ?? 6
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {

@@ -1066,6 +1066,7 @@ export default function WithdrawFlow({
               selectedBank={selectedBank}
               savedBanks={savedBanks}
               providerName={selectedProvider?.name || null}
+              routeProvider={selectedProviderRate?.routeProvider || null}
               selectedProviderBank={selectedProviderBank}
               onSelectSavedBank={(bank) => setBankId(bank.id)}
               onSelectProviderBank={setSelectedProviderBank}

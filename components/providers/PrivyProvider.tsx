@@ -49,6 +49,10 @@ export default function MyPrivyProvider({
             },
           },
         },
+        legal: {
+          termsAndConditionsUrl: "https://kellon.xyz/terms-of-use",
+          privacyPolicyUrl: "https://kellon.xyz/privacy-policy",
+        },
       }}
     >
       {children}

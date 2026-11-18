@@ -15,7 +15,7 @@ import {
   getCurrencySymbol,
   getCurrencyDecimals,
 } from "@/lib/country-currency-map";
-import { getChainById } from "@/lib/chains";
+import { getChainById, getActiveChainKey } from "@/lib/chains";
 import { MIN_STABLECOIN_AMOUNT } from "@/lib/stablecoin-amounts";
 import { getTransactionDetailsPath } from "@/lib/transaction-navigation";
 import { ACTIVE_PAYMENT_RAIL, getPaymentRailConfig } from "@/lib/payment-rails";
@@ -24,6 +24,7 @@ import { KycDialog } from "@/components/kyc/KycDialog";
 import { kycRequiredFrom } from "@/services/api/kyc";
 import { SUPPORTED_RAMP_COUNTRIES } from "@/lib/supported-countries";
 import { useExchangeRate } from "@/hooks/use-exchange-rate";
+import { useUser } from "@/hooks/use-user";
 import { useProviders } from "@/hooks/use-provider";
 import { useProviderRates } from "@/hooks/use-provider-rates";
 import { bankService } from "@/services/api/bank";
@@ -55,6 +56,7 @@ type ProviderRateSnapshot = {
   cryptoAmount: number | null;
   fiatAmount: number | null;
   rawRate: number | null;
+  routeProvider?: string;
 };
 
 function getOnrampReferenceCandidates(
@@ -177,6 +179,7 @@ export default function BuyCryptoFlow({
     setBankId,
     setStep,
   } = useBuyCryptoState();
+  const { data: profile } = useUser();
 
   // Local UI state
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
@@ -356,6 +359,7 @@ export default function BuyCryptoFlow({
           cryptoAmount: rateDetails.cryptoAmount,
           fiatAmount: rateDetails.fiatAmount,
           rawRate: rateDetails.rawRate,
+          routeProvider: rateDetails.routeProvider,
         };
         hasChanges = true;
       });
@@ -462,6 +466,16 @@ export default function BuyCryptoFlow({
     try {
       const chainBlocked = chainStatus.blockedMessage(networkName, "in");
       if (chainBlocked) throw new Error(chainBlocked);
+      const targetChainKey =
+        getActiveChainKey(networkName) || networkName?.toLowerCase();
+      const account = profile?.chainAccounts?.find(
+        (a) =>
+          a.chain?.toLowerCase() === targetChainKey ||
+          a.chain?.toLowerCase() === networkName?.toLowerCase(),
+      );
+      const walletAddress =
+        account?.smartAccountAddress || account?.publicKey || undefined;
+
       const payload: OnrampInitRequest = {
         fiatAmount: fiatAmountNum,
         fiatCurrency,
@@ -469,12 +483,13 @@ export default function BuyCryptoFlow({
         cryptocurrency: asset,
         asset,
         token: asset,
-        chain: networkName,
+        chain: targetChainKey || networkName,
         network: networkName,
         rate: selectedProviderRawRate,
         paymentMethod,
         providerId: selectedProvider.id,
         source: "web",
+        walletAddress,
       };
 
       if (selectedBank) {
@@ -793,6 +808,7 @@ export default function BuyCryptoFlow({
             selectedBank={selectedBank}
             savedBanks={savedBanks}
             selectedProviderName={selectedProvider?.name || null}
+            routeProvider={selectedProviderRate?.routeProvider || null}
             selectedProviderBank={selectedProviderBank}
             onSelectProviderBank={(bank) => {
               setSelectedProviderBank(bank);
@@ -854,6 +870,7 @@ export default function BuyCryptoFlow({
         onClose={() => setIsBankModalOpen(false)}
         currency={fiatCurrency}
         providerName={selectedProvider?.name || null}
+        routeProvider={selectedProviderRate?.routeProvider || null}
         selectedBankCode={selectedProviderBank?.value || null}
         onSelectBank={(bank) => {
           setSelectedProviderBank(bank);

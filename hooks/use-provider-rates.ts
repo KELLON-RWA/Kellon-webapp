@@ -1,5 +1,6 @@
 // hooks/use-provider-rates.ts
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getActiveChainKey } from "@/lib/chains";
 import { providerService } from "@/services/api/payment-providers";
 
 interface ProviderRateDetails {
@@ -99,7 +100,13 @@ export function useProviderRates({
             let fee: number | string | null = null;
             let feeCurrency: string | undefined;
 
-            if (provider.name.toLowerCase() === "paycrest") {
+            const providerKey = (provider.name || "").toLowerCase().replace(/[\s_-]+/g, "");
+            const providerId = (provider.id || "").toLowerCase();
+            const isPaycrest = providerKey.includes("paycrest") || providerId.includes("paycrest");
+            const isRamphub = providerKey.includes("ramphub") || providerId.includes("ramphub");
+            const isCentiiv = providerKey.includes("centiiv") || providerId.includes("centiiv");
+
+            if (isPaycrest) {
               // Paycrest's amount parameter is denominated in the token, while
               // the buy flow amount is fiat. Fetch a one-token base rate and
               // calculate the user's fiat quote locally, as the mobile app does.
@@ -114,6 +121,8 @@ export function useProviderRates({
                 },
                 abortController.signal,
               );
+
+              console.log("[useProviderRates] Paycrest rate response:", res);
 
               const paycrestRate =
                 parseNumber(res.data?.rate) ??
@@ -149,40 +158,82 @@ export function useProviderRates({
                   }
                 }
               }
-            } else if (provider.name.toLowerCase() === "ramphub") {
+            } else if (isRamphub) {
+              const cleanNetwork = (
+                getActiveChainKey(networkName) ||
+                networkName ||
+                ""
+              ).toLowerCase();
               const res = await providerService.getRamphubQuote(
                 {
                   token: asset,
                   amount,
                   currency,
-                  network: networkName,
+                  network: cleanNetwork,
                   side,
                 },
                 abortController.signal,
               );
-              if (res.success && res.data?.available) {
-                quoteId = res.data.quoteId;
-                expiresAt = res.data.expiresAt;
-                maxCryptoDebit = res.data.maxCryptoDebit;
-                routeProvider = res.data.provider;
-                rawRate = parseNumber(res.data.rate);
+
+              console.log("[useProviderRates] Ramphub quote response:", res);
+
+              const rawPayload = res.data as unknown as Record<string, unknown> | undefined;
+              const quoteData = (
+                rawPayload?.data && typeof rawPayload.data === "object"
+                  ? { ...rawPayload, ...(rawPayload.data as Record<string, unknown>) }
+                  : rawPayload
+              ) as Record<string, unknown> | undefined;
+
+              const isRejected = quoteData?.available === false;
+              if (res.success && quoteData && !isRejected) {
+                quoteId = (quoteData.quoteId as string) || (quoteData.id as string) || undefined;
+                expiresAt = quoteData.expiresAt as string | undefined;
+                maxCryptoDebit = quoteData.maxCryptoDebit as string | undefined;
+                routeProvider = (quoteData.provider as string) || (quoteData.routeProvider as string) || undefined;
+
+                const extractedRate =
+                  parseNumber(quoteData.rate) ??
+                  parseNumber(quoteData.price) ??
+                  parseNumber(quoteData.exchangeRate) ??
+                  parseNumber(quoteData.unitRate);
+
+                rawRate = extractedRate;
+
                 fee =
-                  parseNumber((res.data as unknown as Record<string, unknown>)?.fees) ??
-                  parseNumber((res.data as unknown as Record<string, unknown>)?.fee) ??
+                  parseNumber(quoteData.fees) ??
+                  parseNumber(quoteData.fee) ??
                   null;
+                feeCurrency = quoteData.feeCurrency as string | undefined;
+
+                const recAmount =
+                  parseNumber(quoteData.receiveAmount) ??
+                  parseNumber(quoteData.receivedAmount) ??
+                  parseNumber(quoteData.cryptoAmount) ??
+                  parseNumber(quoteData.destinationAmount);
+
+                const fAmount =
+                  parseNumber(quoteData.fiatAmount) ??
+                  parseNumber(quoteData.amount) ??
+                  parseNumber(quoteData.sourceAmount);
+
                 if (side === "sell") {
                   cryptoAmount = amount;
                   fiatAmount =
-                    parseNumber(res.data.receiveAmount) ??
-                    parseNumber(res.data.fiatAmount);
+                    recAmount ??
+                    fAmount ??
+                    (rawRate && rawRate > 0 ? amount * rawRate : null);
                 } else {
                   cryptoAmount =
-                    parseNumber(res.data.receiveAmount) ??
+                    recAmount ??
                     (rawRate && rawRate > 0 ? amount / rawRate : null);
-                  fiatAmount = parseNumber(res.data.fiatAmount) ?? amount;
+                  fiatAmount = fAmount ?? amount;
+                }
+
+                if (!rawRate && cryptoAmount && cryptoAmount > 0 && fiatAmount && fiatAmount > 0) {
+                  rawRate = fiatAmount / cryptoAmount;
                 }
               }
-            } else if (provider.name.toLowerCase() === "centiiv") {
+            } else if (isCentiiv) {
               const res = await providerService.getCentiivQuote(
                 {
                   fromAsset: side === "sell" ? asset : currency,
@@ -192,6 +243,8 @@ export function useProviderRates({
                 },
                 abortController.signal,
               );
+
+              console.log("[useProviderRates] Centiiv quote response:", res);
 
               quoteId = res.data?.quoteId;
               expiresAt = res.data?.expiresAt;

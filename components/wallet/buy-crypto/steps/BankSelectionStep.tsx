@@ -31,6 +31,7 @@ interface BuyBankSelectionStepProps {
   selectedBank: BankDetail | null;
   savedBanks: BankDetail[];
   selectedProviderName?: string | null;
+  routeProvider?: string | null;
   selectedProviderBank: SelectableBank | null;
   onSelectProviderBank: (bank: SelectableBank | null) => void;
   onSelectSavedBank: (bank: BankDetail) => void;
@@ -48,6 +49,7 @@ export function BuyBankSelectionStep({
   selectedBank,
   savedBanks,
   selectedProviderName,
+  routeProvider,
   selectedProviderBank,
   onSelectProviderBank,
   onSelectSavedBank,
@@ -71,6 +73,7 @@ export function BuyBankSelectionStep({
   const lastVerificationKeyRef = useRef("");
   const providerKey = selectedProviderName?.toLowerCase() || "";
   const isPaycrest = providerKey === "paycrest";
+  const isRamphub = providerKey === "ramphub";
 
   useEffect(() => {
     setAccountNumber("");
@@ -104,7 +107,35 @@ export function BuyBankSelectionStep({
       setVerificationError("");
 
       try {
-        if (isPaycrest) {
+        if (isRamphub) {
+          const response = await providerService.verifyRamphubAccount({
+            bankCode: selectedProviderBank.value,
+            accountNumber,
+            bankName: selectedProviderBank.label,
+            provider: routeProvider || undefined,
+            save: false,
+          });
+
+          if (cancelled) return;
+
+          const accountName = response.data.accountName;
+          if (!accountName) {
+            setVerificationError(
+              "Account verified, but the provider did not return an account name.",
+            );
+            return;
+          }
+
+          setVerifiedAccount({
+            id: `ramphub:${selectedProviderBank.value}:${accountNumber}`,
+            bankName: response.data.bankName || selectedProviderBank.label,
+            bankCode: response.data.bankCode || selectedProviderBank.value,
+            accountNumber: response.data.accountNumber || accountNumber,
+            accountName,
+            country: payoutCountry,
+            provider: "ramphub",
+          });
+        } else if (isPaycrest) {
           const response = await providerService.verifyPaycrestAccount({
             institution: selectedProviderBank.value,
             accountIdentifier: accountNumber,
@@ -190,6 +221,8 @@ export function BuyBankSelectionStep({
     fiatCurrency,
     payoutCountry,
     isPaycrest,
+    isRamphub,
+    routeProvider,
     selectedProviderBank,
     accountRule,
   ]);

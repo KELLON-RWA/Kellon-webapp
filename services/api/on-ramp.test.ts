@@ -76,6 +76,35 @@ describe("on-ramp transfer instructions", () => {
     });
   });
 
+  it("normalizes Ramphub bank transfer instructions into providerAccount", () => {
+    const response: OnrampResponse = {
+      provider: "ramphub",
+      status: "PENDING",
+      paymentInstructions: {
+        bankName: "Providus Bank",
+        accountNumber: "9988776655",
+        accountName: "Kellon Ramphub Settlement",
+        amountToTransfer: "50000",
+        currency: "NGN",
+        reference: "RAMP-9988",
+        expiresAt: "2026-12-01T12:00:00.000Z",
+      },
+    };
+
+    expect(normalizeOnrampTransferInstructions(response, "NGN")).toEqual({
+      ...response,
+      providerAccount: {
+        institution: "Providus Bank",
+        accountIdentifier: "9988776655",
+        accountName: "Kellon Ramphub Settlement",
+        amountToTransfer: "50000",
+        currency: "NGN",
+        reference: "RAMP-9988",
+        validUntil: "2026-12-01T12:00:00.000Z",
+      },
+    });
+  });
+
   it("finds the Centiiv order and backend transaction polling references", () => {
     expect(
       getCentiivPollingReferences({

@@ -75,7 +75,7 @@ describe("transaction detail navigation", () => {
       id: "11111111-2222-3333-4444-555555555555",
       type: "TRANSFER_OUT",
       symbol: "USDC",
-      amount: 2.734881,
+      amount: -2.734881, // Negative amount as stored by debits / transfer-out
       createdAt: new Date(Date.now() - 5000), // 5 seconds ago
     } as unknown as Transaction
 
@@ -85,6 +85,39 @@ describe("transaction detail navigation", () => {
       amount: 2.734881,
     })
     expect(match?.id).toBe("11111111-2222-3333-4444-555555555555")
+  })
+
+  it("finds matching transaction even with minor clock skew ahead", () => {
+    const mockTx = {
+      id: "22222222-3333-4444-5555-666666666666",
+      type: "TRANSFER",
+      symbol: "USDC",
+      amount: "-2.734881",
+      createdAt: new Date(Date.now() + 2000), // Server timestamp 2 seconds ahead
+    } as unknown as Transaction
+
+    const match = findMatchingTransaction([mockTx], {
+      type: "TRANSFER_OUT",
+      symbol: "USDC",
+      amount: 2.734881,
+    })
+    expect(match?.id).toBe("22222222-3333-4444-5555-666666666666")
+  })
+
+  it("finds matching transaction by userOpHash", () => {
+    const mockTx = {
+      id: "33333333-4444-5555-6666-777777777777",
+      type: "TRANSFER_OUT",
+      symbol: "USDC",
+      amount: "2.734881",
+      createdAt: new Date(),
+      userOpHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    } as unknown as Transaction
+
+    const match = findMatchingTransaction([mockTx], {
+      txHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    })
+    expect(match?.id).toBe("33333333-4444-5555-6666-777777777777")
   })
 
   it("resolves direct valid transaction ID without querying API", async () => {

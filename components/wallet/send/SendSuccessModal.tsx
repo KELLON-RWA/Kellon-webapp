@@ -28,7 +28,7 @@ interface SendSuccessModalProps {
   open: boolean;
   state: SendSuccessState | null;
   onDone: () => void;
-  onViewTransactions: () => void;
+  onViewTransactions: () => void | Promise<void>;
 }
 
 export default function SendSuccessModal({
@@ -59,10 +59,14 @@ export default function SendSuccessModal({
     onDone();
   };
 
-  const handleViewTransactionsClick = () => {
+  const handleViewTransactionsClick = async () => {
     if (isNavigating) return;
     setIsNavigating("transactions");
-    onViewTransactions();
+    try {
+      await onViewTransactions();
+    } catch {
+      setIsNavigating(null);
+    }
   };
 
   return (
@@ -148,7 +152,7 @@ export default function SendSuccessModal({
             {isNavigating === "transactions" ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-primary-60" />
-                <span>Opening transactions...</span>
+                <span>Opening transaction...</span>
               </>
             ) : (
               <>

@@ -19,6 +19,9 @@ export interface OnrampInitRequest {
   paymentMethod?: string;
   providerId?: string;
   source?: "web" | "mobile";
+  walletAddress?: string;
+  reference?: string;
+  narration?: string;
   bankId?: string;
   bankAccountId?: string;
   refundBankId?: string;
@@ -131,12 +134,21 @@ export function extractOnrampTransferInstructions(
     getRecord(root, "depositInstructions"),
     getRecord(root, "virtualAccount"),
     getRecord(root, "bankAccount"),
+    getRecord(root, "bankDetails"),
     getRecord(root, "account"),
     getRecord(root, "temporaryWallet"),
+    getRecord(root, "data"),
     getRecord(raw, "temporaryWallet"),
     getRecord(raw, "virtualAccount"),
+    getRecord(raw, "paymentDetails"),
+    getRecord(raw, "paymentInstructions"),
+    getRecord(raw, "bankDetails"),
+    getRecord(raw, "account"),
+    getRecord(raw, "data"),
     getRecord(centiivResponse, "temporaryWallet"),
     getRecord(metadata, "paymentInstructions"),
+    getRecord(metadata, "ramphubResponse"),
+    getRecord(raw, "ramphubResponse"),
   ].filter((candidate): candidate is Record<string, unknown> => !!candidate);
 
   for (const candidate of candidates) {
@@ -145,12 +157,17 @@ export function extractOnrampTransferInstructions(
       "accountNumber",
       "account_number",
       "virtualAccountNumber",
+      "account",
+      "account_no",
     ]);
     const institution = getFirstValue(candidate, [
       "institution",
       "bankName",
       "bank_name",
       "virtualBankName",
+      "bank",
+      "institutionName",
+      "institution_name",
     ]);
 
     if (!accountIdentifier || !institution) continue;
@@ -164,22 +181,35 @@ export function extractOnrampTransferInstructions(
           "account_name",
           "virtualAccountName",
           "beneficiaryName",
+          "beneficiary_name",
+          "accountTitle",
+          "name",
         ]) || "Kellon App",
       amountToTransfer:
         getFirstValue(candidate, [
           "amountToTransfer",
           "amount",
           "fiatAmount",
+          "fiat_amount",
+          "expectedAmount",
         ]) || String(fallbackAmount || ""),
       currency:
-        getFirstValue(candidate, ["currency", "fiatCurrency"]) ||
+        getFirstValue(candidate, ["currency", "fiatCurrency", "fiat_currency"]) ||
         fallbackCurrency,
       validUntil: getFirstValue(candidate, [
         "validUntil",
         "expiresAt",
         "expires_at",
+        "expiryDate",
+        "expiry",
       ]),
-      reference: getFirstValue(candidate, ["reference", "narration"]),
+      reference: getFirstValue(candidate, [
+        "reference",
+        "narration",
+        "memo",
+        "paymentReference",
+        "payment_reference",
+      ]),
     };
   }
 

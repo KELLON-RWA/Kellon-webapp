@@ -48,17 +48,17 @@ function hasUsableProviderRate(
 ) {
   if (mode === "buy") {
     return Boolean(
-      rateDetails?.rawRate &&
-        rateDetails.rawRate > 0 &&
-        rateDetails.cryptoAmount &&
-        rateDetails.cryptoAmount > 0,
+      rateDetails?.cryptoAmount &&
+        rateDetails.cryptoAmount > 0 &&
+        ((rateDetails.rawRate && rateDetails.rawRate > 0) ||
+          (rateDetails.fiatAmount && rateDetails.fiatAmount > 0)),
     );
   }
   return Boolean(
-    rateDetails?.rawRate &&
-      rateDetails.rawRate > 0 &&
-      rateDetails.fiatAmount &&
-      rateDetails.fiatAmount > 0,
+    rateDetails?.fiatAmount &&
+      rateDetails.fiatAmount > 0 &&
+      ((rateDetails.rawRate && rateDetails.rawRate > 0) ||
+        (rateDetails.cryptoAmount && rateDetails.cryptoAmount > 0)),
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { FC, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   usePrivy,
   useLoginWithEmail,
@@ -23,6 +24,11 @@ interface ContinueProps {
 }
 
 const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
+  const searchParams = useSearchParams();
+  const initialMode =
+    searchParams?.get("mode") === "login" ? "login" : "signup";
+  const [authMode, setAuthMode] = useState<"signup" | "login">(initialMode);
+
   const [isSyncing, setIsSyncing] = useState(false);
 
   const hasSynced = useRef(false);
@@ -36,6 +42,8 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
   const [code, setCode] = useState("");
   const [emailError, setEmailError] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
 
   const { identityToken } = useIdentityToken();
 
@@ -66,6 +74,10 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
   }, [ready, authenticated, identityToken, onSuccessRedirect]);
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
+    if (authMode === "signup" && !termsAccepted) {
+      setTermsError(true);
+      return;
+    }
     try {
       await initOAuth({ provider });
     } catch (err) {
@@ -76,6 +88,10 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
   const handleSendCode = async (event: React.FormEvent) => {
     event.preventDefault();
     setEmailError("");
+    if (authMode === "signup" && !termsAccepted) {
+      setTermsError(true);
+      return;
+    }
     const address = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
       setEmailError("Enter a valid email address.");
@@ -122,7 +138,7 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
           <Card className="overflow-hidden rounded-[40px] border-0 shadow-none lg:border bg:border-white/60 dark:border-secondary-60 bg-transparent lg:bg-white/90 lg:dark:bg-secondary-60 lg:shadow-[0_20px_80px_rgba(0,0,0,0.06)] backdrop-blur-xl lg:max-w-md lg:mx-auto">
             <CardContent className="p-6 sm:p-8 md:p-12">
               {/* Mobile Logo */}
-              <div className="mb-10 flex justify-center">
+              <div className="mb-6 flex justify-center">
                 <div className="flex items-center gap-3">
                   <Icons.Logo aria-hidden="true" className="h-11 w-11" />
 
@@ -132,20 +148,113 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                 </div>
               </div>
 
-              {/* Heading */}
+              {/* Segmented Auth Mode Switcher */}
+              <div className="mb-8 grid grid-cols-2 rounded-2xl bg-neutral-100 p-1.5 dark:bg-secondary-70">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setEmailError("");
+                    setCodeSent(false);
+                    setCode("");
+                  }}
+                  className={cn(
+                    "rounded-xl py-2.5 text-sm font-semibold transition-all cursor-pointer",
+                    authMode === "signup"
+                      ? "bg-white text-cryptoNight shadow-sm dark:bg-secondary-50 dark:text-white"
+                      : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white",
+                  )}
+                >
+                  Create account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setEmailError("");
+                    setCodeSent(false);
+                    setCode("");
+                  }}
+                  className={cn(
+                    "rounded-xl py-2.5 text-sm font-semibold transition-all cursor-pointer",
+                    authMode === "login"
+                      ? "bg-white text-cryptoNight shadow-sm dark:bg-secondary-50 dark:text-white"
+                      : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white",
+                  )}
+                >
+                  Log in
+                </button>
+              </div>
 
-              <div className="mb-10 space-y-4 text-center">
-                <h1 className="font-bold text-4xl text-cryptoNight dark:text-white max-w-[340px] mx-auto md:max-w-none md:text-5xl">
-                  Get started in seconds
+              {/* Heading */}
+              <div className="mb-8 space-y-2 text-center">
+                <h1 className="font-bold text-3xl text-cryptoNight dark:text-white max-w-[340px] mx-auto md:max-w-none md:text-4xl">
+                  {authMode === "signup"
+                    ? "Create your account"
+                    : "Welcome back"}
                 </h1>
 
-                <p className="mx-auto max-w-[340px] text-[15px] leading-relaxed text-gray-400 dark:text-gray-100">
-                  you&apos;re one step away
+                <p className="mx-auto max-w-[340px] text-[14px] leading-relaxed text-gray-400 dark:text-gray-300">
+                  {authMode === "signup"
+                    ? "Get started with your borderless wallet in seconds"
+                    : "Log in to access your borderless wallet"}
                 </p>
               </div>
 
               {/* CTA */}
               <div className="space-y-5">
+                {/* Explicit Agreement Checkbox for Sign Up */}
+                {authMode === "signup" && !codeSent ? (
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-3.5 transition-colors",
+                      termsError
+                        ? "border-red-500/50 bg-red-500/5 dark:border-red-500/50 dark:bg-red-500/10"
+                        : "border-black/5 bg-gray-50/70 dark:border-white/10 dark:bg-secondary-70/50",
+                    )}
+                  >
+                    <label className="flex items-start gap-3 text-xs text-gray-500 dark:text-gray-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(event) => {
+                          setTermsAccepted(event.target.checked);
+                          if (event.target.checked) setTermsError(false);
+                        }}
+                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 accent-primary-60 cursor-pointer"
+                      />
+                      <span className="leading-relaxed">
+                        I agree to Kellon&apos;s{" "}
+                        <a
+                          href="https://kellon.xyz/terms-of-use"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-cryptoNight underline hover:text-primary-60 dark:text-white"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Terms of Use
+                        </a>{" "}
+                        and acknowledge the{" "}
+                        <a
+                          href="https://kellon.xyz/privacy-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-cryptoNight underline hover:text-primary-60 dark:text-white"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Privacy Policy
+                        </a>
+                        .
+                      </span>
+                    </label>
+                    {termsError ? (
+                      <p className="mt-2 text-xs font-medium text-red-500 animate-in fade-in">
+                        Please agree to the Terms of Use and Privacy Policy to continue.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <Button
                   type="button"
                   onClick={() => handleOAuthLogin("google")}
@@ -164,7 +273,9 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                   )}
 
                   <span className="ml-3 text-[15px] font-semibold ">
-                    Continue with Google
+                    {authMode === "signup"
+                      ? "Sign up with Google"
+                      : "Log in with Google"}
                   </span>
                 </Button>
 
@@ -203,8 +314,10 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                     >
                       {emailState.status === "submitting-code" || isSyncing ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : authMode === "signup" ? (
+                        "Verify and create account"
                       ) : (
-                        "Verify and continue"
+                        "Verify and log in"
                       )}
                     </Button>
                     <div className="flex items-center justify-between text-xs">
@@ -258,7 +371,9 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                         <Mail className="h-5 w-5" />
                       )}
                       <span className="ml-3 text-[15px] font-semibold">
-                        Continue with email
+                        {authMode === "signup"
+                          ? "Sign up with email"
+                          : "Log in with email"}
                       </span>
                     </Button>
                   </form>
@@ -273,15 +388,71 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                 <p className="text-center text-xs leading-relaxed text-gray-400 dark:text-gray-100">
                   Fast onboarding. No complicated setup.
                 </p>
+
+                {/* Bottom Switcher */}
+                <div className="pt-2 text-center text-xs">
+                  {authMode === "signup" ? (
+                    <p className="text-gray-500 dark:text-gray-300">
+                      Already have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode("login");
+                          setEmailError("");
+                          setCodeSent(false);
+                          setCode("");
+                        }}
+                        className="font-semibold text-primary-60 hover:underline cursor-pointer"
+                      >
+                        Log in
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-300">
+                      Don&apos;t have an account yet?{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode("signup");
+                          setEmailError("");
+                          setCodeSent(false);
+                          setCode("");
+                        }}
+                        className="font-semibold text-primary-60 hover:underline cursor-pointer"
+                      >
+                        Create an account
+                      </button>
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Footer */}
-              <div className="mt-10 border-t border-neutral-100 dark:border-gray-500 pt-6">
-                <p className="text-center text-xs leading-relaxed text-gray-400 dark:text-gray-100">
-                  By continuing, you agree to Kellon&apos;s Terms and Privacy
-                  Policy.
-                </p>
-              </div>
+              {/* Footer (Only for Log in; Sign up has the explicit checkbox above) */}
+              {authMode === "login" ? (
+                <div className="mt-8 border-t border-neutral-100 dark:border-gray-500 pt-6">
+                  <p className="text-center text-xs leading-relaxed text-gray-400 dark:text-gray-100">
+                    By logging in, you agree to Kellon&apos;s{" "}
+                    <a
+                      href="https://kellon.xyz/terms-of-use"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-cryptoNight dark:hover:text-white transition-colors"
+                    >
+                      Terms of Use
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="https://kellon.xyz/privacy-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-cryptoNight dark:hover:text-white transition-colors"
+                    >
+                      Privacy Policy
+                    </a>
+                    .
+                  </p>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>

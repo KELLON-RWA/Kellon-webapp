@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Loader2 } from "lucide-react";
 import AddFundsModal from "@/components/modals/AddFundsModal";
 import BridgeFundingOverlay, {
@@ -99,6 +100,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
     verifyRecipient,
   } = useSendFlow(activeProfile);
 
+  const queryClient = useQueryClient();
   const [resolvedTransactionId, setResolvedTransactionId] = useState<string | null>(null);
 
   const hasTransferred = Boolean(successState);
@@ -109,13 +111,16 @@ export default function SendFlow({ profile }: SendFlowProps) {
       return;
     }
 
+    void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+
     let isMounted = true;
     void resolveFlowTransactionId({
       transactionId: successState.transactionId,
       txHash: successState.txHash,
-      type: TransactionType.TRANSFER_OUT,
+      type: [TransactionType.TRANSFER_OUT, "TRANSFER", "SEND"],
       symbol: successState.symbol,
       amount: successState.amount,
+      maxAttempts: 6,
     }).then((id) => {
       if (isMounted && id) {
         setResolvedTransactionId(id);
@@ -126,7 +131,7 @@ export default function SendFlow({ profile }: SendFlowProps) {
     return () => {
       isMounted = false;
     };
-  }, [successState, router]);
+  }, [successState, router, queryClient]);
 
   const handleSuccessDone = () => {
     // Keep modal visible over the review step while Next.js routes home
@@ -141,10 +146,10 @@ export default function SendFlow({ profile }: SendFlowProps) {
       targetId = await resolveFlowTransactionId({
         transactionId: successState.transactionId,
         txHash: successState.txHash,
-        type: TransactionType.TRANSFER_OUT,
+        type: [TransactionType.TRANSFER_OUT, "TRANSFER", "SEND"],
         symbol: successState.symbol,
         amount: successState.amount,
-        maxAttempts: 2,
+        maxAttempts: 5,
       });
     }
 

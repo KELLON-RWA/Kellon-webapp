@@ -99,11 +99,9 @@ export default function SelectBankModal({
       setIsLoadingBanks(true);
       try {
         if (isRamphub) {
-          if (!routeProvider) {
-            setBankOptions([]);
-            return;
-          }
-          const response = await providerService.getRamphubBanks(routeProvider);
+          const response = await providerService.getRamphubBanks(
+            routeProvider || undefined,
+          );
           if (cancelled) return;
           setBankOptions(
             (response.data || []).map((bank) => ({

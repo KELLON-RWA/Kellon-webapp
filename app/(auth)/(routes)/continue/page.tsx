@@ -1,5 +1,5 @@
 import Continue from "@/components/auth/Continue";
-import { FC } from "react";
+import { FC, Suspense } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -12,7 +12,9 @@ export const metadata: Metadata = {
 const page: FC = ({}) => {
   return (
     <main id="main-content" tabIndex={-1}>
-      <Continue />
+      <Suspense fallback={null}>
+        <Continue />
+      </Suspense>
     </main>
   );
 };

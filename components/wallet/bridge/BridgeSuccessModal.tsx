@@ -44,7 +44,7 @@ export interface ConvertSuccessState {
 interface BridgeSuccessModalProps {
   open: boolean;
   state: ConvertSuccessState | null;
-  onViewTransactions: () => void;
+  onViewTransactions: () => void | Promise<void>;
   onDone: () => void;
   onDismiss: () => void;
 }
@@ -119,10 +119,14 @@ export default function BridgeSuccessModal({
     }
   }, [open]);
 
-  const handleViewTransactionsClick = () => {
+  const handleViewTransactionsClick = async () => {
     if (isNavigating) return;
     setIsNavigating("transactions");
-    onViewTransactions();
+    try {
+      await onViewTransactions();
+    } catch {
+      setIsNavigating(null);
+    }
   };
 
   const handleDoneClick = () => {
@@ -344,11 +348,11 @@ export default function BridgeSuccessModal({
               {isNavigating === "transactions" ? (
                 <>
                   <LoaderCircle className="h-4 w-4 animate-spin text-white" />
-                  <span>Opening transactions...</span>
+                  <span>Opening transaction...</span>
                 </>
               ) : (
                 <>
-                  <span>View in Transactions</span>
+                  <span>View transaction</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

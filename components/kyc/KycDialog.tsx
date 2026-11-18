@@ -3,7 +3,6 @@
 import { useEffect, useMemo } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import type { Resolver } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -210,7 +209,8 @@ export function KycDialog({
         phoneRequired,
       });
 
-      return zodResolver(dynamicSchema)(values, context, options as any);
+      const resolver = zodResolver(dynamicSchema);
+      return resolver(values, context, options);
     },
     defaultValues: {
       country: defaultCountry,
