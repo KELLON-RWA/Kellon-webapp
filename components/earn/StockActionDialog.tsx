@@ -495,7 +495,7 @@ export default function StockActionDialog({
         action === "sell" ? calculatedProceeds : Number(values.value);
       const buildTrade = (includeVerification = true) =>
         stocksService.buildBuyTransaction({
-          symbol: tradeStock.symbol,
+          symbol: tradeStock.tradeKey || tradeStock.symbol,
           amountFiat,
           currency: tradeStock.currency || "USD",
           provider: tradeStock.provider,
@@ -530,7 +530,7 @@ export default function StockActionDialog({
                 wallet.address.toLowerCase() === address.toLowerCase(),
             ),
           smartAccountAddress: client.account.address,
-          symbol: tradeStock.symbol,
+          symbol: tradeStock.tradeKey || tradeStock.symbol,
           provider: tradeStock.provider,
           sendCalls: (calls) =>
             client.sendTransaction({

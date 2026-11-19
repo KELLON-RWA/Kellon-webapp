@@ -1,0 +1,11 @@
+VERSION = "2.0.0"
+NETWORK_PASSPHRASE = "Public Global Stellar Network ; September 2015"
+ACCOUNTS = ["SPONSOR_PUBLIC_KEY"]
+
+[DOCUMENTATION]
+ORG_NAME = "Kellon"
+ORG_DBA = "Kellon Sponsor"
+ORG_URL = "https://app.kellon.xyz"
+ORG_LOGO = "https://app.kellon.xyz/logo.png"
+ORG_DESCRIPTION = "Kellon is a non-custodial multi-chain wallet. This account sponsors network fees and reserves for Kellon users."
+ORG_OFFICIAL_EMAIL = "support@kellon.xyz"

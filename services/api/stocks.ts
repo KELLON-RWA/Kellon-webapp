@@ -1,6 +1,8 @@
 import { apiFetch, handleResponse, type ApiResponse } from "./index";
 import { handleTransferResponse } from "./transfers";
 
+export const SOLANA_STOCKS_PROVIDER = "solana_xstocks";
+
 export interface StockListing {
   symbol: string;
   name: string;
@@ -24,6 +26,14 @@ export interface StockListing {
   poolAddress?: string;
   pairAddress?: string;
   rwaCategory?: string;
+  /** Issuer-side halt. The token still exists, but the venue refuses to route it. */
+  isTradingHalted?: boolean;
+  /** The underlying equity market. xStocks trade 24/5, so this is false at weekends. */
+  marketOpen?: boolean;
+  /** The catalogue instrument this listing is a venue of. */
+  ticker?: string;
+  /** What to send as `symbol` with this provider. Absent on older backends. */
+  tradeKey?: string;
 }
 
 const RWA_CATEGORIES = new Set([
@@ -52,6 +62,69 @@ export function isRwaStockListing(listing: StockListing): boolean {
       RWA_CATEGORIES.has(normalizeStockCategory(category)),
     )
   );
+}
+
+export interface StockCatalogDeployment {
+  provider: string;
+  chain: string;
+  symbol: string;
+  tradeKey: string;
+  address: string;
+  decimals?: number;
+  issuer: string;
+}
+
+export interface StockCatalogInstrument {
+  ticker: string;
+  displayTicker: string;
+  name: string;
+  logoUrl?: string;
+  assetClass: "equity" | "etf" | "commodity" | "treasury" | "fund";
+  region: string;
+  sector?: string;
+  themes: string[];
+  domain?: string;
+  categories: string[];
+  deployments: StockCatalogDeployment[];
+}
+
+export interface StockCatalogCategory {
+  id: string;
+  label: string;
+  title: string;
+  description: string;
+  icon: string;
+  section: "tradfi" | "rwa";
+  provider?: string;
+}
+
+export interface StockCatalog {
+  version: string;
+  categories: StockCatalogCategory[];
+  instruments: StockCatalogInstrument[];
+}
+
+export interface StockTradePlan {
+  chainKind?: "evm" | "solana";
+  to?: string;
+  data?: string;
+  value?: string;
+  chain?: string;
+  approveTx?: { to: string; data: string; value: string };
+  calls?: { to: string; data: string; value: string }[];
+  transactionBase64?: string;
+  quote: { symbol: string; price: number; shares: number; amountFiat: number };
+}
+
+export interface StockQuote {
+  symbol: string;
+  price: number;
+  currency: string;
+}
+
+export interface StockBuildVerification {
+  verificationCode?: string;
+  verificationType?: string;
 }
 
 export interface BuyStockParams {
@@ -188,6 +261,16 @@ export interface MarketIndex {
 }
 
 export const stocksService = {
+  /** Static metadata: categories, and what each listing is. Changes only with a backend deploy. */
+  async getCatalog(): Promise<ApiResponse<StockCatalog>> {
+    const res = await apiFetch(
+      `/api/stocks/catalog`,
+      { method: "GET" },
+      { signed: false },
+    );
+    return handleResponse<StockCatalog>(res);
+  },
+
   async planSweep(params: {
     symbol: string;
     provider: string;
@@ -222,6 +305,56 @@ export const stocksService = {
       { signed: false },
     );
     return handleResponse<StockListing[]>(res);
+  },
+
+  /** The price a trade is actually built against, as opposed to the listing snapshot. */
+  async getQuote(
+    symbol: string,
+    provider: string,
+  ): Promise<ApiResponse<StockQuote>> {
+    const res = await apiFetch(
+      `/api/stocks/quote/${encodeURIComponent(symbol.toUpperCase())}?provider=${encodeURIComponent(provider)}`,
+      { method: "GET" },
+      { signed: false },
+    );
+    return handleResponse<StockQuote>(res);
+  },
+
+  /** Selling is the same two-phase build/settle path as buying: the backend never holds the shares. */
+  async buildSellTransaction(
+    params: {
+      symbol: string;
+      provider: string;
+      shares?: number;
+      sellAll?: boolean;
+      fundingChain?: string;
+      userAddress?: string;
+    } & StockBuildVerification,
+  ): Promise<ApiResponse<StockTradePlan>> {
+    const res = await apiFetch("/api/stocks/build-tx", {
+      method: "POST",
+      body: JSON.stringify({ ...params, side: "sell" }),
+    });
+    return handleResponse<StockTradePlan>(res);
+  },
+
+  /**
+   * Solana only. The fee sponsor signs at broadcast time, server-side, so the signed
+   * transaction goes back to the backend rather than out to an RPC from here. This both
+   * broadcasts and records the trade — confirmTransaction is not called for Solana.
+   */
+  async submitSolanaTransaction(params: {
+    symbol: string;
+    side: "buy" | "sell";
+    transactionBase64: string;
+    amountFiat?: number;
+    shares?: number;
+  }): Promise<ApiResponse<unknown>> {
+    const res = await apiFetch("/api/stocks/submit-tx", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+    return handleResponse<unknown>(res);
   },
 
   async sellStock(

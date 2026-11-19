@@ -70,6 +70,7 @@ import {
   useOfframpFunding,
   getPendingDeposit,
 } from "@/hooks/useOfframpFunding";
+import { MoneyGramWidget } from "./MoneyGramWidget";
 import { getWithdrawableAssets } from "@/lib/withdraw-assets";
 import { useUser } from "@/hooks/use-user";
 import { getOrCreateOfframpOrder } from "@/lib/offramp-retry";
@@ -138,6 +139,7 @@ export default function WithdrawFlow({
   const activeProfile = liveProfile || profile;
 
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
+  const [isMoneyGramOpen, setIsMoneyGramOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [selectedProviderBank, setSelectedProviderBank] =
     useState<SelectableBank | null>(null);
@@ -492,6 +494,15 @@ export default function WithdrawFlow({
       }
 
       const { providerName } = request;
+
+      // MoneyGram collects amount, KYC and payout inside its own widget.
+      if (providerName === "moneygram") {
+        pendingOrderRef.current = null;
+        endOperation();
+        setIsMoneyGramOpen(true);
+        return;
+      }
+
       const payload: OfframpInitRequest = {
         ...request.payload,
         verificationCode: verification?.verificationCode,
@@ -499,9 +510,6 @@ export default function WithdrawFlow({
       };
 
       createdOrder = await getOrCreateOfframpOrder(createdOrder, async () => {
-        if (providerName === "moneygram") {
-          return (await offrampService.initiateMoneyGram(payload)).data;
-        }
         if (providerName === "paychant") {
           return (await offrampService.initiatePaychant(payload)).data;
         }
@@ -1252,6 +1260,10 @@ export default function WithdrawFlow({
         profile={activeProfile}
         request={bridgeRequest}
         onOpenChange={(open) => !open && setBridgeRequest(null)}
+      />
+      <MoneyGramWidget
+        open={isMoneyGramOpen}
+        onClose={() => setIsMoneyGramOpen(false)}
       />
     </>
   );

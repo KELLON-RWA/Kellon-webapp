@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import VirtualCardsPage from "@/components/cards/VirtualCardsPage";
+import { redirect } from "next/navigation";
+import CardsPage from "@/components/cards/CardsPage";
 import { currentProfile } from "@/lib/current-profile";
 import type { User } from "@/types/db";
 
@@ -12,9 +13,12 @@ export const metadata: Metadata = {
   },
 };
 
-const page = async () => {
+export default async function CardsRoute() {
   const profile = (await currentProfile()) as User;
-  return <VirtualCardsPage profile={profile} />;
-};
 
-export default page;
+  if (!profile) {
+    redirect("/");
+  }
+
+  return <CardsPage profile={profile} />;
+}

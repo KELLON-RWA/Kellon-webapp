@@ -51,6 +51,23 @@ export interface OfframpInitRequest {
   paymentMethod?: string;
 }
 
+export interface MoneyGramSession {
+  sessionId: string;
+  sessionToken: string;
+  widgetUrl: string;
+  walletAddress: string;
+  publicKey?: string;
+  network: "testnet" | "mainnet";
+}
+
+export interface MoneyGramFunding {
+  transactionId: string;
+  rampsTransactionId: string;
+  txHash?: string;
+  fundingStatus: "SETTLED" | "QUEUED";
+  walletAddress: string;
+}
+
 /**
  * --- Offramp Response Interface ---
  */
@@ -183,11 +200,54 @@ export const offrampService = {
   initiateRamphub: (body: OfframpInitRequest) =>
     post("/api/offramp/ramphub", body),
 
-  /**
-   * Specialized MoneyGram Offramp (Uses Stellar Network)
-   */
-  initiateMoneyGram: (body: OfframpInitRequest) =>
-    post("/api/offramp/moneygram", body),
+  /** Opens a MoneyGram Ramps widget session for the user's Stellar wallet. */
+  initiateMoneyGram: async (): Promise<ApiResponse<MoneyGramSession>> => {
+    const res = await apiFetch(
+      "/api/offramp/moneygram",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-platform": "web" },
+        body: "{}",
+      },
+      { signed: true },
+    );
+    return handleOfframpResponse(res) as Promise<ApiResponse<MoneyGramSession>>;
+  },
+
+  /** Sends the USDC the widget asked for; the backend reads destination and amount from MoneyGram. */
+  fundMoneyGram: async (
+    rampsTransactionId: string,
+    body: {
+      mgiTransactionId?: string;
+      verificationCode?: string;
+      verificationType?: string;
+    } = {},
+  ): Promise<ApiResponse<MoneyGramFunding>> => {
+    const res = await apiFetch(
+      `/api/offramp/moneygram/${encodeURIComponent(rampsTransactionId)}/fund`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-platform": "web" },
+        body: JSON.stringify(
+          Object.fromEntries(
+            Object.entries(body).filter(([, value]) => value !== undefined),
+          ),
+        ),
+      },
+      { signed: true },
+    );
+    return handleOfframpResponse(res) as Promise<ApiResponse<MoneyGramFunding>>;
+  },
+
+  getMoneyGramFunding: async (
+    rampsTransactionId: string,
+  ): Promise<ApiResponse<MoneyGramFunding>> => {
+    const res = await apiFetch(
+      `/api/offramp/moneygram/${encodeURIComponent(rampsTransactionId)}/fund`,
+      { method: "GET" },
+    );
+    return handleOfframpResponse(res) as Promise<ApiResponse<MoneyGramFunding>>;
+  },
 
   /**
    * Centiiv Fund Destination

@@ -72,6 +72,6 @@ export const config = {
   matcher: [
     // sw.js must be excluded: a redirect to /onboarding would be served as the service
     // worker script and registration would fail.
-    "/((?!_next/static|_next/image|api|favicon.ico|manifest.json|sw.js|.*\\.(?:json|svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|api|\\.well-known|favicon.ico|manifest.json|sw.js|.*\\.(?:json|svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
