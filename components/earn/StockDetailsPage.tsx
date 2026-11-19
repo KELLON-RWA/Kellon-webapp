@@ -581,7 +581,7 @@ export default function StockDetailsPage({
   const candles = tradingData?.candles || [];
 
   return (
-    <main className="container mx-auto min-h-[100dvh] w-full max-w-4xl px-3 pb-32 pt-3 sm:px-6 md:pb-24 md:pt-20">
+    <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-36 pt-4 md:px-6 md:pb-24 md:pt-28">
       {/* 1. Header Bar */}
       <header className="mb-4 flex items-center justify-between">
         <button
@@ -657,7 +657,7 @@ export default function StockDetailsPage({
         <div className="space-y-4">
           {/* 3. Stock Summary Card */}
           <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 shadow-lg backdrop-blur">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-center">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto] sm:items-center">
               {/* Left Column: Logo + Ticker + Price + 24h Pill */}
               <div>
                 <div className="flex items-center gap-2">
@@ -701,8 +701,8 @@ export default function StockDetailsPage({
                 </div>
               </div>
 
-              {/* Right Column: 2x2 Stats Grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-white/5 pt-3 sm:border-t-0 sm:pt-0 sm:text-right">
+              {/* Middle Column: 2x2 Stats Grid */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 border-t border-white/5 pt-3 sm:border-t-0 sm:pt-0 sm:text-right">
                 <div>
                   <p className="text-[11px] text-gray-400">24h High</p>
                   <p className="mt-0.5 text-sm font-bold tabular-nums text-white">
@@ -729,6 +729,26 @@ export default function StockDetailsPage({
                     {formatCompactTurnover(turnover24h)}
                   </p>
                 </div>
+              </div>
+
+              {/* Right Column (Desktop inline action buttons) */}
+              <div className="hidden lg:flex items-center gap-3 border-l border-white/5 pl-6">
+                {canSell ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-xl bg-rose-500 px-5 text-sm font-bold text-white shadow-md hover:bg-rose-600 active:scale-95 transition"
+                    onClick={() => setStockAction("sell")}
+                  >
+                    Sell
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  className="h-11 rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 px-6 text-sm font-bold text-white shadow-md shadow-primary-60/20 hover:brightness-110 active:scale-95 transition"
+                  onClick={() => setStockAction("buy")}
+                >
+                  {canSell ? "Buy More" : "Buy"}
+                </Button>
               </div>
             </div>
           </section>
@@ -882,7 +902,7 @@ export default function StockDetailsPage({
             </div>
 
             {/* 6. Trading Chart Canvas */}
-            <div className="mt-2 h-[340px] w-full sm:h-[400px]">
+            <div className="mt-2 h-[340px] w-full sm:h-[420px] lg:h-[480px]">
               {isCandlesLoading && candles.length === 0 ? (
                 <div className="flex h-full w-full items-center justify-center">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-60 border-t-transparent" />
@@ -1023,187 +1043,194 @@ export default function StockDetailsPage({
             </div>
           </section>
 
-          {/* 9. My Position Card */}
-          <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 backdrop-blur">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white">My Position</h2>
-              {holding ? (
-                <span
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
-                    holding.unrealizedPnL >= 0
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : "bg-rose-500/15 text-rose-400",
-                  )}
-                >
-                  {holding.unrealizedPnL >= 0 ? "+" : ""}
-                  {holding.unrealizedPnLPercentage.toFixed(2)}%
-                </span>
-              ) : null}
-            </div>
-
-            {!holding ? (
-              <div className="my-6 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-                  <WalletCards className="h-6 w-6 text-gray-400" />
-                </div>
-                <h3 className="mt-3 text-sm font-bold text-white">
-                  No Active Position
-                </h3>
-                <p className="mx-auto mt-1 max-w-sm text-xs text-gray-400">
-                  You do not own any {displayStockSymbol} shares yet. Start
-                  investing with fractional shares from just $1.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-2 gap-y-4 border-t border-white/5 pt-4 text-xs">
-                <div>
-                  <p className="text-gray-400">Shares Owned</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-white">
-                    {holding.shares.toFixed(4)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-400">Total Value</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-white">
-                    {formatUsd(holding.currentValue)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Average Cost</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-white">
-                    {formatUsd(holding.avgBuyPrice)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-400">Total Return</p>
-                  <p
-                    className={cn(
-                      "mt-1 text-sm font-bold tabular-nums",
-                      holding.unrealizedPnL >= 0
-                        ? "text-emerald-400"
-                        : "text-rose-400",
-                    )}
-                  >
-                    {holding.unrealizedPnL >= 0 ? "+" : ""}
-                    {formatUsd(holding.unrealizedPnL)} (
-                    {holding.unrealizedPnL >= 0 ? "+" : ""}
-                    {holding.unrealizedPnLPercentage.toFixed(2)}%)
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Average Sell</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-amber-400">
-                    {avgSellPrice > 0 ? formatUsd(avgSellPrice) : "—"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-400">Realized Status</p>
-                  <p className="mt-1 text-sm font-bold text-white">
-                    {sellTransactions.length > 0 ? "Settled Exit" : "Open Position"}
-                  </p>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* 10. Recent Activity Card */}
-          <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 backdrop-blur">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white">Recent Activity</h2>
-              {stockActivities.length > 0 ? (
-                <span className="text-xs text-gray-400">
-                  {Math.min(stockActivities.length, 10)} of {stockActivities.length}
-                </span>
-              ) : null}
-            </div>
-
-            {isStockActivitiesLoading ? (
-              <div className="mt-4 space-y-2">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-14 animate-pulse rounded-xl bg-white/5"
-                  />
-                ))}
-              </div>
-            ) : stockActivities.length === 0 ? (
-              <div className="my-6 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-                  <Clock className="h-6 w-6 text-gray-400" />
-                </div>
-                <h3 className="mt-3 text-sm font-bold text-white">
-                  No Past Transactions
-                </h3>
-                <p className="mx-auto mt-1 max-w-sm text-xs text-gray-400">
-                  Your completed buy and sell orders for {displayStockSymbol} will
-                  appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-3 divide-y divide-white/5">
-                {stockActivities.slice(0, 10).map((transaction) => {
-                  const isSale = transaction.type === "SELL";
-                  const dateStr = new Date(transaction.createdAt).toLocaleDateString(
-                    "en-US",
-                    { month: "short", day: "numeric" },
-                  );
-                  const shares = getStockTransactionShares(transaction) || 0;
-                  const fiatAmount =
-                    getStockTransactionFiatAmount(transaction) ||
-                    Number(transaction.amount || 0);
-
-                  return (
-                    <div
-                      key={transaction.id}
-                      onClick={() => router.push(`/transactions/${transaction.id}`)}
-                      className="flex cursor-pointer items-center justify-between py-3 transition hover:opacity-80"
+          {/* 9 & 10. Position & Activity Grid (side-by-side on lg, stacked on mobile) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 9. My Position Card */}
+            <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 backdrop-blur flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-white">My Position</h2>
+                  {holding ? (
+                    <span
+                      className={cn(
+                        "rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
+                        holding.unrealizedPnL >= 0
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-rose-500/15 text-rose-400",
+                      )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "flex h-9 w-9 items-center justify-center rounded-xl border",
-                            isSale
-                              ? "border-purple-800/40 bg-purple-950/40 text-purple-300"
-                              : "border-emerald-800/40 bg-emerald-950/40 text-emerald-300",
-                          )}
-                        >
-                          {isSale ? (
-                            <TrendingDown className="h-4 w-4" />
-                          ) : (
-                            <TrendingUp className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-white sm:text-sm">
-                            {isSale ? "Sell" : "Buy"} {displayStockSymbol}
-                          </p>
-                          <p className="text-[11px] text-gray-400">
-                            {dateStr} • {settlementChain.toLowerCase()}
-                          </p>
-                        </div>
-                      </div>
+                      {holding.unrealizedPnL >= 0 ? "+" : ""}
+                      {holding.unrealizedPnLPercentage.toFixed(2)}%
+                    </span>
+                  ) : null}
+                </div>
 
-                      <div className="text-right">
-                        <p
-                          className={cn(
-                            "text-xs font-bold tabular-nums sm:text-sm",
-                            isSale ? "text-purple-300" : "text-emerald-400",
-                          )}
-                        >
-                          {isSale ? "-" : "+"}
-                          {shares > 0 ? shares.toFixed(6) : "0.00"} {displayStockSymbol}
-                        </p>
-                        <p className="text-[11px] text-gray-400 tabular-nums">
-                          {isSale ? "+" : "-"}${fiatAmount.toFixed(2)}
-                        </p>
-                      </div>
+                {!holding ? (
+                  <div className="my-6 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                      <WalletCards className="h-6 w-6 text-gray-400" />
                     </div>
-                  );
-                })}
+                    <h3 className="mt-3 text-sm font-bold text-white">
+                      No Active Position
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-sm text-xs text-gray-400">
+                      You do not own any {displayStockSymbol} shares yet. Start
+                      investing with fractional shares from just $1.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-4 grid grid-cols-2 gap-y-4 border-t border-white/5 pt-4 text-xs">
+                    <div>
+                      <p className="text-gray-400">Shares Owned</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-white">
+                        {holding.shares.toFixed(4)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-gray-400">Total Value</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-white">
+                        {formatUsd(holding.currentValue)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Average Cost</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-white">
+                        {formatUsd(holding.avgBuyPrice)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-gray-400">Total Return</p>
+                      <p
+                        className={cn(
+                          "mt-1 text-sm font-bold tabular-nums",
+                          holding.unrealizedPnL >= 0
+                            ? "text-emerald-400"
+                            : "text-rose-400",
+                        )}
+                      >
+                        {holding.unrealizedPnL >= 0 ? "+" : ""}
+                        {formatUsd(holding.unrealizedPnL)} (
+                        {holding.unrealizedPnL >= 0 ? "+" : ""}
+                        {holding.unrealizedPnLPercentage.toFixed(2)}%)
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Average Sell</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-amber-400">
+                        {avgSellPrice > 0 ? formatUsd(avgSellPrice) : "—"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-gray-400">Realized Status</p>
+                      <p className="mt-1 text-sm font-bold text-white">
+                        {sellTransactions.length > 0 ? "Settled Exit" : "Open Position"}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </section>
+            </section>
+
+            {/* 10. Recent Activity Card */}
+            <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 backdrop-blur flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-white">Recent Activity</h2>
+                  {stockActivities.length > 0 ? (
+                    <span className="text-xs text-gray-400">
+                      {Math.min(stockActivities.length, 10)} of {stockActivities.length}
+                    </span>
+                  ) : null}
+                </div>
+
+                {isStockActivitiesLoading ? (
+                  <div className="mt-4 space-y-2">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="h-14 animate-pulse rounded-xl bg-white/5"
+                      />
+                    ))}
+                  </div>
+                ) : stockActivities.length === 0 ? (
+                  <div className="my-6 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                      <Clock className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <h3 className="mt-3 text-sm font-bold text-white">
+                      No Past Transactions
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-sm text-xs text-gray-400">
+                      Your completed buy and sell orders for {displayStockSymbol} will
+                      appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-3 divide-y divide-white/5">
+                    {stockActivities.slice(0, 10).map((transaction) => {
+                      const isSale = transaction.type === "SELL";
+                      const dateStr = new Date(transaction.createdAt).toLocaleDateString(
+                        "en-US",
+                        { month: "short", day: "numeric" },
+                      );
+                      const shares = getStockTransactionShares(transaction) || 0;
+                      const fiatAmount =
+                        getStockTransactionFiatAmount(transaction) ||
+                        Number(transaction.amount || 0);
+
+                      return (
+                        <div
+                          key={transaction.id}
+                          onClick={() => router.push(`/transactions/${transaction.id}`)}
+                          className="flex cursor-pointer items-center justify-between py-3 transition hover:opacity-80"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "flex h-9 w-9 items-center justify-center rounded-xl border",
+                                isSale
+                                  ? "border-purple-800/40 bg-purple-950/40 text-purple-300"
+                                  : "border-emerald-800/40 bg-emerald-950/40 text-emerald-300",
+                              )}
+                            >
+                              {isSale ? (
+                                <TrendingDown className="h-4 w-4" />
+                              ) : (
+                                <TrendingUp className="h-4 w-4" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-white sm:text-sm">
+                                {isSale ? "Sell" : "Buy"} {displayStockSymbol}
+                              </p>
+                              <p className="text-[11px] text-gray-400">
+                                {dateStr} • {settlementChain.toLowerCase()}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p
+                              className={cn(
+                                "text-xs font-bold tabular-nums sm:text-sm",
+                                isSale ? "text-purple-300" : "text-emerald-400",
+                              )}
+                            >
+                              {isSale ? "-" : "+"}
+                              {shares > 0 ? shares.toFixed(6) : "0.00"} {displayStockSymbol}
+                            </p>
+                            <p className="text-[11px] text-gray-400 tabular-nums">
+                              {isSale ? "+" : "-"}${fiatAmount.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
         </div>
       ) : (
         /* Company, Token Info, and Data tabs */
@@ -1235,7 +1262,7 @@ export default function StockDetailsPage({
 
       {/* 11. Sticky Bottom Action Bar */}
       <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-cryptoNight/90 px-4 py-3 backdrop-blur-md sm:px-6">
-        <div className="container mx-auto flex max-w-4xl items-center gap-3">
+        <div className="container mx-auto flex max-w-7xl items-center gap-3">
           {canSell ? (
             <>
               <Button
