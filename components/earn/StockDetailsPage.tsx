@@ -25,7 +25,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -239,6 +239,10 @@ export default function StockDetailsPage({
   const [isWatchlisted, setIsWatchlisted] = useState(false);
   const [stockAction, setStockAction] = useState<StockActionType | null>(null);
   const [hoveredData, setHoveredData] = useState<HoveredData | null>(null);
+
+  const handleHoverDataChange = useCallback((data: HoveredData | null) => {
+    setHoveredData(data);
+  }, []);
 
   // Indicators toggle set (MA and VOL on by default)
   const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorType>>(
@@ -595,7 +599,7 @@ export default function StockDetailsPage({
 
         <div className="min-w-0 text-center">
           <h1 className="truncate text-sm font-bold text-white sm:text-base">
-            {name} Tokenized Stock
+            {name.replace(/\s*Tokenized Stock$/i, "")} Tokenized Stock
           </h1>
           <p className="text-xs text-gray-400">
             {displayStockSymbol} · {networkBadge}
@@ -896,7 +900,7 @@ export default function StockDetailsPage({
                   indicators={activeIndicators}
                   avgBuyPrice={holding?.avgBuyPrice}
                   avgSellPrice={avgSellPrice > 0 ? avgSellPrice : undefined}
-                  onHoverDataChange={setHoveredData}
+                  onHoverDataChange={handleHoverDataChange}
                   className="h-full"
                 />
               )}

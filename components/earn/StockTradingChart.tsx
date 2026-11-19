@@ -3,9 +3,8 @@
 import {
   useEffect,
   useRef,
-  useState,
-  useCallback,
   useMemo,
+  useCallback,
 } from "react";
 import type { Candle } from "@/services/api/stock-research";
 
@@ -142,6 +141,15 @@ export default function StockTradingChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const intersectionObserverRef = useRef<IntersectionObserver | null>(null);
+
+  // Maintain refs to avoid stale closures in listeners
+  const onHoverDataChangeRef = useRef(onHoverDataChange);
+  onHoverDataChangeRef.current = onHoverDataChange;
+
+  const isHoveringRef = useRef(false);
+  const candlesRef = useRef(candles);
+  candlesRef.current = candles;
 
   // Pre-calculate technical indicator series data
   const ma5Data = useMemo(() => calculateSMA(candles, 5), [candles]);
@@ -157,7 +165,18 @@ export default function StockTradingChart({
   const volMa5Data = useMemo(() => calculateVolumeSMA(candles, 5), [candles]);
   const volMa10Data = useMemo(() => calculateVolumeSMA(candles, 10), [candles]);
 
-  // Compute latest data for default readout
+  const ma5DataRef = useRef(ma5Data);
+  ma5DataRef.current = ma5Data;
+  const ma10DataRef = useRef(ma10Data);
+  ma10DataRef.current = ma10Data;
+  const ma20DataRef = useRef(ma20Data);
+  ma20DataRef.current = ma20Data;
+  const volMa5DataRef = useRef(volMa5Data);
+  volMa5DataRef.current = volMa5Data;
+  const volMa10DataRef = useRef(volMa10Data);
+  volMa10DataRef.current = volMa10Data;
+
+  // Latest candle data for default readout
   const latestData = useMemo<HoveredData | null>(() => {
     if (candles.length === 0) return null;
     const last = candles[candles.length - 1];
@@ -176,11 +195,36 @@ export default function StockTradingChart({
     };
   }, [candles, ma5Data, ma10Data, ma20Data, volMa5Data, volMa10Data]);
 
-  useEffect(() => {
-    if (latestData && onHoverDataChange) {
-      onHoverDataChange(latestData);
+  const latestDataRef = useRef(latestData);
+  latestDataRef.current = latestData;
+
+  // Stable reset callback
+  const resetToLatest = useCallback(() => {
+    isHoveringRef.current = false;
+    if (latestDataRef.current && onHoverDataChangeRef.current) {
+      onHoverDataChangeRef.current(latestDataRef.current);
     }
-  }, [latestData, onHoverDataChange]);
+  }, []);
+
+  // Update default readout on latest data change if not actively hovering
+  useEffect(() => {
+    if (!isHoveringRef.current && latestDataRef.current && onHoverDataChangeRef.current) {
+      onHoverDataChangeRef.current(latestDataRef.current);
+    }
+  }, [latestData]);
+
+  // Window scroll listener: when page scrolls (cursor leaves chart area), reset hover readout
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isHoveringRef.current) {
+        resetToLatest();
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [resetToLatest]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -188,11 +232,9 @@ export default function StockTradingChart({
     async function initChart() {
       if (!chartContainerRef.current) return;
 
-      // Dynamically import lightweight-charts
       const lc = await import("lightweight-charts");
       if (isCancelled || !chartContainerRef.current) return;
 
-      // Clean up existing chart instance if any
       if (chartInstanceRef.current) {
         chartInstanceRef.current.remove();
         chartInstanceRef.current = null;
@@ -301,7 +343,7 @@ export default function StockTradingChart({
       // 2. Overlaid Indicators (MA / EMA / BOLL)
       if (indicators.has("MA")) {
         const ma5Series = chart.addSeries(lc.LineSeries, {
-          color: "#f59e0b", // Amber
+          color: "#f59e0b",
           lineWidth: 2,
           priceLineVisible: false,
           crosshairMarkerVisible: false,
@@ -309,7 +351,7 @@ export default function StockTradingChart({
         ma5Series.setData(ma5Data.map((d) => ({ time: d.time as any, value: d.value })));
 
         const ma10Series = chart.addSeries(lc.LineSeries, {
-          color: "#a855f7", // Purple / Kellon accent
+          color: "#a855f7",
           lineWidth: 2,
           priceLineVisible: false,
           crosshairMarkerVisible: false,
@@ -317,7 +359,7 @@ export default function StockTradingChart({
         ma10Series.setData(ma10Data.map((d) => ({ time: d.time as any, value: d.value })));
 
         const ma20Series = chart.addSeries(lc.LineSeries, {
-          color: "#06b6d4", // Cyan
+          color: "#06b6d4",
           lineWidth: 2,
           priceLineVisible: false,
           crosshairMarkerVisible: false,
@@ -381,7 +423,7 @@ export default function StockTradingChart({
 
         chart.priceScale("volume-scale").applyOptions({
           scaleMargins: {
-            top: 0.78, // anchored at the bottom
+            top: 0.78,
             bottom: 0,
           },
           borderColor: "transparent",
@@ -397,7 +439,6 @@ export default function StockTradingChart({
         });
         volumeSeries.setData(volumeData);
 
-        // Overlaid Volume MA lines
         const volMa5Series = chart.addSeries(lc.LineSeries, {
           priceScaleId: "volume-scale",
           color: "#f59e0b",
@@ -428,7 +469,6 @@ export default function StockTradingChart({
           title: `Avg Buy $${avgBuyPrice.toFixed(2)}`,
         });
 
-        // Add Buy badge marker if createSeriesMarkers exists
         if (typeof lc.createSeriesMarkers === "function" && candles.length > 0) {
           const midIndex = Math.floor(candles.length * 0.45);
           try {
@@ -443,7 +483,7 @@ export default function StockTradingChart({
               },
             ]);
           } catch {
-            // ignore if markers not supported on current series
+            // ignore
           }
         }
       }
@@ -479,29 +519,62 @@ export default function StockTradingChart({
 
       // 5. Crosshair Move Subscription
       chart.subscribeCrosshairMove((param: any) => {
-        if (!param || !param.time || !param.seriesData) {
-          if (latestData && onHoverDataChange) {
-            onHoverDataChange(latestData);
-          }
+        if (!param || !param.time || !param.point || !param.seriesData) {
+          resetToLatest();
           return;
         }
 
-        const candle = candles.find((c) => c.time === param.time);
+        const candle = candlesRef.current.find((c) => c.time === param.time);
         if (candle) {
-          const ma5 = ma5Data.find((d) => d.time === param.time)?.value;
-          const ma10 = ma10Data.find((d) => d.time === param.time)?.value;
-          const ma20 = ma20Data.find((d) => d.time === param.time)?.value;
-          const volMa5 = volMa5Data.find((d) => d.time === param.time)?.value;
-          const volMa10 = volMa10Data.find((d) => d.time === param.time)?.value;
+          isHoveringRef.current = true;
+          const ma5 = ma5DataRef.current.find((d) => d.time === param.time)?.value;
+          const ma10 = ma10DataRef.current.find((d) => d.time === param.time)?.value;
+          const ma20 = ma20DataRef.current.find((d) => d.time === param.time)?.value;
+          const volMa5 = volMa5DataRef.current.find((d) => d.time === param.time)?.value;
+          const volMa10 = volMa10DataRef.current.find((d) => d.time === param.time)?.value;
 
-          if (onHoverDataChange) {
-            onHoverDataChange({
-              timeStr: formatCandleDateTime(candle.time),
-              open: candle.open,
-              high: candle.high,
-              low: candle.low,
-              close: candle.close,
-              volume: candle.volume,
+          onHoverDataChangeRef.current?.({
+            timeStr: formatCandleDateTime(candle.time),
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            volume: candle.volume,
+            ma5,
+            ma10,
+            ma20,
+            volMa5,
+            volMa10,
+          });
+        } else {
+          resetToLatest();
+        }
+      });
+
+      // 6. Horizontal Scroll / Pan Subscription: update readout to latest visible candle if not crosshair-hovering
+      chart.timeScale().subscribeVisibleLogicalRangeChange((range: any) => {
+        if (!isHoveringRef.current && range && candlesRef.current.length > 0) {
+          const cList = candlesRef.current;
+          const toIndex = Math.min(
+            cList.length - 1,
+            Math.max(0, Math.floor(range.to)),
+          );
+          const visibleCandle = cList[toIndex] || cList[cList.length - 1];
+          if (visibleCandle) {
+            const t = visibleCandle.time;
+            const ma5 = ma5DataRef.current.find((d) => d.time === t)?.value;
+            const ma10 = ma10DataRef.current.find((d) => d.time === t)?.value;
+            const ma20 = ma20DataRef.current.find((d) => d.time === t)?.value;
+            const volMa5 = volMa5DataRef.current.find((d) => d.time === t)?.value;
+            const volMa10 = volMa10DataRef.current.find((d) => d.time === t)?.value;
+
+            onHoverDataChangeRef.current?.({
+              timeStr: formatCandleDateTime(visibleCandle.time),
+              open: visibleCandle.open,
+              high: visibleCandle.high,
+              low: visibleCandle.low,
+              close: visibleCandle.close,
+              volume: visibleCandle.volume,
               ma5,
               ma10,
               ma20,
@@ -512,7 +585,7 @@ export default function StockTradingChart({
         }
       });
 
-      // Fit content
+      // Fit content initial view
       chart.timeScale().fitContent();
 
       // Handle ResizeObserver
@@ -526,14 +599,26 @@ export default function StockTradingChart({
         const newWidth = entry.contentRect.width;
         const newHeight = entry.contentRect.height;
         if (newWidth > 0 && newHeight > 0) {
-          chartInstanceRef.current.applyOptions({
-            width: newWidth,
-            height: newHeight,
-          });
+          chartInstanceRef.current.resize(newWidth, newHeight);
         }
       });
-
       resizeObserverRef.current.observe(container);
+
+      // Handle IntersectionObserver (when chart scrolls out of view and back into view)
+      if (intersectionObserverRef.current) {
+        intersectionObserverRef.current.disconnect();
+      }
+
+      intersectionObserverRef.current = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting && chartInstanceRef.current && container) {
+          const w = container.clientWidth;
+          const h = container.clientHeight;
+          if (w > 0 && h > 0) {
+            chartInstanceRef.current.resize(w, h);
+          }
+        }
+      });
+      intersectionObserverRef.current.observe(container);
     }
 
     initChart();
@@ -543,6 +628,10 @@ export default function StockTradingChart({
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
         resizeObserverRef.current = null;
+      }
+      if (intersectionObserverRef.current) {
+        intersectionObserverRef.current.disconnect();
+        intersectionObserverRef.current = null;
       }
       if (chartInstanceRef.current) {
         chartInstanceRef.current.remove();
@@ -564,12 +653,17 @@ export default function StockTradingChart({
     bollData,
     volMa5Data,
     volMa10Data,
-    latestData,
-    onHoverDataChange,
+    resetToLatest,
   ]);
 
   return (
-    <div className={`relative w-full ${className}`}>
+    <div
+      className={`relative w-full ${className}`}
+      onMouseLeave={resetToLatest}
+      onPointerLeave={resetToLatest}
+      onTouchCancel={resetToLatest}
+      onTouchEnd={resetToLatest}
+    >
       <div ref={chartContainerRef} className="h-full w-full" />
     </div>
   );

@@ -259,6 +259,33 @@ export async function GET(request: Request) {
       lastCandle?.close ||
       0;
 
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    // If latest candle is from an earlier session or hours ago, extend candles to the live price
+    if (candles.length > 0 && currentPrice > 0) {
+      const last = candles[candles.length - 1];
+      const liveTime = finnhubQuote?.timestamp || nowSec;
+
+      if (liveTime - last.time >= 60) {
+        candles.push({
+          time: liveTime,
+          open: Number(last.close.toFixed(2)),
+          high: Number(
+            Math.max(last.close, currentPrice, finnhubQuote?.high || currentPrice).toFixed(2),
+          ),
+          low: Number(
+            Math.min(last.close, currentPrice, finnhubQuote?.low || currentPrice).toFixed(2),
+          ),
+          close: Number(currentPrice.toFixed(2)),
+          volume: Math.round(finnhubQuote?.timestamp ? 15000 : 5000),
+        });
+      } else {
+        last.close = Number(currentPrice.toFixed(2));
+        if (currentPrice > last.high) last.high = Number(currentPrice.toFixed(2));
+        if (currentPrice < last.low) last.low = Number(currentPrice.toFixed(2));
+      }
+    }
+
     const previousClose =
       finnhubQuote?.previousClose ||
       meta?.previousClose ||
@@ -272,7 +299,6 @@ export async function GET(request: Request) {
       finnhubQuote?.percentChange ??
       (previousClose > 0 ? (change24h / previousClose) * 100 : 0);
 
-    const nowSec = Math.floor(Date.now() / 1000);
     const last24hCandles = candles.filter((c) => c.time >= nowSec - HOURS_24_IN_SECONDS);
     const relevantCandles = last24hCandles.length > 0 ? last24hCandles : candles.slice(-20);
 
