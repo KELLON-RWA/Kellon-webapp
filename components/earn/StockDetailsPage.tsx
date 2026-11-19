@@ -657,31 +657,33 @@ export default function StockDetailsPage({
         <div className="space-y-4">
           {/* 3. Stock Summary Card */}
           <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 shadow-lg backdrop-blur">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto] sm:items-center">
-              {/* Left Column: Logo + Ticker + Price + 24h Pill */}
+            {/* Top Row: Logo + Symbol + Network Badge */}
+            <div className="flex items-center gap-2.5">
+              <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
+              <span className="text-base font-bold text-white sm:text-lg">
+                {displayStockSymbol}
+              </span>
+              <span className="rounded border border-purple-800/30 bg-purple-950/40 px-2 py-0.5 text-[11px] font-medium text-purple-300">
+                {networkBadge}
+              </span>
+            </div>
+
+            {/* Subtle Divider Line */}
+            <div className="my-3.5 border-t border-white/10" />
+
+            {/* Bottom Row: Price & 24h Pill on Left, 2x2 Stats Grid on Right */}
+            <div className="flex items-center justify-between gap-4">
+              {/* Left Column: Price & 24h Change Pill */}
               <div>
-                <div className="flex items-center gap-2">
-                  <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
-                  <span className="text-base font-bold text-white">
-                    {displayStockSymbol}
-                  </span>
-                  <span className="rounded-full border border-purple-800/40 bg-purple-950/50 px-2 py-0.5 text-[11px] font-semibold text-purple-300">
-                    {networkBadge}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex items-baseline gap-3">
-                  <p
-                    className={cn(
-                      "text-3xl font-extrabold tabular-nums sm:text-4xl",
-                      isPositive ? "text-emerald-400" : "text-rose-400",
-                    )}
-                  >
-                    {formatUsd(currentPrice)}
-                  </p>
-                </div>
-
-                <div className="mt-2 flex items-center gap-2">
+                <p
+                  className={cn(
+                    "text-2xl font-bold tabular-nums sm:text-3xl",
+                    isPositive ? "text-emerald-400" : "text-rose-500",
+                  )}
+                >
+                  {formatUsd(currentPrice)}
+                </p>
+                <div className="mt-1.5">
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
@@ -701,11 +703,11 @@ export default function StockDetailsPage({
                 </div>
               </div>
 
-              {/* Middle Column: 2x2 Stats Grid */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2 border-t border-white/5 pt-3 sm:border-t-0 sm:pt-0 sm:text-right">
+              {/* Right Column: 2x2 Stats Grid */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-left sm:gap-x-12">
                 <div>
                   <p className="text-[11px] text-gray-400">24h High</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-white">
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
                     {formatUsd(high24h)}
                   </p>
                 </div>
@@ -713,42 +715,22 @@ export default function StockDetailsPage({
                   <p className="text-[11px] text-gray-400">
                     24h Vol ({displayStockSymbol})
                   </p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-white">
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
                     {formatCompactVolume(vol24h)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] text-gray-400">24h Low</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-white">
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
                     {formatUsd(low24h)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] text-gray-400">24h Turnover ($)</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-white">
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
                     {formatCompactTurnover(turnover24h)}
                   </p>
                 </div>
-              </div>
-
-              {/* Right Column (Desktop inline action buttons) */}
-              <div className="hidden lg:flex items-center gap-3 border-l border-white/5 pl-6">
-                {canSell ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-xl bg-rose-500 px-5 text-sm font-bold text-white shadow-md hover:bg-rose-600 active:scale-95 transition"
-                    onClick={() => setStockAction("sell")}
-                  >
-                    Sell
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  className="h-11 rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 px-6 text-sm font-bold text-white shadow-md shadow-primary-60/20 hover:brightness-110 active:scale-95 transition"
-                  onClick={() => setStockAction("buy")}
-                >
-                  {canSell ? "Buy More" : "Buy"}
-                </Button>
               </div>
             </div>
           </section>
