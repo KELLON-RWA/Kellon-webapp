@@ -50,7 +50,43 @@ async function getJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+export type Candle = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+export type StockTradingData = {
+  symbol: string;
+  underlying: string;
+  candles: Candle[];
+  stats: {
+    currentPrice: number;
+    change24h: number;
+    change24hPercent: number;
+    high24h: number;
+    low24h: number;
+    vol24h: number;
+    turnover24h: number;
+  };
+  performance: {
+    today: number;
+    days7: number;
+    days30: number;
+    days90: number;
+    days180: number;
+  };
+};
+
 export const stockResearchService = {
+  getCandles(symbol: string, interval = "15m") {
+    return getJson<StockTradingData>(
+      `/api/market/candles?${new URLSearchParams({ symbol, interval })}`,
+    );
+  },
   getCompanyProfile(symbol: string, name: string) {
     return getJson<{ profile: WikidataCompanyProfile | null }>(
       `/api/market/company/${encodeURIComponent(symbol)}?${new URLSearchParams({ name })}`,
