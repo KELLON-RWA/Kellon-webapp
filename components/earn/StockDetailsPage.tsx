@@ -25,7 +25,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState, useCallback } from "react";
+import { useId, useMemo, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ import StockTradingChart, {
   type HoveredData,
   type IndicatorType,
 } from "./StockTradingChart";
+import StockDesktopSidebar from "./StockDesktopSidebar";
 import {
   formatUsd,
   getStockProviderLabel,
@@ -236,7 +237,25 @@ export default function StockDetailsPage({
   const [activeInterval, setActiveInterval] = useState<string>("15m");
   const [chartType, setChartType] = useState<ChartType>("candlestick");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
-  const [isWatchlisted, setIsWatchlisted] = useState(false);
+  const [watchlist, setWatchlist] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("kellon_stock_watchlist");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "kellon_stock_watchlist",
+        JSON.stringify(Array.from(watchlist)),
+      );
+    } catch {}
+  }, [watchlist]);
+
   const [stockAction, setStockAction] = useState<StockActionType | null>(null);
   const [hoveredData, setHoveredData] = useState<HoveredData | null>(null);
 
@@ -517,17 +536,25 @@ export default function StockDetailsPage({
     ]);
   };
 
-  const handleToggleWatchlist = () => {
-    setIsWatchlisted((prev) => {
-      const next = !prev;
-      toast.success(
-        next
-          ? `Added ${displayStockSymbol} to watchlist`
-          : `Removed ${displayStockSymbol} from watchlist`,
-      );
-      return next;
-    });
-  };
+  const isWatchlisted = watchlist.has(underlyingTicker);
+
+  const handleToggleWatchlist = useCallback(
+    (tickerToToggle?: string) => {
+      const target = (tickerToToggle || underlyingTicker).toUpperCase();
+      setWatchlist((prev) => {
+        const next = new Set(prev);
+        if (next.has(target)) {
+          next.delete(target);
+          toast.success(`Removed ${target} from watchlist`);
+        } else {
+          next.add(target);
+          toast.success(`Added ${target} to watchlist`);
+        }
+        return next;
+      });
+    },
+    [underlyingTicker],
+  );
 
   if (!isLoading && !stock) {
     return (
@@ -609,7 +636,7 @@ export default function StockDetailsPage({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleToggleWatchlist}
+            onClick={() => handleToggleWatchlist()}
             aria-label="Watchlist"
             className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95"
           >
@@ -657,7 +684,11 @@ export default function StockDetailsPage({
         ))}
       </nav>
 
-      {activeTab === "Charts" ? (
+      {/* Main Grid: Left Column for Chart/Content, Right Column for Binance-style Desktop Sidebar */}
+      <div className="grid grid-cols-1 gap-6 min-[1200px]:grid-cols-[minmax(0,1fr)_340px] min-[1400px]:grid-cols-[minmax(0,1fr)_380px] min-[1200px]:items-start">
+        {/* Left Column: Charts / Company / Token Info / Data content */}
+        <div className="min-w-0">
+          {activeTab === "Charts" ? (
         <div className="space-y-4">
           {/* 3. Stock Summary Card */}
           <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 shadow-lg backdrop-blur">
@@ -1245,6 +1276,18 @@ export default function StockDetailsPage({
           hasDexPoolMetadata={Boolean(dexTokenAddress || dexPairAddress)}
         />
       )}
+        </div>
+
+        {/* Right Column: Desktop Binance-style Sidebar (Other Stocks + Top Movers) */}
+        <aside className="hidden min-[1200px]:flex min-[1200px]:flex-col min-[1200px]:gap-4 min-[1200px]:sticky min-[1200px]:top-24">
+          <StockDesktopSidebar
+            stocks={stocks}
+            currentSymbol={underlyingTicker}
+            watchlist={watchlist}
+            onToggleWatchlist={handleToggleWatchlist}
+          />
+        </aside>
+      </div>
 
       {/* 11. Sticky Bottom Action Bar */}
       <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-cryptoNight/90 px-4 py-3 backdrop-blur-md sm:px-6">
