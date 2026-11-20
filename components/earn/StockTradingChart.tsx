@@ -284,10 +284,11 @@ export default function StockTradingChart({
           borderColor: "rgba(255, 255, 255, 0.08)",
           timeVisible: true,
           secondsVisible: false,
-          tickMarkFormatter: (time: number) => {
-            const date = new Date(time * 1000);
-            return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
-          },
+          rightOffset: 6,
+          barSpacing: 8,
+          minBarSpacing: 2,
+          fixLeftEdge: false,
+          fixRightEdge: false,
         },
         handleScale: {
           axisPressedMouseMove: true,
@@ -585,8 +586,16 @@ export default function StockTradingChart({
         }
       });
 
-      // Fit content initial view
-      chart.timeScale().fitContent();
+      // Set initial visible range to the latest ~80 candles so recent action is clear
+      // while preserving full scrollback into historical candles
+      const totalCandles = candles.length;
+      if (totalCandles > 0) {
+        const visibleBars = Math.min(80, totalCandles);
+        chart.timeScale().setVisibleLogicalRange({
+          from: totalCandles - visibleBars,
+          to: totalCandles + 5,
+        });
+      }
 
       // Handle ResizeObserver
       if (resizeObserverRef.current) {

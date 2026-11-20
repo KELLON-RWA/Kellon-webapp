@@ -37,23 +37,23 @@ export type StockTradingData = {
   };
 };
 
-// Map interval request to Yahoo query parameters
+// Map interval request to Yahoo query parameters (fetching deep historical ranges for smooth scrollback)
 const INTERVAL_CONFIG: Record<
   string,
   { interval: string; range: string; aggregateFactor?: number }
 > = {
-  "1s": { interval: "1m", range: "1d" },
-  "1m": { interval: "1m", range: "1d" },
-  "5m": { interval: "5m", range: "5d" },
-  "15m": { interval: "15m", range: "5d" },
-  "30m": { interval: "30m", range: "1mo" },
-  "1h": { interval: "60m", range: "1mo" },
-  "2h": { interval: "60m", range: "3mo", aggregateFactor: 2 },
-  "4h": { interval: "60m", range: "6mo", aggregateFactor: 4 },
-  "1D": { interval: "1d", range: "1y" },
-  "1W": { interval: "1wk", range: "2y" },
-  "1M": { interval: "1mo", range: "5y" },
-  "3M": { interval: "3mo", range: "10y" },
+  "1s": { interval: "1m", range: "7d" },
+  "1m": { interval: "1m", range: "7d" },
+  "5m": { interval: "5m", range: "60d" },
+  "15m": { interval: "15m", range: "60d" },
+  "30m": { interval: "30m", range: "60d" },
+  "1h": { interval: "60m", range: "730d" },
+  "2h": { interval: "60m", range: "730d", aggregateFactor: 2 },
+  "4h": { interval: "60m", range: "730d", aggregateFactor: 4 },
+  "1D": { interval: "1d", range: "5y" },
+  "1W": { interval: "1wk", range: "10y" },
+  "1M": { interval: "1mo", range: "max" },
+  "3M": { interval: "3mo", range: "max" },
 };
 
 function normalizeYahooSymbol(symbol: string): string {
@@ -229,7 +229,7 @@ export async function GET(request: Request) {
       const stepSec = 900; // 15m
       let currentP = basePrice * 0.98;
 
-      for (let i = 50; i >= 0; i--) {
+      for (let i = 250; i >= 0; i--) {
         const t = now - i * stepSec;
         const delta = (Math.sin(i / 3) * 0.008 + (Math.random() - 0.48) * 0.006) * currentP;
         const o = currentP;
