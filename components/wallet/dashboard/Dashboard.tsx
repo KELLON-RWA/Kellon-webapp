@@ -240,11 +240,11 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
   }, [router]);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-32 pt-4 md:space-y-6 md:px-6 md:pb-12 md:pt-28 min-[1024px]:max-w-none min-[1024px]:space-y-4 min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8">
+    <div className="w-full space-y-6 px-4 pb-32 pt-4 md:space-y-6 md:px-6 md:pb-12 md:pt-28 lg:space-y-4 lg:px-8 lg:pt-24 xl:px-10 2xl:px-12">
       <DashboardHeader greeting={greeting} profile={activeProfile} />
 
-      <div className="grid grid-cols-1 gap-6 min-[1024px]:gap-4 min-[1280px]:grid-cols-12 min-[1280px]:items-start min-[1440px]:grid-cols-[minmax(0,1.7fr)_minmax(22rem,1fr)]">
-        <div className="contents min-[1280px]:col-span-8 min-[1280px]:flex min-[1280px]:min-w-0 min-[1280px]:flex-col min-[1280px]:gap-4 min-[1280px]:h-full min-[1440px]:col-span-1">
+      <div className="grid grid-cols-1 gap-6 lg:gap-4 xl:grid-cols-12 xl:items-start 2xl:gap-6">
+        <div className="contents xl:col-span-7 xl:flex xl:min-w-0 xl:flex-col xl:gap-4 xl:h-full 2xl:col-span-7 3xl:col-span-8">
           <PortfolioBalanceCard
             activeBalanceLabel={formatCurrencyAmount(
               activePortfolioValue,
@@ -270,7 +270,7 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             setIsBalanceVisible={dashboard.setIsBalanceVisible}
             totalNetworks={dashboard.totalNetworks}
           />
-          <div className="hidden min-[1024px]:order-2 min-[1024px]:block min-[1280px]:hidden">
+          <div className="hidden lg:order-2 lg:block xl:hidden">
             <QuickActionsPanel
               onAddFunds={() => setIsAddFundsOpen(true)}
               onMore={() => setIsWalletServicesOpen(true)}
@@ -295,8 +295,8 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
           />
         </div>
 
-        <aside className="contents min-[1024px]:order-4 min-[1024px]:grid min-[1024px]:min-w-0 min-[1024px]:grid-cols-2 min-[1024px]:items-start min-[1024px]:gap-3 min-[1280px]:order-none min-[1280px]:col-span-4 min-[1280px]:flex min-[1280px]:flex-col min-[1280px]:items-stretch min-[1440px]:col-span-1">
-          <div className="order-2 min-[1024px]:hidden min-[1280px]:order-none min-[1280px]:block min-[1280px]:w-full">
+        <aside className="contents lg:order-4 lg:grid lg:min-w-0 lg:grid-cols-2 lg:items-start lg:gap-3 xl:order-none xl:col-span-5 xl:flex xl:flex-col xl:items-stretch 2xl:col-span-5 3xl:col-span-4 2xl:grid 2xl:grid-cols-2 2xl:gap-4 2xl:items-start">
+          <div className="order-2 lg:hidden xl:order-none xl:block xl:w-full 2xl:col-span-2">
             <QuickActionsPanel
               onAddFunds={() => setIsAddFundsOpen(true)}
               onMore={() => setIsWalletServicesOpen(true)}
@@ -315,12 +315,14 @@ export default function DashboardClient({ profile }: DashboardClientProps) {
             listings={stockListings}
             isListingsLoading={isStockListingsLoading}
           />
-          <ActivityPanel
-            isBalanceVisible={dashboard.isBalanceVisible}
-            isTransactionsLoading={dashboard.isTransactionsLoading}
-            recentTransactions={dashboard.recentTransactions}
-            transactionsError={dashboard.transactionsError}
-          />
+          <div className="2xl:col-span-2">
+            <ActivityPanel
+              isBalanceVisible={dashboard.isBalanceVisible}
+              isTransactionsLoading={dashboard.isTransactionsLoading}
+              recentTransactions={dashboard.recentTransactions}
+              transactionsError={dashboard.transactionsError}
+            />
+          </div>
         </aside>
       </div>
 

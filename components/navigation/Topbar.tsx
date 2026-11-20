@@ -33,7 +33,7 @@ const Topbar: FC<TopbarProps> = ({ className, profile }) => {
     <section
       className={cn(
         className,
-        "relative hidden w-full px-4 py-3 md:fixed md:z-50 md:block min-[1024px]:!hidden lg:px-5",
+        "relative hidden w-full px-4 py-3 md:fixed md:z-50 md:block lg:hidden",
       )}
     >
       <header className="mx-auto flex max-w-[1440px] items-center justify-between gap-4">

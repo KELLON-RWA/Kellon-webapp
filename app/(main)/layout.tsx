@@ -26,7 +26,7 @@ const layout: FC<layoutProps> = async ({ children }) => {
       <BridgeOutboxWatcher />
       <ReferralAttributor />
       {profile && <DashboardDesktopNavigation profile={profile} />}
-      <div className="min-[1024px]:pl-56 min-[1024px]:pl-[var(--desktop-sidebar-width)]">{children}</div>
+      <div className="w-full transition-[padding] duration-200 lg:pl-[var(--desktop-sidebar-width)]">{children}</div>
       <BottomNavigationBar className="md:hidden z-20" profile={profile} />
     </main>
   )

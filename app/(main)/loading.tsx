@@ -5,28 +5,28 @@ function Skeleton({ className }: { className: string }) {
 export default function MainRouteLoading() {
   return (
     <div
-      className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-32 pt-4 md:space-y-6 md:px-6 md:pb-12 md:pt-28 min-[1024px]:max-w-none min-[1024px]:space-y-4 min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8"
+      className="w-full space-y-6 px-4 pb-32 pt-4 md:space-y-6 md:px-6 md:pb-12 md:pt-28 lg:space-y-4 lg:px-8 lg:pt-24 xl:px-10 2xl:px-12"
       aria-busy="true"
       aria-label="Loading wallet"
     >
       <Skeleton className="h-7 w-48" />
 
-      <div className="grid grid-cols-1 gap-6 min-[1024px]:gap-4 min-[1280px]:grid-cols-12 min-[1440px]:grid-cols-[minmax(0,1.7fr)_minmax(22rem,1fr)]">
-        <div className="contents min-[1280px]:col-span-8 min-[1280px]:flex min-[1280px]:min-w-0 min-[1280px]:flex-col min-[1280px]:gap-4 min-[1440px]:col-span-1">
-          <section className="relative min-h-[178px] overflow-hidden rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/20">
+      <div className="grid grid-cols-1 gap-6 lg:gap-4 xl:grid-cols-12 xl:items-start 2xl:gap-6">
+        <div className="contents xl:col-span-7 xl:flex xl:min-w-0 xl:flex-col xl:gap-4 xl:h-full 2xl:col-span-7 3xl:col-span-8">
+          <section className="relative min-h-[178px] overflow-hidden rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-secondary-50/20 lg:p-5">
             <div className="flex items-center justify-between">
               <Skeleton className="h-7 w-44 rounded-full" />
               <Skeleton className="h-8 w-8 rounded-full" />
             </div>
             <Skeleton className="mt-5 h-9 w-44" />
             <Skeleton className="mt-2 h-4 w-20" />
-            <div className="absolute right-4 top-1/2 hidden w-[46%] -translate-y-1/2 grid-cols-2 gap-2 min-[1024px]:grid">
-              <Skeleton className="h-[58px]" />
-              <Skeleton className="h-[58px]" />
+            <div className="absolute right-6 top-1/2 hidden w-auto max-w-[340px] -translate-y-1/2 grid-cols-2 gap-3 lg:grid">
+              <Skeleton className="h-[58px] w-36" />
+              <Skeleton className="h-[58px] w-36" />
             </div>
           </section>
 
-          <section className="min-h-[420px] rounded-xl bg-white/80 p-4 dark:bg-secondary-50 min-[1024px]:min-h-[520px]">
+          <section className="min-h-[420px] rounded-xl bg-white/80 p-4 dark:bg-secondary-50 lg:min-h-[520px]">
             <div className="flex items-center justify-between">
               <Skeleton className="h-10 w-28" />
               <Skeleton className="h-8 w-8 rounded-full" />
@@ -57,8 +57,8 @@ export default function MainRouteLoading() {
           </section>
         </div>
 
-        <aside className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2 min-[1280px]:col-span-4 min-[1280px]:flex min-[1280px]:flex-col min-[1440px]:col-span-1">
-          <section className="grid grid-cols-2 gap-2 rounded-xl bg-white/80 p-2 dark:bg-secondary-50">
+        <aside className="contents lg:grid lg:grid-cols-2 lg:gap-4 xl:col-span-5 xl:flex xl:flex-col 2xl:col-span-5 3xl:col-span-4 2xl:grid 2xl:grid-cols-2 2xl:gap-4">
+          <section className="grid grid-cols-2 gap-2 rounded-xl bg-white/80 p-2 dark:bg-secondary-50 2xl:col-span-2">
             {Array.from({ length: 4 }).map((_, index) => (
               <Skeleton key={index} className="h-[72px]" />
             ))}
