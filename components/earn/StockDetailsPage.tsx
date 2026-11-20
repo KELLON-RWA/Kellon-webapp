@@ -585,7 +585,7 @@ export default function StockDetailsPage({
   const candles = tradingData?.candles || [];
 
   return (
-    <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-36 pt-4 md:px-6 md:pb-24 md:pt-28">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-36 pt-4 md:px-6 md:pb-24 md:pt-28 min-[1024px]:max-w-none min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8">
       {/* 1. Header Bar */}
       <header className="mb-4 flex items-center justify-between">
         <button
@@ -1248,7 +1248,7 @@ export default function StockDetailsPage({
 
       {/* 11. Sticky Bottom Action Bar */}
       <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-cryptoNight/90 px-4 py-3 backdrop-blur-md sm:px-6">
-        <div className="container mx-auto flex max-w-7xl items-center gap-3">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-3 px-4 md:px-6 min-[1024px]:max-w-none min-[1024px]:px-6 min-[1200px]:px-8">
           {canSell ? (
             <>
               <Button

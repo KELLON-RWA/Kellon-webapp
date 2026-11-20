@@ -1125,7 +1125,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   };
 
   return (
-    <main className="container mx-auto min-h-[100dvh] w-full max-w-7xl px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-32 pt-4 md:px-6 md:pb-12 md:pt-28 min-[1024px]:max-w-none min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8">
       <div className="mb-5 flex items-center gap-2 md:mb-6">
         <section
           aria-label="Earn categories"
