@@ -681,7 +681,7 @@ export default function StockDetailsPage({
             className={cn(
               "h-9 rounded-lg text-xs font-semibold transition sm:text-sm",
               activeTab === tab
-                ? "bg-primary-60 text-white shadow-md"
+                ? "bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-lg shadow-primary-60/20"
                 : "text-gray-400 hover:text-white hover:bg-white/5",
             )}
           >

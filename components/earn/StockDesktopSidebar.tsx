@@ -186,7 +186,7 @@ export default function StockDesktopSidebar({
               className={cn(
                 "rounded-lg px-2.5 py-1 text-xs font-semibold transition",
                 activeTab === "all"
-                  ? "bg-primary-60 text-white shadow-sm"
+                  ? "bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-sm"
                   : "text-gray-400 hover:text-white hover:bg-white/5",
               )}
             >
@@ -198,7 +198,7 @@ export default function StockDesktopSidebar({
               className={cn(
                 "flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition",
                 activeTab === "watchlist"
-                  ? "bg-primary-60 text-white shadow-sm"
+                  ? "bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-sm"
                   : "text-gray-400 hover:text-white hover:bg-white/5",
               )}
             >
