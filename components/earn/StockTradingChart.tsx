@@ -587,14 +587,15 @@ export default function StockTradingChart({
         }
       });
 
-      // Set initial visible range to the latest ~80 candles so recent action is clear
+      // Set initial visible range to the latest candles so recent action is clear
       // while preserving full scrollback into historical candles
       const totalCandles = candles.length;
       if (totalCandles > 0) {
-        const visibleBars = Math.min(80, totalCandles);
+        const isNarrow = typeof window !== "undefined" && window.innerWidth < 640;
+        const visibleBars = Math.min(isNarrow ? 32 : 80, totalCandles);
         chart.timeScale().setVisibleLogicalRange({
           from: totalCandles - visibleBars,
-          to: totalCandles + 5,
+          to: totalCandles + (isNarrow ? 2 : 5),
         });
       }
 
