@@ -159,7 +159,7 @@ export default function YieldPositionDetailsPage({
   };
 
   return (
-    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-28 min-[1024px]:max-w-none min-[1024px]:px-6 min-[1024px]:pt-24 min-[1200px]:px-8">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-28 lg:max-w-none lg:px-6 lg:pt-24 xl:px-8">
       <header className="mb-6 flex items-center justify-between">
         <button
           type="button"
