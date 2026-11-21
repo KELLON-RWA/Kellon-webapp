@@ -9,6 +9,18 @@ import {
 } from "react";
 import type { Candle } from "@/services/api/stock-research";
 
+let lcPromise: Promise<typeof import("lightweight-charts")> | null = null;
+function getLightweightCharts() {
+  if (!lcPromise) {
+    lcPromise = import("lightweight-charts");
+  }
+  return lcPromise;
+}
+
+if (typeof window !== "undefined") {
+  getLightweightCharts();
+}
+
 export type ChartType = "candlestick" | "line";
 export type IndicatorType = "MA" | "EMA" | "BOLL" | "SAR" | "VOL" | "MACD" | "RSI" | "KDJ";
 
@@ -233,7 +245,7 @@ export default function StockTradingChart({
     async function initChart() {
       if (!chartContainerRef.current) return;
 
-      const lc = await import("lightweight-charts");
+      const lc = await getLightweightCharts();
       if (isCancelled || !chartContainerRef.current) return;
 
       if (chartInstanceRef.current) {

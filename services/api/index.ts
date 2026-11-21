@@ -448,6 +448,7 @@ const SIGNED_ROUTE_SEGMENTS = [
   "banks",
   "kyc",
   "cards",
+  "giftcards",
   "yield",
   "biometric",
   "bridge",

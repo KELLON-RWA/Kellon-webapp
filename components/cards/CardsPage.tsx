@@ -14,7 +14,9 @@ import {
   ArrowUpFromLine,
   XOctagon,
   Copy,
+  Gift,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -604,13 +606,20 @@ export default function CardsPage({ profile }: { profile: User }) {
             Virtual dollar cards funded from your stablecoins
           </p>
         </div>
-        {approved &&
-        program.issuanceEnabled &&
-        cards.length < program.limits.maxCards ? (
-          <Button onClick={() => openDialog("issue")}>
-            <Plus /> New card
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/gift-cards">
+              <Gift /> Gift cards
+            </Link>
           </Button>
-        ) : null}
+          {approved &&
+          program.issuanceEnabled &&
+          cards.length < program.limits.maxCards ? (
+            <Button onClick={() => openDialog("issue")}>
+              <Plus /> New card
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {!approved ? (

@@ -55,6 +55,19 @@ export default function StockDesktopSidebar({
       const ticker = getUnderlyingTicker(stock.symbol, stock.provider);
       if (!map.has(ticker)) {
         map.set(ticker, stock);
+      } else {
+        const existing = map.get(ticker)!;
+        const isCurrentExact = stock.symbol.toUpperCase() === ticker;
+        const isExistingExact = existing.symbol.toUpperCase() === ticker;
+        if (isCurrentExact && !isExistingExact) {
+          map.set(ticker, stock);
+        } else if (
+          !isExistingExact &&
+          !/on$/i.test(stock.symbol) &&
+          /on$/i.test(existing.symbol)
+        ) {
+          map.set(ticker, stock);
+        }
       }
     }
     return Array.from(map.values());
@@ -65,7 +78,7 @@ export default function StockDesktopSidebar({
     () =>
       uniqueStocks
         .map((s) => getUnderlyingTicker(s.symbol, s.provider))
-        .slice(0, 50),
+        .slice(0, 20),
     [uniqueStocks],
   );
 

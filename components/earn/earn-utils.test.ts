@@ -5,6 +5,7 @@ import {
   getStockProviderLabel,
   getStockSettlementChain,
 } from "./earn-utils";
+import { getDisplayStockName } from "./EarnPage";
 
 function profileWithAssets(
   assets: Array<Pick<Asset, "symbol" | "chain" | "amount">>,
@@ -56,5 +57,23 @@ describe("getStockProviderLabel", () => {
 
   it("preserves other provider-facing stock labels", () => {
     expect(getStockProviderLabel("Solana Xstocks")).toBe("Solana Xstocks");
+  });
+});
+
+describe("getDisplayStockName", () => {
+  it("replaces xStock, Ondo Stock, Ondo Tokenized Stock, bStock, and cStock with Tokenized Stock", () => {
+    expect(getDisplayStockName("Anthropic xStock")).toBe("Anthropic Tokenized Stock");
+    expect(getDisplayStockName("Berkshire Hathaway xStock")).toBe("Berkshire Hathaway Tokenized Stock");
+    expect(getDisplayStockName("Coinbase xStock")).toBe("Coinbase Tokenized Stock");
+    expect(getDisplayStockName("Apple Inc. Ondo Tokenized Stock")).toBe("Apple Inc. Tokenized Stock");
+    expect(getDisplayStockName("Apple Inc. Ondo Stock")).toBe("Apple Inc. Tokenized Stock");
+    expect(getDisplayStockName("Apple bStock")).toBe("Apple Tokenized Stock");
+    expect(getDisplayStockName("Apple cStock")).toBe("Apple Tokenized Stock");
+    expect(getDisplayStockName("Apple Inc. Tokenized Stock")).toBe("Apple Inc. Tokenized Stock");
+  });
+
+  it("leaves standard company names untouched", () => {
+    expect(getDisplayStockName("AMC Entertainment")).toBe("AMC Entertainment");
+    expect(getDisplayStockName("Alibaba")).toBe("Alibaba");
   });
 });

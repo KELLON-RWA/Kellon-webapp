@@ -308,7 +308,17 @@ function NetworkFilterMenu({
 }
 
 export function getDisplayStockName(name: string): string {
-  return name.replace(/\s+[bc]stock$/i, "").trim();
+  if (!name) return "";
+  let formatted = name
+    .replace(/\s+ondo[-\s]+(?:tokenized[-\s]+)?stock$/i, " Tokenized Stock")
+    .replace(/\s+ondo[-\s]+stock$/i, " Tokenized Stock")
+    .replace(/\s+[bcx][-\s]*stock$/i, " Tokenized Stock")
+    .replace(/\s+xstock$/i, " Tokenized Stock");
+  formatted = formatted.replace(
+    /(?:\s+tokenized\s+stock)+$/i,
+    " Tokenized Stock",
+  );
+  return formatted.trim();
 }
 
 function getStockLogoFallbackUrl(symbol: string): string {
@@ -885,7 +895,22 @@ export default function EarnPage({ profile }: EarnPageProps) {
 
       // A ticker is a single product in the catalog. Provider listings are
       // retained for the trade flow, where the buyer chooses a supported route.
-      if (!listingsByTicker.has(ticker)) listingsByTicker.set(ticker, stock);
+      if (!listingsByTicker.has(ticker)) {
+        listingsByTicker.set(ticker, stock);
+      } else {
+        const existing = listingsByTicker.get(ticker)!;
+        const isCurrentExact = stock.symbol.toUpperCase() === ticker;
+        const isExistingExact = existing.symbol.toUpperCase() === ticker;
+        if (isCurrentExact && !isExistingExact) {
+          listingsByTicker.set(ticker, stock);
+        } else if (
+          !isExistingExact &&
+          !/on$/i.test(stock.symbol) &&
+          /on$/i.test(existing.symbol)
+        ) {
+          listingsByTicker.set(ticker, stock);
+        }
+      }
     });
 
     return [...listingsByTicker.values()];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowLeft,
@@ -362,6 +362,7 @@ export default function StockDetailsPage({
     enabled: Boolean(underlyingTicker) && !isRwa,
     staleTime: 30_000,
     refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   // Finnhub data
@@ -900,7 +901,9 @@ export default function StockDetailsPage({
                       (AVAILABLE_TIMEFRAMES as readonly string[]).includes(activeInterval) &&
                         chartType === "candlestick"
                         ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
-                        : "text-gray-400 hover:text-white hover:bg-white/5",
+                        : isMoreOpen
+                          ? "bg-white/10 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-white/5",
                     )}
                   >
                     <span>
@@ -918,13 +921,14 @@ export default function StockDetailsPage({
                   </button>
 
                   {isMoreOpen ? (
-                    <div className="absolute left-0 top-full z-50 mt-2 w-72 sm:w-80 rounded-xl border border-white/10 bg-[#181a20]/95 p-3.5 shadow-2xl backdrop-blur-md">
+                    <div className="absolute left-0 top-full z-50 mt-2 w-72 sm:w-80 rounded-2xl border border-white/10 bg-secondary-60/95 p-3.5 sm:p-4 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150">
                       {/* Pinned Section */}
-                      <div className="flex items-center justify-between pb-2">
-                        <span className="text-xs font-semibold text-gray-400">Pinned</span>
-                        <span className="text-[11px] font-medium text-gray-500">Edit</span>
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          Pinned
+                        </span>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                         {PINNED_TIMEFRAMES.map((item) => {
                           const isActive =
                             item === "Time"
@@ -945,10 +949,10 @@ export default function StockDetailsPage({
                                 setIsMoreOpen(false);
                               }}
                               className={cn(
-                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center cursor-pointer",
+                                "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer active:scale-95",
                                 isActive
-                                  ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)] font-bold"
-                                  : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white active:scale-95",
+                                  ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
+                                  : "border border-white/5 bg-white/5 text-gray-300 hover:border-white/10 hover:bg-white/10 hover:text-white",
                               )}
                             >
                               {item}
@@ -957,11 +961,16 @@ export default function StockDetailsPage({
                         })}
                       </div>
 
+                      {/* Divider */}
+                      <div className="my-3 border-t border-white/10" />
+
                       {/* Available Section */}
-                      <div className="mt-3.5 mb-2">
-                        <span className="text-xs font-semibold text-gray-400">Available</span>
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          Available Intervals
+                        </span>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                         {AVAILABLE_TIMEFRAMES.map((item) => {
                           const isActive =
                             chartType === "candlestick" && activeInterval === item;
@@ -976,10 +985,10 @@ export default function StockDetailsPage({
                                 setIsMoreOpen(false);
                               }}
                               className={cn(
-                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center cursor-pointer",
+                                "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer active:scale-95",
                                 isActive
-                                  ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)] font-bold"
-                                  : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white active:scale-95",
+                                  ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
+                                  : "border border-white/5 bg-white/5 text-gray-300 hover:border-white/10 hover:bg-white/10 hover:text-white",
                               )}
                             >
                               {item}

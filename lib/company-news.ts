@@ -10,7 +10,12 @@ export type CompanyNewsArticle = {
 export type CompanyNewsSource = "Google News" | "Finnhub";
 
 export function getCompanyNewsName(name: string): string {
-  return name.replace(/\s+(?:tokenized\s+stock|[bcx]stock|IPO)$/i, "").trim();
+  return name
+    .replace(
+      /\s+(?:(?:ondo\s+)?tokenized\s+stock|ondo\s+stock|[bcx]stock|IPO)$/i,
+      "",
+    )
+    .trim();
 }
 
 export function getCompanyNewsQuery(symbol: string, name: string): string {

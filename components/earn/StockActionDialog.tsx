@@ -45,6 +45,7 @@ import { expectedSafeFor, resolveEvmSigner } from "@/lib/evm-signer";
 import { sweepStrandedShares } from "@/services/stock-sweep";
 import { getActiveChains } from "@/lib/chains";
 import { getCompanyLogoUrl } from "@/lib/stock-branding";
+import { getUnderlyingTicker } from "@/lib/stock-catalog";
 import {
   stocksService,
   type StockListing,
@@ -107,21 +108,7 @@ type StockOrderSuccess = {
 
 const BALANCE_RECONCILIATION_DELAY_MS = 5_000;
 
-function getDisplayTicker(symbol: string, provider?: string): string {
-  const raw = symbol.trim();
-  const withoutProviderSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
-  const withoutXStockSuffix =
-    provider?.toLowerCase().includes("xstock") &&
-    /x$/i.test(withoutProviderSuffix)
-      ? withoutProviderSuffix.slice(0, -1)
-      : withoutProviderSuffix;
 
-  return (
-    withoutXStockSuffix.startsWith("b")
-      ? withoutXStockSuffix.slice(1)
-      : withoutXStockSuffix
-  ).toUpperCase();
-}
 
 interface StockSmartAccountClient {
   account: { address: string };
@@ -265,7 +252,7 @@ export default function StockActionDialog({
   }, [open]);
 
   const listingSymbol = currentStock?.symbol || holding?.symbol || "";
-  const symbol = getDisplayTicker(
+  const symbol = getUnderlyingTicker(
     listingSymbol,
     currentStock?.provider || holding?.provider,
   );

@@ -45,7 +45,7 @@ export function getStockSearchResults(
       id,
       label: group.ticker,
       description: group.listings[0].name
-        .replace(/\s+(?:(?:tokenized\s+)?stock|[bcx]stock)$/i, "")
+        .replace(/\s+(?:ondo\s+)?(?:(?:tokenized\s+)?stock|[bcx]stock)$/i, "")
         .trim(),
       href: `/earn/stocks/${encodeURIComponent(group.ticker)}`,
       type: group.type,
