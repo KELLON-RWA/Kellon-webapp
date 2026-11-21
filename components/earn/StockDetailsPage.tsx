@@ -318,6 +318,26 @@ export default function StockDetailsPage({
   const name = stock ? getDisplayStockName(stock.name) : "Stock";
   const stockLogoUrl = getStockLogoUrl(displayStockSymbol, stock?.logoUrl);
 
+  const stockActionName = useMemo(() => {
+    const raw = stock?.name || (name !== "Stock" ? name : "");
+    const clean = raw
+      .replace(/\s+(?:tokenized\s+stock|ondo\s+tokenized\s+stock|[bcx]stock|IPO)$/i, "")
+      .replace(/,\s*Inc\.?$/i, "")
+      .replace(/\s+Inc\.?$/i, "")
+      .replace(/,\s*Corporation$/i, "")
+      .replace(/\s+Corporation$/i, "")
+      .replace(/,\s*Corp\.?$/i, "")
+      .replace(/\s+Corp\.?$/i, "")
+      .replace(/,\s*Co\.?$/i, "")
+      .replace(/\s+Co\.?$/i, "")
+      .trim();
+
+    if (clean && clean.length <= 20) {
+      return clean;
+    }
+    return underlyingTicker || displayStockSymbol || "";
+  }, [stock?.name, name, underlyingTicker, displayStockSymbol]);
+
   const settlementChain = stock
     ? getStockSettlementChain(
         stock.provider,
@@ -1366,14 +1386,14 @@ export default function StockDetailsPage({
                 className="h-12 flex-1 rounded-xl bg-rose-500 text-base font-bold text-white shadow-lg shadow-rose-900/20 hover:bg-rose-600 active:scale-[0.98] transition"
                 onClick={() => setStockAction("sell")}
               >
-                Sell
+                Sell{stockActionName ? ` ${stockActionName}` : ""}
               </Button>
               <Button
                 type="button"
                 className="h-12 flex-1 rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/20 hover:brightness-110 active:scale-[0.98] transition"
                 onClick={() => setStockAction("buy")}
               >
-                Buy
+                Buy{stockActionName ? ` ${stockActionName}` : ""}
               </Button>
             </>
           ) : (
@@ -1382,7 +1402,7 @@ export default function StockDetailsPage({
               className="h-12 w-full rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/20 hover:brightness-110 active:scale-[0.98] transition"
               onClick={() => setStockAction("buy")}
             >
-              Buy
+              Buy{stockActionName ? ` ${stockActionName}` : ""}
             </Button>
           )}
         </div>
