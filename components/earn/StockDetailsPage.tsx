@@ -25,7 +25,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState, useCallback, useEffect } from "react";
+import { useId, useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -81,15 +81,17 @@ import {
 const STOCK_PAGE_TABS = ["Charts", "Company", "Token Info", "Data"] as const;
 type StockPageTab = (typeof STOCK_PAGE_TABS)[number];
 
-const MAIN_TIMEFRAMES = ["Line", "1m", "15m", "1h", "4h", "1D"] as const;
-const MORE_TIMEFRAMES = [
-  { label: "1s", desc: "1 Sec" },
-  { label: "5m", desc: "5 Min" },
-  { label: "30m", desc: "30 Min" },
-  { label: "2h", desc: "2 Hour" },
-  { label: "1W", desc: "1 Week" },
-  { label: "1M", desc: "1 Month" },
-  { label: "3M", desc: "3 Month" },
+const PINNED_TIMEFRAMES = ["Time", "1s", "15m", "1h", "4h", "1D", "1W"] as const;
+const AVAILABLE_TIMEFRAMES = [
+  "1m",
+  "3m",
+  "5m",
+  "30m",
+  "2h",
+  "6h",
+  "8h",
+  "12h",
+  "1M",
 ] as const;
 
 function getListingSymbol(symbol: string): string {
@@ -237,6 +239,23 @@ export default function StockDetailsPage({
   const [activeInterval, setActiveInterval] = useState<string>("15m");
   const [chartType, setChartType] = useState<ChartType>("candlestick");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMoreOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        moreDropdownRef.current &&
+        !moreDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsMoreOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMoreOpen]);
   const [watchlist, setWatchlist] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -339,7 +358,7 @@ export default function StockDetailsPage({
     queryFn: () =>
       stockResearchService.getCandles(
         underlyingTicker,
-        activeInterval === "Line" ? "15m" : activeInterval,
+        activeInterval === "Line" || activeInterval === "Time" ? "15m" : activeInterval,
       ),
     enabled: Boolean(underlyingTicker) && !isRwa,
     staleTime: 30_000,
@@ -614,28 +633,28 @@ export default function StockDetailsPage({
   const candles = tradingData?.candles || [];
 
   return (
-    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-36 pt-4 md:px-6 md:pb-24 md:max-lg:pt-20 lg:max-w-none lg:px-6 lg:pt-3.5 xl:px-8">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-3 sm:px-4 pb-36 pt-4 md:px-6 md:pb-24 md:max-lg:pt-20 lg:max-w-none lg:px-6 lg:pt-3.5 xl:px-8">
       {/* 1. Header Bar */}
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-4 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => router.back()}
           aria-label="Back"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div className="min-w-0 text-center">
+        <div className="min-w-0 flex-1 text-center">
           <h1 className="truncate text-sm font-bold text-white sm:text-base">
             {name.replace(/\s*Tokenized Stock$/i, "")} Tokenized Stock
           </h1>
-          <p className="text-xs text-gray-400">
+          <p className="truncate text-xs text-gray-400">
             {displayStockSymbol} · {networkBadge}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={handleRefreshAll}
@@ -661,7 +680,7 @@ export default function StockDetailsPage({
             type="button"
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "h-9 rounded-lg text-xs font-semibold transition sm:text-sm",
+              "h-9 rounded-lg px-1 truncate text-[11px] font-semibold transition sm:text-sm",
               activeTab === tab
                 ? "bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-lg shadow-primary-60/20"
                 : "text-gray-400 hover:text-white hover:bg-white/5",
@@ -679,10 +698,10 @@ export default function StockDetailsPage({
           {activeTab === "Charts" ? (
         <div className="space-y-4">
           {/* 3. Stock Summary Card */}
-          <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 shadow-lg backdrop-blur">
+          <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-3 sm:p-5 shadow-lg backdrop-blur">
             {/* Top Row: Logo + Symbol + Network Badge + Watchlist Star (Left) & Historical Performance (Right on Desktop) */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center justify-between gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-2 shrink-0">
                 <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
                 <span className="text-base font-bold text-white sm:text-lg">
                   {displayStockSymbol}
@@ -776,7 +795,7 @@ export default function StockDetailsPage({
             <div className="my-3.5 border-t border-white/10" />
 
             {/* Bottom Row: Price & 24h Pill on Left, 2x2 Stats Grid on Right */}
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               {/* Left Column: Price & 24h Change Pill */}
               <div>
                 <p
@@ -808,7 +827,7 @@ export default function StockDetailsPage({
               </div>
 
               {/* Right Column: 2x2 Stats Grid */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-left sm:gap-x-12">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-left sm:gap-x-12 sm:gap-y-2.5">
                 <div>
                   <p className="text-[11px] text-gray-400">24h High</p>
                   <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
@@ -842,82 +861,139 @@ export default function StockDetailsPage({
           {/* 4. Timeframe Bar & Chart Controls */}
           <section className="relative rounded-2xl border border-white/10 bg-secondary-50/50 p-2 sm:p-3 backdrop-blur">
             <div className="flex items-center justify-between gap-1 text-xs">
-              <div className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar sm:gap-2">
-                {MAIN_TIMEFRAMES.map((tf) => {
-                  const isActive =
-                    (tf === "Line" && chartType === "line") ||
-                    (tf !== "Line" && chartType === "candlestick" && activeInterval === tf);
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar sm:gap-2">
+                  {PINNED_TIMEFRAMES.map((tf) => {
+                    const isActive =
+                      tf === "Time"
+                        ? chartType === "line"
+                        : chartType === "candlestick" && activeInterval === tf;
 
-                  return (
-                    <button
-                      key={tf}
-                      type="button"
-                      onClick={() => {
-                        if (tf === "Line") {
-                          setChartType("line");
-                        } else {
-                          setChartType("candlestick");
-                          setActiveInterval(tf);
-                        }
-                      }}
-                      className={cn(
-                        "relative px-2.5 py-1.5 font-semibold transition rounded-md",
-                        isActive
-                          ? "text-white bg-primary-60/20 text-primary-40"
-                          : "text-gray-400 hover:text-white",
-                      )}
-                    >
-                      {tf}
-                      {isActive ? (
-                        <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary-60 rounded-full" />
-                      ) : null}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={tf}
+                        type="button"
+                        onClick={() => {
+                          if (tf === "Time") {
+                            setChartType("line");
+                          } else {
+                            setChartType("candlestick");
+                            setActiveInterval(tf);
+                          }
+                        }}
+                        className={cn(
+                          "relative px-2.5 py-1.5 font-semibold transition rounded-md shrink-0",
+                          isActive
+                            ? "text-white bg-primary-60/20 text-primary-40"
+                            : "text-gray-400 hover:text-white",
+                        )}
+                      >
+                        {tf}
+                        {isActive ? (
+                          <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary-60 rounded-full" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
 
                 {/* More dropdown */}
-                <div className="relative">
+                <div className="relative shrink-0" ref={moreDropdownRef}>
                   <button
                     type="button"
                     onClick={() => setIsMoreOpen((v) => !v)}
                     className={cn(
                       "flex items-center gap-1 px-2.5 py-1.5 font-semibold transition rounded-md",
-                      MORE_TIMEFRAMES.some((m) => m.label === activeInterval)
+                      (AVAILABLE_TIMEFRAMES as readonly string[]).includes(activeInterval) &&
+                        chartType === "candlestick"
                         ? "text-primary-40 bg-primary-60/20"
-                        : "text-gray-400 hover:text-white",
+                        : "text-gray-400 hover:text-white hover:bg-white/5",
                     )}
                   >
                     <span>
-                      {MORE_TIMEFRAMES.find((m) => m.label === activeInterval)
-                        ?.label || "More"}
+                      {(AVAILABLE_TIMEFRAMES as readonly string[]).includes(activeInterval) &&
+                      chartType === "candlestick"
+                        ? activeInterval
+                        : "More"}
                     </span>
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown
+                      className={cn(
+                        "h-3 w-3 transition-transform duration-200",
+                        isMoreOpen && "rotate-180",
+                      )}
+                    />
                   </button>
 
                   {isMoreOpen ? (
-                    <div className="absolute left-0 top-full z-30 mt-2 grid w-72 grid-cols-3 gap-1.5 rounded-xl border border-white/10 bg-secondary-60/95 p-3 shadow-2xl backdrop-blur">
-                      {MORE_TIMEFRAMES.map((item) => (
-                        <button
-                          key={item.label}
-                          type="button"
-                          onClick={() => {
-                            setActiveInterval(item.label);
-                            setChartType("candlestick");
-                            setIsMoreOpen(false);
-                          }}
-                          className={cn(
-                            "flex flex-col items-center justify-center rounded-lg p-2 transition",
-                            activeInterval === item.label
-                              ? "bg-primary-60 text-white"
-                              : "bg-white/5 text-gray-300 hover:bg-white/10",
-                          )}
-                        >
-                          <span className="text-xs font-bold">{item.label}</span>
-                          <span className="text-[10px] text-gray-400">
-                            {item.desc}
-                          </span>
-                        </button>
-                      ))}
+                    <div className="absolute left-0 top-full z-50 mt-2 w-72 sm:w-80 rounded-xl border border-white/10 bg-[#181a20]/95 p-3.5 shadow-2xl backdrop-blur-md">
+                      {/* Pinned Section */}
+                      <div className="flex items-center justify-between pb-2">
+                        <span className="text-xs font-semibold text-gray-400">Pinned</span>
+                        <span className="text-[11px] font-medium text-gray-500">Edit</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {PINNED_TIMEFRAMES.map((item) => {
+                          const isActive =
+                            item === "Time"
+                              ? chartType === "line"
+                              : chartType === "candlestick" && activeInterval === item;
+
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => {
+                                if (item === "Time") {
+                                  setChartType("line");
+                                } else {
+                                  setActiveInterval(item);
+                                  setChartType("candlestick");
+                                }
+                                setIsMoreOpen(false);
+                              }}
+                              className={cn(
+                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center",
+                                isActive
+                                  ? "bg-primary-60 text-white font-bold shadow-md shadow-primary-60/20"
+                                  : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white active:scale-95",
+                              )}
+                            >
+                              {item}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Available Section */}
+                      <div className="mt-3.5 mb-2">
+                        <span className="text-xs font-semibold text-gray-400">Available</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {AVAILABLE_TIMEFRAMES.map((item) => {
+                          const isActive =
+                            chartType === "candlestick" && activeInterval === item;
+
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => {
+                                setActiveInterval(item);
+                                setChartType("candlestick");
+                                setIsMoreOpen(false);
+                              }}
+                              className={cn(
+                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center",
+                                isActive
+                                  ? "bg-primary-60 text-white font-bold shadow-md shadow-primary-60/20"
+                                  : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white active:scale-95",
+                              )}
+                            >
+                              {item}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -932,7 +1008,7 @@ export default function StockDetailsPage({
                   )
                 }
                 title="Toggle Candlestick / Line"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-primary-40 hover:bg-white/10"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-primary-40 hover:bg-white/10"
               >
                 {chartType === "candlestick" ? (
                   <CandlestickChart className="h-4 w-4" />
@@ -944,7 +1020,7 @@ export default function StockDetailsPage({
 
             {/* 5. OHLC & MA Readout */}
             <div className="mt-3 border-t border-white/5 pt-2">
-              <div className="flex flex-wrap items-center justify-between text-[11px] text-gray-400">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-gray-400 sm:text-[11px]">
                 <span>{hoveredData?.timeStr || "Loading..."}</span>
                 {hoveredData ? (
                   <div className="flex items-center gap-2 tabular-nums">
@@ -1024,15 +1100,15 @@ export default function StockDetailsPage({
             ) : null}
 
             {/* 7. Indicator Selector Pills */}
-            <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2 text-[11px]">
-              <div className="flex items-center gap-1.5">
+            <div className="mt-3 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar border-t border-white/5 pt-2 text-[10px] sm:gap-2 sm:text-[11px]">
+              <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                 {(["MA", "EMA", "BOLL", "SAR"] as IndicatorType[]).map((ind) => (
                   <button
                     key={ind}
                     type="button"
                     onClick={() => toggleIndicator(ind)}
                     className={cn(
-                      "rounded px-2 py-0.5 font-semibold transition",
+                      "rounded px-1.5 py-0.5 font-semibold transition sm:px-2",
                       activeIndicators.has(ind)
                         ? "bg-primary-60/25 border border-primary-50/40 text-primary-40"
                         : "text-gray-400 hover:text-white",
@@ -1043,16 +1119,16 @@ export default function StockDetailsPage({
                 ))}
               </div>
 
-              <div className="h-3.5 w-px bg-white/10" />
+              <div className="h-3.5 w-px shrink-0 bg-white/10" />
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                 {(["VOL", "MACD", "RSI", "KDJ"] as IndicatorType[]).map((ind) => (
                   <button
                     key={ind}
                     type="button"
                     onClick={() => toggleIndicator(ind)}
                     className={cn(
-                      "rounded px-2 py-0.5 font-semibold transition",
+                      "rounded px-1.5 py-0.5 font-semibold transition sm:px-2",
                       activeIndicators.has(ind)
                         ? "bg-primary-60/25 border border-primary-50/40 text-primary-40"
                         : "text-gray-400 hover:text-white",
@@ -1066,12 +1142,12 @@ export default function StockDetailsPage({
           </section>
 
           {/* 8. 5-Column Historical Performance Table (Mobile only; desktop renders in top summary card) */}
-          <section className="grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-secondary-50/70 p-3 text-center backdrop-blur lg:hidden">
+          <section className="grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-secondary-50/70 p-2 sm:p-3 text-center backdrop-blur lg:hidden">
             <div>
-              <p className="text-[10px] text-gray-400 sm:text-xs">Today</p>
+              <p className="text-[9px] text-gray-400 sm:text-xs">Today</p>
               <p
                 className={cn(
-                  "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.today >= 0 ? "text-emerald-400" : "text-rose-400",
                 )}
               >
@@ -1080,10 +1156,10 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 sm:text-xs">7 Days</p>
+              <p className="text-[9px] text-gray-400 sm:text-xs">7 Days</p>
               <p
                 className={cn(
-                  "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days7 >= 0 ? "text-emerald-400" : "text-rose-400",
                 )}
               >
@@ -1092,10 +1168,10 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 sm:text-xs">30 Days</p>
+              <p className="text-[9px] text-gray-400 sm:text-xs">30 Days</p>
               <p
                 className={cn(
-                  "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days30 >= 0 ? "text-emerald-400" : "text-rose-400",
                 )}
               >
@@ -1104,10 +1180,10 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 sm:text-xs">90 Days</p>
+              <p className="text-[9px] text-gray-400 sm:text-xs">90 Days</p>
               <p
                 className={cn(
-                  "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days90 >= 0 ? "text-emerald-400" : "text-rose-400",
                 )}
               >
@@ -1116,10 +1192,10 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 sm:text-xs">180 Days</p>
+              <p className="text-[9px] text-gray-400 sm:text-xs">180 Days</p>
               <p
                 className={cn(
-                  "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days180 >= 0 ? "text-emerald-400" : "text-rose-400",
                 )}
               >
@@ -1360,7 +1436,7 @@ export default function StockDetailsPage({
 
       {/* 11. Sticky Bottom Action Bar */}
       <footer className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none transition-[left] duration-200 bg-gradient-to-t from-background/90 via-background/40 to-transparent pb-4 pt-4 sm:pb-5 min-[1024px]:left-56 min-[1024px]:left-[var(--desktop-sidebar-width)]">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-3 px-4 md:px-6 lg:max-w-none lg:px-6 xl:px-8 pointer-events-auto">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-3 px-3 sm:px-4 md:px-6 lg:max-w-none lg:px-6 xl:px-8 pointer-events-auto">
           {canSell ? (
             <>
               <Button
