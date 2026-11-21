@@ -1359,41 +1359,34 @@ export default function StockDetailsPage({
       </div>
 
       {/* 11. Sticky Bottom Action Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none transition-[left] duration-200 min-[1024px]:left-56 min-[1024px]:left-[var(--desktop-sidebar-width)]">
-        <div className="mx-auto w-full max-w-[1600px] lg:max-w-none lg:px-6 xl:px-8">
-          <div className="grid grid-cols-1 min-[1200px]:grid-cols-[minmax(0,1fr)_340px] min-[1400px]:grid-cols-[minmax(0,1fr)_380px] min-[1200px]:gap-6">
-            <div className="pointer-events-auto min-w-0 border-t border-white/10 bg-cryptoNight/95 px-4 py-3 backdrop-blur-md sm:px-6 min-[1024px]:rounded-t-2xl min-[1024px]:border-x min-[1024px]:border-white/10 min-[1024px]:px-5 min-[1024px]:shadow-2xl">
-              <div className="flex w-full items-center gap-3">
-                {canSell ? (
-                  <>
-                    <Button
-                      type="button"
-                      className="h-12 flex-1 rounded-xl bg-rose-500 text-base font-bold text-white shadow-lg shadow-rose-900/20 hover:bg-rose-600 active:scale-[0.98] transition"
-                      onClick={() => setStockAction("sell")}
-                    >
-                      Sell{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
-                    </Button>
-                    <Button
-                      type="button"
-                      className="h-12 flex-1 rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/20 hover:brightness-110 active:scale-[0.98] transition"
-                      onClick={() => setStockAction("buy")}
-                    >
-                      Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    type="button"
-                    className="h-12 w-full rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/20 hover:brightness-110 active:scale-[0.98] transition"
-                    onClick={() => setStockAction("buy")}
-                  >
-                    Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="hidden min-[1200px]:block" aria-hidden="true" />
-          </div>
+      <footer className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none transition-[left] duration-200 bg-gradient-to-t from-background/90 via-background/40 to-transparent pb-4 pt-4 sm:pb-5 min-[1024px]:left-56 min-[1024px]:left-[var(--desktop-sidebar-width)]">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-3 px-4 md:px-6 lg:max-w-none lg:px-6 xl:px-8 pointer-events-auto">
+          {canSell ? (
+            <>
+              <Button
+                type="button"
+                className="h-12 flex-1 rounded-xl bg-rose-500 text-base font-bold text-white shadow-lg shadow-rose-900/30 hover:bg-rose-600 active:scale-[0.98] transition cursor-pointer"
+                onClick={() => setStockAction("sell")}
+              >
+                Sell{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+              </Button>
+              <Button
+                type="button"
+                className="h-12 flex-1 rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/30 hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+                onClick={() => setStockAction("buy")}
+              >
+                Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              className="h-12 w-full rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/30 hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+              onClick={() => setStockAction("buy")}
+            >
+              Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+            </Button>
+          )}
         </div>
       </footer>
 
