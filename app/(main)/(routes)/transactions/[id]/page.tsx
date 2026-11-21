@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import TransactionDetailsClient from "@/components/transactions/TransactionDetails";
+import { currentProfile } from "@/lib/current-profile";
 
 interface TransactionDetailsPageProps {
   params: Promise<{
@@ -20,6 +22,9 @@ export default async function TransactionDetailsPage({
   params,
   searchParams,
 }: TransactionDetailsPageProps) {
+  const profile = await currentProfile();
+  if (!profile) redirect("/continue");
+
   const { id } = await params;
   const { origin } = await searchParams;
 

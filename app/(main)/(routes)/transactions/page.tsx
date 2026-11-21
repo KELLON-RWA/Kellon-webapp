@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import TransactionsPage from "@/components/transactions/TransactionsPage";
+import { currentProfile } from "@/lib/current-profile";
 
 export const metadata: Metadata = {
   title: "Transactions",
@@ -11,6 +13,9 @@ export const metadata: Metadata = {
 };
 
 export default async function page() {
+  const profile = await currentProfile();
+  if (!profile) redirect("/continue");
+
   return (
     <div className="min-h-[100dvh]">
       <TransactionsPage />

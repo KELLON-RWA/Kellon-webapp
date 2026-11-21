@@ -7,6 +7,7 @@ import { currentProfile } from "@/lib/current-profile"
 import { User } from "@/types/db"
 import { FC, ReactNode } from "react"
 import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 
 // Authenticated wallet pages contain private account data and must never be indexed.
 export const metadata: Metadata = {
@@ -19,14 +20,17 @@ interface layoutProps {
 
 const layout: FC<layoutProps> = async ({ children }) => {
   const profile = (await currentProfile()) as User
+  if (!profile) {
+    redirect("/continue")
+  }
 
   return (
     <main id="main-content" tabIndex={-1}>
       <Topbar profile={profile} />
       <BridgeOutboxWatcher />
       <ReferralAttributor />
-      {profile && <DashboardDesktopNavigation profile={profile} />}
-      <div className="w-full transition-[padding] duration-200 lg:pl-[var(--desktop-sidebar-width)]">{children}</div>
+      <DashboardDesktopNavigation profile={profile} />
+      <div className="min-[1024px]:pl-56 min-[1024px]:pl-[var(--desktop-sidebar-width)]">{children}</div>
       <BottomNavigationBar className="md:hidden z-20" profile={profile} />
     </main>
   )
