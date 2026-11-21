@@ -160,8 +160,8 @@ export default function DashboardDesktopNavigation({
         </nav>
       </aside>
 
-      <header className="fixed inset-x-0 top-0 z-30 hidden h-[72px] bg-transparent px-6 transition-[padding] duration-200 lg:flex lg:items-center lg:justify-end lg:gap-6 lg:pl-[var(--desktop-sidebar-width)] lg:px-8 xl:px-10 2xl:px-12">
-        <div className="flex items-center gap-2">
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-30 hidden h-[72px] bg-transparent pr-6 min-[1024px]:flex min-[1024px]:items-center min-[1024px]:justify-end min-[1024px]:gap-6 min-[1024px]:pl-[var(--desktop-sidebar-width)]">
+        <div className="pointer-events-auto flex items-center gap-2">
           <SearchBar profile={profile} className="w-[360px]" />
           <div className="rounded-xl border border-black/10 bg-white/70 dark:border-white/10 dark:bg-secondary-50/55">
             <NotificationBell />
