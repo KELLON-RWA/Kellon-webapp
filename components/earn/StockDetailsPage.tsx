@@ -612,7 +612,7 @@ export default function StockDetailsPage({
   const candles = tradingData?.candles || [];
 
   return (
-    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-36 pt-4 md:px-6 md:pb-24 md:max-lg:pt-28 lg:max-w-none lg:px-6 lg:pt-24 xl:px-8">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-36 pt-4 md:px-6 md:pb-24 md:max-lg:pt-20 lg:max-w-none lg:px-6 lg:pt-3.5 xl:px-8">
       {/* 1. Header Bar */}
       <header className="mb-4 flex items-center justify-between">
         <button
@@ -636,29 +636,15 @@ export default function StockDetailsPage({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => handleToggleWatchlist()}
-            aria-label="Watchlist"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95"
-          >
-            <Star
-              className={cn(
-                "h-4 w-4",
-                isWatchlisted
-                  ? "fill-primary-50 text-primary-50"
-                  : "text-gray-300",
-              )}
-            />
-          </button>
-          <button
-            type="button"
             onClick={handleRefreshAll}
             aria-label="Refresh"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95 lg:hidden"
           >
             <RefreshCw
               className={cn("h-4 w-4 text-gray-300", isRefetching && "animate-spin")}
             />
           </button>
+          <div className="hidden h-10 w-10 lg:block" aria-hidden="true" />
         </div>
       </header>
 
@@ -692,15 +678,32 @@ export default function StockDetailsPage({
         <div className="space-y-4">
           {/* 3. Stock Summary Card */}
           <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 shadow-lg backdrop-blur">
-            {/* Top Row: Logo + Symbol + Network Badge */}
-            <div className="flex items-center gap-2.5">
-              <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
-              <span className="text-base font-bold text-white sm:text-lg">
-                {displayStockSymbol}
-              </span>
-              <span className="rounded border border-purple-800/30 bg-purple-950/40 px-2 py-0.5 text-[11px] font-medium text-purple-300">
-                {networkBadge}
-              </span>
+            {/* Top Row: Logo + Symbol + Network Badge + Watchlist Star */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
+                <span className="text-base font-bold text-white sm:text-lg">
+                  {displayStockSymbol}
+                </span>
+                <span className="rounded border border-purple-800/30 bg-purple-950/40 px-2 py-0.5 text-[11px] font-medium text-purple-300">
+                  {networkBadge}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleWatchlist()}
+                  aria-label={isWatchlisted ? "Remove from watchlist" : "Add to watchlist"}
+                  className="group flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-white/10 active:scale-95"
+                >
+                  <Star
+                    className={cn(
+                      "h-4 w-4 transition-colors",
+                      isWatchlisted
+                        ? "fill-primary-50 text-primary-50"
+                        : "text-gray-400 group-hover:text-white",
+                    )}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Subtle Divider Line */}
@@ -764,6 +767,72 @@ export default function StockDetailsPage({
                   <p className="text-[11px] text-gray-400">24h Turnover ($)</p>
                   <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
                     {formatCompactTurnover(turnover24h)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Performance Row: Today, 7D, 30D, 90D, 180D */}
+            <div className="hidden lg:block mt-4 border-t border-white/10 pt-3.5">
+              <div className="grid grid-cols-5 gap-2 text-center">
+                <div>
+                  <p className="text-xs text-gray-400">Today</p>
+                  <p
+                    className={cn(
+                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.today >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.today >= 0 ? "+" : ""}
+                    {performance.today.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">7 Days</p>
+                  <p
+                    className={cn(
+                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days7 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days7 >= 0 ? "+" : ""}
+                    {performance.days7.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">30 Days</p>
+                  <p
+                    className={cn(
+                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days30 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days30 >= 0 ? "+" : ""}
+                    {performance.days30.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">90 Days</p>
+                  <p
+                    className={cn(
+                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days90 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days90 >= 0 ? "+" : ""}
+                    {performance.days90.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">180 Days</p>
+                  <p
+                    className={cn(
+                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days180 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days180 >= 0 ? "+" : ""}
+                    {performance.days180.toFixed(2)}%
                   </p>
                 </div>
               </div>
@@ -996,8 +1065,8 @@ export default function StockDetailsPage({
             </div>
           </section>
 
-          {/* 8. 5-Column Historical Performance Table */}
-          <section className="grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-secondary-50/70 p-3 text-center backdrop-blur">
+          {/* 8. 5-Column Historical Performance Table (Mobile only; desktop renders in top summary card) */}
+          <section className="grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-secondary-50/70 p-3 text-center backdrop-blur lg:hidden">
             <div>
               <p className="text-[10px] text-gray-400 sm:text-xs">Today</p>
               <p
@@ -1279,7 +1348,7 @@ export default function StockDetailsPage({
         </div>
 
         {/* Right Column: Desktop Binance-style Sidebar (Other Stocks + Top Movers) */}
-        <aside className="hidden min-[1200px]:flex min-[1200px]:flex-col min-[1200px]:gap-4 min-[1200px]:sticky min-[1200px]:top-24">
+        <aside className="hidden min-[1200px]:flex min-[1200px]:flex-col min-[1200px]:gap-4 min-[1200px]:sticky min-[1200px]:top-20">
           <StockDesktopSidebar
             stocks={stocks}
             currentSymbol={underlyingTicker}
