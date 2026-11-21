@@ -25,9 +25,47 @@ interface ContinueProps {
 
 const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
   const searchParams = useSearchParams();
-  const initialMode =
-    searchParams?.get("mode") === "login" ? "login" : "signup";
-  const [authMode, setAuthMode] = useState<"signup" | "login">(initialMode);
+  const [authMode, setAuthMode] = useState<"signup" | "login">(() => {
+    const modeParam = searchParams?.get("mode");
+    if (modeParam === "signup") return "signup";
+    if (modeParam === "login") return "login";
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.sessionStorage.getItem("kellon_auth_mode");
+        if (saved === "signup" || saved === "login") return saved;
+      } catch {
+        // Storage unavailable
+      }
+    }
+    return "login";
+  });
+
+  const handleSetAuthMode = (mode: "signup" | "login") => {
+    setAuthMode(mode);
+    setEmailError("");
+    setCodeSent(false);
+    setCode("");
+    setTermsError(false);
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem("kellon_auth_mode", mode);
+      } catch {
+        // Storage unavailable
+      }
+    }
+  };
+
+  useEffect(() => {
+    const modeParam = searchParams?.get("mode");
+    if (modeParam === "signup" || modeParam === "login") {
+      setAuthMode(modeParam);
+      try {
+        window.sessionStorage.setItem("kellon_auth_mode", modeParam);
+      } catch {
+        // Storage unavailable
+      }
+    }
+  }, [searchParams]);
 
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -79,6 +117,13 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
       return;
     }
     try {
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem("kellon_auth_mode", authMode);
+        } catch {
+          // Storage unavailable
+        }
+      }
       await initOAuth({ provider });
     } catch (err) {
       console.error(`${provider} login failed:`, err);
@@ -152,29 +197,7 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
               <div className="mb-8 grid grid-cols-2 rounded-2xl bg-neutral-100 p-1.5 dark:bg-secondary-70">
                 <button
                   type="button"
-                  onClick={() => {
-                    setAuthMode("signup");
-                    setEmailError("");
-                    setCodeSent(false);
-                    setCode("");
-                  }}
-                  className={cn(
-                    "rounded-xl py-2.5 text-sm font-semibold transition-all cursor-pointer",
-                    authMode === "signup"
-                      ? "bg-white text-cryptoNight shadow-sm dark:bg-secondary-50 dark:text-white"
-                      : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white",
-                  )}
-                >
-                  Create account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("login");
-                    setEmailError("");
-                    setCodeSent(false);
-                    setCode("");
-                  }}
+                  onClick={() => handleSetAuthMode("login")}
                   className={cn(
                     "rounded-xl py-2.5 text-sm font-semibold transition-all cursor-pointer",
                     authMode === "login"
@@ -183,6 +206,18 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
                   )}
                 >
                   Log in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetAuthMode("signup")}
+                  className={cn(
+                    "rounded-xl py-2.5 text-sm font-semibold transition-all cursor-pointer",
+                    authMode === "signup"
+                      ? "bg-white text-cryptoNight shadow-sm dark:bg-secondary-50 dark:text-white"
+                      : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white",
+                  )}
+                >
+                  Create account
                 </button>
               </div>
 
@@ -391,36 +426,26 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
 
                 {/* Bottom Switcher */}
                 <div className="pt-2 text-center text-xs">
-                  {authMode === "signup" ? (
-                    <p className="text-gray-500 dark:text-gray-300">
-                      Already have an account?{" "}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthMode("login");
-                          setEmailError("");
-                          setCodeSent(false);
-                          setCode("");
-                        }}
-                        className="font-semibold text-primary-60 hover:underline cursor-pointer"
-                      >
-                        Log in
-                      </button>
-                    </p>
-                  ) : (
+                  {authMode === "login" ? (
                     <p className="text-gray-500 dark:text-gray-300">
                       Don&apos;t have an account yet?{" "}
                       <button
                         type="button"
-                        onClick={() => {
-                          setAuthMode("signup");
-                          setEmailError("");
-                          setCodeSent(false);
-                          setCode("");
-                        }}
+                        onClick={() => handleSetAuthMode("signup")}
                         className="font-semibold text-primary-60 hover:underline cursor-pointer"
                       >
                         Create an account
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-300">
+                      Already have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => handleSetAuthMode("login")}
+                        className="font-semibold text-primary-60 hover:underline cursor-pointer"
+                      >
+                        Log in
                       </button>
                     </p>
                   )}
