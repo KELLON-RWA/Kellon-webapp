@@ -29,7 +29,11 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
     const modeParam = searchParams?.get("mode");
     if (modeParam === "signup") return "signup";
     if (modeParam === "login") return "login";
-    if (typeof window !== "undefined") {
+    // Only restore persisted mode if returning from an OAuth callback
+    const isOAuthReturn =
+      Boolean(searchParams?.get("privy_oauth_code")) ||
+      Boolean(searchParams?.get("privy_oauth_state"));
+    if (isOAuthReturn && typeof window !== "undefined") {
       try {
         const saved = window.sessionStorage.getItem("kellon_auth_mode");
         if (saved === "signup" || saved === "login") return saved;
@@ -71,7 +75,7 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
 
   const hasSynced = useRef(false);
 
-  const { authenticated, ready } = usePrivy();
+  const { authenticated, logout, ready } = usePrivy();
 
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
 
@@ -91,31 +95,43 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
 
       hasSynced.current = true;
       setIsSyncing(true);
+      setEmailError("");
 
       try {
-        await loginWithPrivy(identityToken);
+        await loginWithPrivy(identityToken, authMode);
 
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         window.location.href = onSuccessRedirect;
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Auth sync failed:", err);
 
         setIsSyncing(false);
         hasSynced.current = false;
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Authentication failed. Please try again.";
+        setEmailError(msg);
+        try {
+          await logout();
+        } catch {
+          // ignore
+        }
       }
     };
 
     if (ready && authenticated && identityToken) {
       syncUser();
     }
-  }, [ready, authenticated, identityToken, onSuccessRedirect]);
+  }, [ready, authenticated, identityToken, authMode, onSuccessRedirect, logout]);
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
     if (authMode === "signup" && !termsAccepted) {
       setTermsError(true);
       return;
     }
+    setEmailError("");
     try {
       if (typeof window !== "undefined") {
         try {
@@ -124,9 +140,30 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
           // Storage unavailable
         }
       }
-      await initOAuth({ provider });
-    } catch (err) {
+      await initOAuth({
+        provider,
+        disableSignup: authMode === "login",
+      });
+    } catch (err: unknown) {
       console.error(`${provider} login failed:`, err);
+      const errStr =
+        err instanceof Error ? err.message.toLowerCase() : String(err || "");
+      if (
+        authMode === "login" &&
+        (errStr.includes("not found") ||
+          errStr.includes("cannot_login") ||
+          errStr.includes("user_does_not_exist") ||
+          errStr.includes("no-signup") ||
+          errStr.includes("disable_signup"))
+      ) {
+        setEmailError(
+          "No existing account found. Please create an account to get started.",
+        );
+      } else {
+        setEmailError(
+          `Unable to ${authMode === "login" ? "log in" : "sign up"} with ${provider}. Please try again.`,
+        );
+      }
     }
   };
 
@@ -143,11 +180,29 @@ const Continue: FC<ContinueProps> = ({ onSuccessRedirect = "/" }) => {
       return;
     }
     try {
-      await sendCode({ email: address });
+      await sendCode({
+        email: address,
+        disableSignup: authMode === "login",
+      });
       setCodeSent(true);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Email code send failed:", err);
-      setEmailError("We couldn't send a code to that address. Try again.");
+      const errStr =
+        err instanceof Error ? err.message.toLowerCase() : String(err || "");
+      if (
+        authMode === "login" &&
+        (errStr.includes("not found") ||
+          errStr.includes("cannot_login") ||
+          errStr.includes("user_does_not_exist") ||
+          errStr.includes("no-signup") ||
+          errStr.includes("disable_signup"))
+      ) {
+        setEmailError(
+          "No existing account found with this email. Please check your email or create an account.",
+        );
+      } else {
+        setEmailError("We couldn't send a code to that address. Try again.");
+      }
     }
   };
 

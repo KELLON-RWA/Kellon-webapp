@@ -14,10 +14,13 @@ import { User } from "@/types/db";
  * 🔐 Login with Privy
  * Sends the Privy identity token and device metadata to the backend
  * to establish a session.
- * * @param token - The Privy identity token (JWT)
+ *
+ * @param token - The Privy identity token (JWT)
+ * @param mode - Whether the user is logging in or creating a new account ("login" | "signup")
  */
 export async function loginWithPrivy(
   token: string,
+  mode: "login" | "signup" = "login",
 ): Promise<ApiResponse<LoginResponseData>> {
   clearApiCredentials();
   const device = getOrCreateDeviceId();
@@ -29,6 +32,7 @@ export async function loginWithPrivy(
     body: JSON.stringify({
       token,
       device,
+      mode,
       deviceInfo: {
         platform: "web",
       },
