@@ -612,7 +612,7 @@ export default function StockDetailsPage({
   const candles = tradingData?.candles || [];
 
   return (
-    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-36 pt-4 md:px-6 md:pb-24 md:pt-28 lg:max-w-none lg:px-6 lg:pt-24 xl:px-8">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-36 pt-4 md:px-6 md:pb-24 md:max-lg:pt-28 lg:max-w-none lg:px-6 lg:pt-24 xl:px-8">
       {/* 1. Header Bar */}
       <header className="mb-4 flex items-center justify-between">
         <button

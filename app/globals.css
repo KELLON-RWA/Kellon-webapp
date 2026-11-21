@@ -13,20 +13,20 @@
 
 @theme {
   /* Mobile */
-  --breakpoint-xs: 375px;
-  --breakpoint-xm: 390px;
+  --breakpoint-xs: 23.4375rem; /* 375px */
+  --breakpoint-xm: 24.375rem; /* 390px */
 
   /* Laptop/Desktop */
-  --breakpoint-lg: 1024px;
-  --breakpoint-xl: 1280px;
+  --breakpoint-lg: 64rem; /* 1024px */
+  --breakpoint-xl: 80rem; /* 1280px */
 
   /* Macbook / Large laptops */
-  --breakpoint-1xl: 1440px;
-  --breakpoint-2xl: 1536px;
+  --breakpoint-1xl: 90rem; /* 1440px */
+  --breakpoint-2xl: 96rem; /* 1536px */
 
   /* Large desktop */
-  --breakpoint-3xl: 1728px;
-  --breakpoint-4xl: 2000px;
+  --breakpoint-3xl: 108rem; /* 1728px */
+  --breakpoint-4xl: 125rem; /* 2000px */
 
   /* colors */
 
