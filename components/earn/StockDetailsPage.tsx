@@ -333,11 +333,11 @@ export default function StockDetailsPage({
     ? getUnderlyingTicker(stock.symbol, stock.provider)
     : normalizedSymbol;
 
-  const displayStockSymbol = stock?.symbol || normalizedSymbol;
+  const displayStockSymbol = underlyingTicker || stock?.symbol || normalizedSymbol;
   const name = stock ? getDisplayStockName(stock.name) : "Stock";
   const stockLogoUrl = getStockLogoUrl(displayStockSymbol, stock?.logoUrl);
 
-  const stockActionSymbol = underlyingTicker || displayStockSymbol || "";
+  const stockActionSymbol = displayStockSymbol;
 
   const settlementChain = stock
     ? getStockSettlementChain(
@@ -346,7 +346,6 @@ export default function StockDetailsPage({
       ).toUpperCase()
     : "BASE";
 
-  const networkBadge = `${settlementChain}20`;
 
   // Fetch full candles and 24h trading statistics
   const {
@@ -650,7 +649,7 @@ export default function StockDetailsPage({
             {name.replace(/\s*Tokenized Stock$/i, "")} Tokenized Stock
           </h1>
           <p className="truncate text-xs text-gray-400">
-            {displayStockSymbol} · {networkBadge}
+            {displayStockSymbol}
           </p>
         </div>
 
@@ -705,9 +704,6 @@ export default function StockDetailsPage({
                 <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
                 <span className="text-base font-bold text-white sm:text-lg">
                   {displayStockSymbol}
-                </span>
-                <span className="rounded border border-purple-800/30 bg-purple-950/40 px-2 py-0.5 text-[11px] font-medium text-purple-300">
-                  {networkBadge}
                 </span>
                 <button
                   type="button"
