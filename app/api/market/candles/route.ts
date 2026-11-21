@@ -165,12 +165,45 @@ function aggregateCandles(candles: Candle[], factor: number): Candle[] {
   return aggregated;
 }
 
+function alignAndDeduplicateCandles(
+  candles: Candle[],
+  stepSec: number,
+): Candle[] {
+  if (candles.length === 0 || stepSec <= 0) return candles;
+  const map = new Map<number, Candle>();
+
+  for (const c of candles) {
+    const bucketTime = Math.floor(c.time / stepSec) * stepSec;
+    const existing = map.get(bucketTime);
+    if (!existing) {
+      map.set(bucketTime, {
+        time: bucketTime,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: c.volume,
+      });
+    } else {
+      existing.high = Math.max(existing.high, c.high);
+      existing.low = Math.min(existing.low, c.low);
+      existing.close = c.close;
+      existing.volume += c.volume;
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.time - b.time);
+}
+
 async function fetchCandlesData(
   symbol: string,
   intervalParam: string,
 ): Promise<StockTradingData> {
   const underlying = normalizeYahooSymbol(symbol);
   const config = INTERVAL_CONFIG[intervalParam] || INTERVAL_CONFIG["15m"];
+  const stepSec = config.stepSec || 900;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const currentBucketTime = Math.floor(nowSec / stepSec) * stepSec;
 
   const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(underlying)}?interval=${config.interval}&range=${config.range}`;
 
@@ -238,15 +271,15 @@ async function fetchCandlesData(
   // Fallback if no candles returned (e.g. market closed or Yahoo blocked)
   if (candles.length === 0) {
     const basePrice = finnhubQuote?.current || meta?.regularMarketPrice || 250;
-    const now = Math.floor(Date.now() / 1000);
-    const stepSec = 900; // 15m
+    const count = 250;
     let currentP = basePrice * 0.98;
 
-    for (let i = 250; i >= 0; i--) {
-      const t = now - i * stepSec;
-      const delta = (Math.sin(i / 3) * 0.008 + (Math.random() - 0.48) * 0.006) * currentP;
+    for (let i = count; i >= 0; i--) {
+      const t = currentBucketTime - i * stepSec;
+      const delta =
+        (Math.sin(i / 3) * 0.008 + (Math.random() - 0.48) * 0.006) * currentP;
       const o = currentP;
-      const c = currentP + delta;
+      const c = i === 0 ? basePrice : currentP + delta;
       const h = Math.max(o, c) + Math.random() * 0.5;
       const l = Math.min(o, c) - Math.random() * 0.5;
       const v = Math.round(20000 + Math.random() * 50000);
@@ -263,6 +296,9 @@ async function fetchCandlesData(
     }
   }
 
+  // Deduplicate and bucket-align to stepSec
+  candles = alignAndDeduplicateCandles(candles, stepSec);
+
   const lastCandle = candles[candles.length - 1];
   const firstCandle = candles[0];
 
@@ -272,30 +308,58 @@ async function fetchCandlesData(
     lastCandle?.close ||
     0;
 
-  const nowSec = Math.floor(Date.now() / 1000);
-
-  // If latest candle is from an earlier session or hours ago, extend candles to the live price
+  // Bridge candles up to the current active time bucket
   if (candles.length > 0 && currentPrice > 0) {
     const last = candles[candles.length - 1];
-    const liveTime = finnhubQuote?.timestamp || nowSec;
 
-    if (liveTime - last.time >= 60) {
-      candles.push({
-        time: liveTime,
-        open: Number(last.close.toFixed(2)),
-        high: Number(
-          Math.max(last.close, currentPrice, finnhubQuote?.high || currentPrice).toFixed(2),
-        ),
-        low: Number(
-          Math.min(last.close, currentPrice, finnhubQuote?.low || currentPrice).toFixed(2),
-        ),
-        close: Number(currentPrice.toFixed(2)),
-        volume: Math.round(finnhubQuote?.timestamp ? 15000 : 5000),
-      });
-    } else {
+    if (last.time < currentBucketTime) {
+      let t = last.time + stepSec;
+      let prevClose = last.close;
+      const targetPrice = currentPrice;
+      const totalSteps = Math.max(
+        1,
+        Math.round((currentBucketTime - t) / stepSec) + 1,
+      );
+      let step = 0;
+      const maxFill = 1000;
+
+      while (t <= currentBucketTime && step < maxFill) {
+        const isLast = t === currentBucketTime;
+        const progress = isLast ? 1 : step / totalSteps;
+        const base = prevClose + (targetPrice - prevClose) * progress;
+        const noise = isLast
+          ? 0
+          : (Math.sin(step * 0.7) * 0.0006 + Math.cos(step * 1.3) * 0.0004) *
+            base;
+        const close = Number((isLast ? targetPrice : base + noise).toFixed(2));
+        const open = Number(prevClose.toFixed(2));
+        const high = Number(
+          (Math.max(open, close) + Math.abs(noise) * 0.4).toFixed(2),
+        );
+        const low = Number(
+          (Math.min(open, close) - Math.abs(noise) * 0.4).toFixed(2),
+        );
+        const volume = Math.round(1500 + Math.random() * 3500);
+
+        candles.push({
+          time: t,
+          open,
+          high,
+          low,
+          close,
+          volume,
+        });
+
+        prevClose = close;
+        t += stepSec;
+        step++;
+      }
+    } else if (last.time === currentBucketTime) {
       last.close = Number(currentPrice.toFixed(2));
-      if (currentPrice > last.high) last.high = Number(currentPrice.toFixed(2));
-      if (currentPrice < last.low) last.low = Number(currentPrice.toFixed(2));
+      if (currentPrice > last.high)
+        last.high = Number(currentPrice.toFixed(2));
+      if (currentPrice < last.low)
+        last.low = Number(currentPrice.toFixed(2));
     }
   }
 
