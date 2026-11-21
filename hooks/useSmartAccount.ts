@@ -46,6 +46,7 @@ import {
   resolveVerificationType,
   containsVerificationMarker,
 } from "@/services/api/transfers"
+import { getAuthToken } from "@/services/api"
 import type { ConnectedWallet } from "@privy-io/react-auth"
 import { SignerMismatchError } from "@/lib/evm-signer"
 
@@ -226,9 +227,7 @@ export function useSmartAccount() {
             }
 
             try {
-              const token =
-                sessionStorage.getItem("kellon_auth_token") ||
-                localStorage.getItem("kellon_auth_token")
+              const token = getAuthToken()
 
               const headers: Record<string, string> = {
                 "Content-Type": "application/json",
@@ -419,12 +418,23 @@ export function useSmartAccount() {
         const rpcUrls = Array.from(
           new Set([proxyRpcUrl, ...fallbackUrls]),
         );
+        const token =
+          typeof window !== "undefined" ? getAuthToken() || null : null;
+
         const publicClient = createPublicClient({
           transport: fallback(
             rpcUrls.map((url) =>
               http(url, {
                 timeout: 5000,
                 retryCount: 1,
+                fetchOptions:
+                  url === proxyRpcUrl && token
+                    ? {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                      }
+                    : undefined,
               }),
             ),
           ),

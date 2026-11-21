@@ -122,118 +122,210 @@ const getBaseUrl = () => {
 
 export const BASE_URL = getBaseUrl();
 
-const API_SECRET_STORAGE_KEY = "kellon_api_secret";
-const DEVICE_TOKEN_STORAGE_KEY = "kellon_device_token";
-const GENERATED_DEVICE_ID_STORAGE_KEY = "kellon_generated_device_id";
-const AUTH_TOKEN_STORAGE_KEY = "kellon_auth_token";
+// --- Secure In-Memory & Non-Extractable Credentials Storage ---
+let inMemoryCredentials: ApiCredentials | null = null;
+let inMemoryHmacKey: CryptoKey | null = null;
 
-// Logical route segments, deliberately without the deployed "/api/v1" prefix: matching
-// on the full deployed path means a BASE_URL that omits (or renames) that segment
-// silently stops signing every route, which surfaces as a blanket 401 "Missing signing
-// headers" rather than as a config error.
-const SIGNED_ROUTE_SEGMENTS = [
-  "transfers",
-  "onramp",
-  "offramp",
-  "invoices",
-  "gifts",
-  "recovery",
-  "security",
-  "banks",
-  "kyc",
-  "cards",
-  "yield",
-  "biometric",
-  "bridge",
-  "funding",
-  "workflows",
-  "workflow",
-  "stocks",
-  "fiat",
-  "users",
+const VAULT_STORAGE_KEY = "kellon_sec_vault";
+const VAULT_WINDOW_NAME_PREFIX = "kellon_vkey:";
+
+const LEGACY_STORAGE_KEYS = [
+  "kellon_api_secret",
+  "kellon_device_token",
+  "kellon_generated_device_id",
+  "kellon_auth_token",
 ];
 
-const LEGACY_PERSISTENT_KEYS = [
-  API_SECRET_STORAGE_KEY,
-  DEVICE_TOKEN_STORAGE_KEY,
-  GENERATED_DEVICE_ID_STORAGE_KEY,
-  AUTH_TOKEN_STORAGE_KEY,
-];
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
-function purgeLegacyPersistentCredentials(): void {
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function getWindowVaultKey(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (window.name && window.name.startsWith(VAULT_WINDOW_NAME_PREFIX)) {
+      return window.name.slice(VAULT_WINDOW_NAME_PREFIX.length);
+    }
+  } catch {}
+  return null;
+}
+
+function setWindowVaultKey(key: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (key) {
+      window.name = `${VAULT_WINDOW_NAME_PREFIX}${key}`;
+    } else if (window.name && window.name.startsWith(VAULT_WINDOW_NAME_PREFIX)) {
+      window.name = "";
+    }
+  } catch {}
+}
+
+async function encryptVaultPayload(data: string, hexKey: string): Promise<string> {
+  const enc = new TextEncoder();
+  const keyBytes = hexToBytes(hexKey);
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes as unknown as BufferSource,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt"],
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    cryptoKey,
+    enc.encode(data),
+  );
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  return bytesToHex(combined);
+}
+
+async function decryptVaultPayload(encryptedHex: string, hexKey: string): Promise<string | null> {
+  try {
+    const combined = hexToBytes(encryptedHex);
+    if (combined.length < 13) return null;
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const keyBytes = hexToBytes(hexKey);
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      keyBytes as unknown as BufferSource,
+      { name: "AES-GCM" },
+      false,
+      ["decrypt"],
+    );
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      cryptoKey,
+      ciphertext as unknown as BufferSource,
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    return null;
+  }
+}
+
+async function saveToSecureVault(credentials: ApiCredentials): Promise<void> {
+  if (typeof window === "undefined" || !crypto.subtle) return;
+  try {
+    const keyBytes = new Uint8Array(32);
+    crypto.getRandomValues(keyBytes);
+    const hexKey = bytesToHex(keyBytes);
+    const serialized = JSON.stringify(credentials);
+    const encrypted = await encryptVaultPayload(serialized, hexKey);
+    sessionStorage.setItem(VAULT_STORAGE_KEY, encrypted);
+    setWindowVaultKey(hexKey);
+  } catch {
+    // Graceful fallback to memory-only
+  }
+}
+
+let vaultRestorePromise: Promise<void> | null = null;
+
+async function restoreFromSecureVault(): Promise<void> {
+  if (typeof window === "undefined" || !crypto.subtle || inMemoryCredentials) return;
+  const hexKey = getWindowVaultKey();
+  const encrypted = sessionStorage.getItem(VAULT_STORAGE_KEY);
+  if (!hexKey || !encrypted) return;
+
+  try {
+    const serialized = await decryptVaultPayload(encrypted, hexKey);
+    if (serialized) {
+      const parsed = JSON.parse(serialized) as ApiCredentials;
+      if (parsed.apiSecret && parsed.token && parsed.deviceToken) {
+        inMemoryCredentials = parsed;
+      }
+    }
+  } catch {
+    // If decryption fails, credentials remain empty and trigger clean login
+  }
+}
+
+export function purgeLegacyPersistentCredentials(): void {
   if (typeof window === "undefined") return;
 
-  for (const key of LEGACY_PERSISTENT_KEYS) {
+  for (const key of LEGACY_STORAGE_KEYS) {
     try {
       localStorage.removeItem(key);
-    } catch {
-      // Storage may be unavailable in privacy-restricted browser contexts.
-    }
+      sessionStorage.removeItem(key);
+    } catch {}
   }
 }
 
 purgeLegacyPersistentCredentials();
 
-function getStoredValue(key: string): string | undefined {
-  if (typeof window === "undefined") return undefined;
-
-  return sessionStorage.getItem(key) || undefined;
-}
-
-function setStoredValue(key: string, value: string): void {
-  if (typeof window === "undefined") return;
-
-  sessionStorage.setItem(key, value);
+if (typeof window !== "undefined") {
+  vaultRestorePromise = restoreFromSecureVault();
 }
 
 export function persistApiCredentials(credentials: ApiCredentials): void {
-  if (credentials.token) {
-    setStoredValue(AUTH_TOKEN_STORAGE_KEY, credentials.token);
-  }
+  inMemoryCredentials = {
+    token: credentials.token,
+    apiSecret: credentials.apiSecret,
+    deviceToken: credentials.deviceToken,
+  };
+  inMemoryHmacKey = null;
 
-  if (credentials.apiSecret) {
-    setStoredValue(API_SECRET_STORAGE_KEY, credentials.apiSecret);
-  }
+  purgeLegacyPersistentCredentials();
 
-  if (credentials.deviceToken) {
-    setStoredValue(DEVICE_TOKEN_STORAGE_KEY, credentials.deviceToken);
+  if (typeof window !== "undefined" && credentials.apiSecret) {
+    void saveToSecureVault(credentials);
   }
 }
 
 export function clearApiCredentials(): void {
+  inMemoryCredentials = null;
+  inMemoryHmacKey = null;
+
   if (typeof window === "undefined") return;
 
-  sessionStorage.removeItem(API_SECRET_STORAGE_KEY);
-  sessionStorage.removeItem(DEVICE_TOKEN_STORAGE_KEY);
-  sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-  localStorage.removeItem(API_SECRET_STORAGE_KEY);
-  localStorage.removeItem(DEVICE_TOKEN_STORAGE_KEY);
-  localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  setWindowVaultKey(null);
+  try {
+    sessionStorage.removeItem(VAULT_STORAGE_KEY);
+  } catch {}
+
+  purgeLegacyPersistentCredentials();
 }
 
 export function getOrCreateDeviceId(): string {
-  const existingDeviceId = getStoredValue(GENERATED_DEVICE_ID_STORAGE_KEY);
-
-  if (existingDeviceId) return existingDeviceId;
+  if (inMemoryCredentials?.deviceToken) {
+    return inMemoryCredentials.deviceToken;
+  }
 
   const deviceId =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? `web_${crypto.randomUUID()}`
       : `web_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-  setStoredValue(GENERATED_DEVICE_ID_STORAGE_KEY, deviceId);
   return deviceId;
 }
 
 /** Read fresh at every connect — a captured token pins a reconnect loop into 4401. */
 export function getAuthToken(): string | undefined {
-  return getStoredValue(AUTH_TOKEN_STORAGE_KEY);
+  return inMemoryCredentials?.token || undefined;
 }
 
-function getApiCredentials(): Required<ApiCredentials> {
-  const token = getStoredValue(AUTH_TOKEN_STORAGE_KEY);
-  const apiSecret = getStoredValue(API_SECRET_STORAGE_KEY);
-  const deviceToken = getStoredValue(DEVICE_TOKEN_STORAGE_KEY);
+async function getApiCredentials(): Promise<Required<ApiCredentials>> {
+  if (!inMemoryCredentials && vaultRestorePromise) {
+    await vaultRestorePromise;
+  }
+
+  const token = inMemoryCredentials?.token;
+  const apiSecret = inMemoryCredentials?.apiSecret;
+  const deviceToken = inMemoryCredentials?.deviceToken;
 
   if (!token || !apiSecret || !deviceToken) {
     requireSecureSessionLogin();
@@ -251,19 +343,26 @@ function createNonce(): string {
     .join("");
 }
 
-async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+async function getOrCreateHmacKey(secret: string): Promise<CryptoKey> {
+  if (inMemoryHmacKey) return inMemoryHmacKey;
   if (typeof crypto === "undefined" || !crypto.subtle) {
     throw new Error("Request signing is unavailable in this browser.");
   }
 
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
+  inMemoryHmacKey = await crypto.subtle.importKey(
     "raw",
     enc.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
   );
+  return inMemoryHmacKey;
+}
+
+async function signWithHmac(message: string, secret: string): Promise<string> {
+  const key = await getOrCreateHmacKey(secret);
+  const enc = new TextEncoder();
   const signature = await crypto.subtle.sign("HMAC", key, enc.encode(message));
 
   return Array.from(new Uint8Array(signature))
@@ -271,19 +370,16 @@ async function hmacSha256Hex(secret: string, message: string): Promise<string> {
     .join("");
 }
 
-export async function createWebauthnAttestation(): Promise<string> {
-  const apiSecret = getStoredValue(API_SECRET_STORAGE_KEY);
-  const deviceId = getStoredValue(DEVICE_TOKEN_STORAGE_KEY);
+export async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  return signWithHmac(message, secret);
+}
 
-  if (!apiSecret || !deviceId) {
-    throw new Error(
-      "Secure device credentials are missing. Please log in again.",
-    );
-  }
+export async function createWebauthnAttestation(): Promise<string> {
+  const { apiSecret, deviceToken } = await getApiCredentials();
 
   const timestamp = Date.now().toString();
-  const payload = `biometric_attestation:${timestamp}:${deviceId}`;
-  const signature = await hmacSha256Hex(apiSecret, payload);
+  const payload = `biometric_attestation:${timestamp}:${deviceToken}`;
+  const signature = await signWithHmac(payload, apiSecret);
 
   return `${timestamp}:${signature}`;
 }
@@ -341,6 +437,28 @@ function buildCanonicalPath(url: string): string {
   return query ? `${path}?${query}` : path;
 }
 
+const SIGNED_ROUTE_SEGMENTS = [
+  "transfers",
+  "onramp",
+  "offramp",
+  "invoices",
+  "gifts",
+  "recovery",
+  "security",
+  "banks",
+  "kyc",
+  "cards",
+  "yield",
+  "biometric",
+  "bridge",
+  "funding",
+  "workflows",
+  "workflow",
+  "stocks",
+  "fiat",
+  "users",
+];
+
 function shouldSignRequest(canonicalPath: string): boolean {
   const segments = canonicalPath.split("?")[0].split("/").filter(Boolean);
   return segments.some((segment) => SIGNED_ROUTE_SEGMENTS.includes(segment));
@@ -351,7 +469,7 @@ async function createSigningHeaders(
   fullUrl: string,
   rawBody: string,
 ): Promise<Record<string, string>> {
-  const { token, apiSecret, deviceToken } = getApiCredentials();
+  const { token, apiSecret, deviceToken } = await getApiCredentials();
   const timestamp = Date.now().toString();
   const nonce = createNonce();
   const canonicalPath = buildCanonicalPath(fullUrl);
