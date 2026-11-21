@@ -878,16 +878,13 @@ export default function StockDetailsPage({
                           }
                         }}
                         className={cn(
-                          "relative px-2.5 py-1.5 font-semibold transition rounded-md shrink-0",
+                          "relative px-2.5 py-1.5 font-semibold transition rounded-md shrink-0 cursor-pointer",
                           isActive
-                            ? "text-white bg-primary-60/20 text-primary-40"
+                            ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
                             : "text-gray-400 hover:text-white",
                         )}
                       >
                         {tf}
-                        {isActive ? (
-                          <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary-60 rounded-full" />
-                        ) : null}
                       </button>
                     );
                   })}
@@ -899,10 +896,10 @@ export default function StockDetailsPage({
                     type="button"
                     onClick={() => setIsMoreOpen((v) => !v)}
                     className={cn(
-                      "flex items-center gap-1 px-2.5 py-1.5 font-semibold transition rounded-md",
+                      "flex items-center gap-1 px-2.5 py-1.5 font-semibold transition rounded-md cursor-pointer",
                       (AVAILABLE_TIMEFRAMES as readonly string[]).includes(activeInterval) &&
                         chartType === "candlestick"
-                        ? "text-primary-40 bg-primary-60/20"
+                        ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
                         : "text-gray-400 hover:text-white hover:bg-white/5",
                     )}
                   >
@@ -948,9 +945,9 @@ export default function StockDetailsPage({
                                 setIsMoreOpen(false);
                               }}
                               className={cn(
-                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center",
+                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center cursor-pointer",
                                 isActive
-                                  ? "bg-primary-60 text-white font-bold shadow-md shadow-primary-60/20"
+                                  ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)] font-bold"
                                   : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white active:scale-95",
                               )}
                             >
@@ -979,9 +976,9 @@ export default function StockDetailsPage({
                                 setIsMoreOpen(false);
                               }}
                               className={cn(
-                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center",
+                                "h-8 rounded-lg text-xs font-semibold transition flex items-center justify-center cursor-pointer",
                                 isActive
-                                  ? "bg-primary-60 text-white font-bold shadow-md shadow-primary-60/20"
+                                  ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)] font-bold"
                                   : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white active:scale-95",
                               )}
                             >
@@ -1004,7 +1001,7 @@ export default function StockDetailsPage({
                   )
                 }
                 title="Toggle Candlestick / Line"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-primary-40 hover:bg-white/10"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)] hover:bg-primary-70/35 hover:text-primary-60 cursor-pointer transition active:scale-95"
               >
                 {chartType === "candlestick" ? (
                   <CandlestickChart className="h-4 w-4" />
@@ -1104,9 +1101,9 @@ export default function StockDetailsPage({
                     type="button"
                     onClick={() => toggleIndicator(ind)}
                     className={cn(
-                      "rounded px-1.5 py-0.5 font-semibold transition sm:px-2",
+                      "rounded px-1.5 py-0.5 font-semibold transition sm:px-2 cursor-pointer",
                       activeIndicators.has(ind)
-                        ? "bg-primary-60/25 border border-primary-50/40 text-primary-40"
+                        ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
                         : "text-gray-400 hover:text-white",
                     )}
                   >
@@ -1124,9 +1121,9 @@ export default function StockDetailsPage({
                     type="button"
                     onClick={() => toggleIndicator(ind)}
                     className={cn(
-                      "rounded px-1.5 py-0.5 font-semibold transition sm:px-2",
+                      "rounded px-1.5 py-0.5 font-semibold transition sm:px-2 cursor-pointer",
                       activeIndicators.has(ind)
-                        ? "bg-primary-60/25 border border-primary-50/40 text-primary-40"
+                        ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
                         : "text-gray-400 hover:text-white",
                     )}
                   >
