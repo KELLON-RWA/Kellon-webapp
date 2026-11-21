@@ -678,9 +678,9 @@ export default function StockDetailsPage({
         <div className="space-y-4">
           {/* 3. Stock Summary Card */}
           <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 shadow-lg backdrop-blur">
-            {/* Top Row: Logo + Symbol + Network Badge + Watchlist Star */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
+            {/* Top Row: Logo + Symbol + Network Badge + Watchlist Star (Left) & Historical Performance (Right on Desktop) */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5 shrink-0">
                 <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
                 <span className="text-base font-bold text-white sm:text-lg">
                   {displayStockSymbol}
@@ -703,6 +703,70 @@ export default function StockDetailsPage({
                     )}
                   />
                 </button>
+              </div>
+
+              {/* Desktop Performance Metrics: next to logo/heading in top row */}
+              <div className="hidden lg:flex items-center gap-5 xl:gap-8 text-right">
+                <div>
+                  <p className="text-[11px] text-gray-400">Today</p>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.today >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.today >= 0 ? "+" : ""}
+                    {performance.today.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-400">7 Days</p>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days7 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days7 >= 0 ? "+" : ""}
+                    {performance.days7.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-400">30 Days</p>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days30 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days30 >= 0 ? "+" : ""}
+                    {performance.days30.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-400">90 Days</p>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days90 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days90 >= 0 ? "+" : ""}
+                    {performance.days90.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-400">180 Days</p>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                      performance.days180 >= 0 ? "text-emerald-400" : "text-rose-400",
+                    )}
+                  >
+                    {performance.days180 >= 0 ? "+" : ""}
+                    {performance.days180.toFixed(2)}%
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -767,72 +831,6 @@ export default function StockDetailsPage({
                   <p className="text-[11px] text-gray-400">24h Turnover ($)</p>
                   <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
                     {formatCompactTurnover(turnover24h)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Desktop Performance Row: Today, 7D, 30D, 90D, 180D */}
-            <div className="hidden lg:block mt-4 border-t border-white/10 pt-3.5">
-              <div className="grid grid-cols-5 gap-2 text-center">
-                <div>
-                  <p className="text-xs text-gray-400">Today</p>
-                  <p
-                    className={cn(
-                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.today >= 0 ? "text-emerald-400" : "text-rose-400",
-                    )}
-                  >
-                    {performance.today >= 0 ? "+" : ""}
-                    {performance.today.toFixed(2)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">7 Days</p>
-                  <p
-                    className={cn(
-                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days7 >= 0 ? "text-emerald-400" : "text-rose-400",
-                    )}
-                  >
-                    {performance.days7 >= 0 ? "+" : ""}
-                    {performance.days7.toFixed(2)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">30 Days</p>
-                  <p
-                    className={cn(
-                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days30 >= 0 ? "text-emerald-400" : "text-rose-400",
-                    )}
-                  >
-                    {performance.days30 >= 0 ? "+" : ""}
-                    {performance.days30.toFixed(2)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">90 Days</p>
-                  <p
-                    className={cn(
-                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days90 >= 0 ? "text-emerald-400" : "text-rose-400",
-                    )}
-                  >
-                    {performance.days90 >= 0 ? "+" : ""}
-                    {performance.days90.toFixed(2)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">180 Days</p>
-                  <p
-                    className={cn(
-                      "mt-1 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days180 >= 0 ? "text-emerald-400" : "text-rose-400",
-                    )}
-                  >
-                    {performance.days180 >= 0 ? "+" : ""}
-                    {performance.days180.toFixed(2)}%
                   </p>
                 </div>
               </div>
