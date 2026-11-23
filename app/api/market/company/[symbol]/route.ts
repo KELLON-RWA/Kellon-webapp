@@ -28,6 +28,29 @@ async function requestWikidata(params: Record<string, string>) {
   if (data.error) throw new Error("Wikidata unavailable");
   return data;
 }
+async function fetchWikipediaExtract(title: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+      {
+        headers: {
+          "User-Agent": "KellonCompanyProfiles/1.0 (https://kellon.xyz)",
+          Accept: "application/json",
+        },
+        next: { revalidate: 86400 },
+        signal: AbortSignal.timeout(4000),
+      },
+    );
+    if (!response.ok) return undefined;
+    const data = await response.json();
+    return typeof data.extract === "string" && data.extract.trim().length > 0
+      ? data.extract.trim()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function entities(
   ids: string[],
 ): Promise<Record<string, WikidataEntity>> {
@@ -37,8 +60,9 @@ async function entities(
       await requestWikidata({
         action: "wbgetentities",
         ids: ids.join("|"),
-        props: "labels|descriptions|claims",
+        props: "labels|descriptions|claims|sitelinks",
         languages: "en|mul",
+        sitefilter: "enwiki",
       })
     ).entities || {}
   );
@@ -96,9 +120,15 @@ export async function GET(
       related,
       await entities([...new Set(regionIds)].slice(0, 20)),
     );
-    return NextResponse.json({
-      profile: normalizeWikidataCompany(entity, related),
-    });
+    const profile = normalizeWikidataCompany(entity, related);
+    const enWikiTitle = entity.sitelinks?.enwiki?.title;
+    if (enWikiTitle) {
+      const extract = await fetchWikipediaExtract(enWikiTitle);
+      if (extract) {
+        profile.description = extract;
+      }
+    }
+    return NextResponse.json({ profile });
   } catch {
     return NextResponse.json(
       { message: "Company profile temporarily unavailable" },

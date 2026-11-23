@@ -9,6 +9,7 @@ export type WikidataEntity = {
   descriptions?: Record<string, { value: string }>;
   aliases?: Record<string, Array<{ value: string }>>;
   claims?: Record<string, Statement[]>;
+  sitelinks?: Record<string, { site?: string; title?: string }>;
 };
 export type WikidataCompanyProfile = {
   name: string;

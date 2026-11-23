@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
+  Globe,
   Landmark,
   LineChart,
   MapPin,
@@ -126,13 +127,16 @@ function formatCompactTurnover(value: number) {
 }
 
 const STOCK_DESCRIPTIONS: Record<string, string> = {
-  AAPL: "Apple Inc. is an American multinational technology company known for the iPhone, Mac, iPad, Apple Watch, and services including the App Store and Apple Music.",
-  AMZN: "Amazon.com, Inc. is a multinational technology company focused on e-commerce, cloud computing, digital streaming, and artificial intelligence.",
+  AAPL: "Apple Inc. is an American multinational technology company headquartered in Cupertino, California, in Silicon Valley, and known for consumer electronics, software and online services. Founded in 1976 as Apple Computer Company by Steve Jobs, Steve Wozniak and Ronald Wayne, the company was incorporated by Jobs and Wozniak as Apple Computer, Inc. the following year. Its current name was adopted in 2007 as the company expanded its focus from computers to consumer electronics. Apple is one of the Big Tech companies.",
+  AMZN: "Amazon.com, Inc. is an American multinational technology company focusing on e-commerce, cloud computing, online advertising, digital streaming, and artificial intelligence. Founded by Jeff Bezos in 1994, Amazon started as an online marketplace for books and has since expanded into a wide variety of product categories, earning it the moniker 'The Everything Store'.",
   GOOGL:
-    "Alphabet Inc. is the parent company of Google and businesses spanning search, advertising, cloud computing, and artificial intelligence.",
-  META: "Meta Platforms, Inc. builds products that help people connect and share, including Facebook, Instagram, WhatsApp, and virtual reality products.",
-  MSFT: "Microsoft Corporation develops software, cloud services, devices, and artificial intelligence products for people and businesses worldwide.",
-  NFLX: "Netflix, Inc. is an entertainment service offering films, series, and games to members around the world.",
+    "Alphabet Inc. is an American multinational technology conglomerate holding company headquartered in Mountain View, California. It was created through a restructuring of Google on October 2, 2015, and became the parent company of Google and several former Google subsidiaries, spanning internet search, cloud computing, software, and autonomous vehicles.",
+  META: "Meta Platforms, Inc., doing business as Meta, is an American multinational technology conglomerate based in Menlo Park, California. The company owns and operates Facebook, Instagram, Threads, and WhatsApp, among other products and services. Meta is considered one of the Big Tech companies alongside Apple, Alphabet, Amazon, and Microsoft.",
+  MSFT: "Microsoft Corporation is an American multinational corporation and technology company headquartered in Redmond, Washington. Best known for software products including the Windows line of operating systems, the Microsoft 365 suite, and the Edge web browser, Microsoft also produces hardware, cloud computing services through Azure, and gaming consoles with Xbox.",
+  NFLX: "Netflix, Inc. is an American media company based in Los Gatos, California. Founded in 1997 by Reed Hastings and Marc Randolph, it offers a subscription-based video-on-demand service featuring films and television series from various genres, including in-house Netflix Originals.",
+  NVDA: "NVIDIA Corporation is an American multinational corporation and technology company headquartered in Santa Clara, California. It designs graphics processing units (GPUs) for the gaming and professional markets, as well as system on a chip units (SoCs) for mobile computing and automotive markets, and is a dominant supplier of artificial intelligence hardware and software.",
+  TSLA: "Tesla, Inc. is an American multinational automotive and clean energy company headquartered in Austin, Texas. Tesla designs, manufactures, and sells electric vehicles, stationary battery energy storage systems, solar panels, and related products and services.",
+  COIN: "Coinbase Global, Inc. operates a cryptocurrency exchange platform. The company provides financial infrastructure and technology for the crypto economy, offering retail users and institutions a platform to buy, sell, and store digital assets securely.",
 };
 
 type CompanyProfile = {
@@ -160,6 +164,8 @@ const COMPANY_PROFILES: Record<string, CompanyProfile> = {
     headquarters: "Cupertino, California, USA",
     founded: "1976",
     employees: "161,000",
+    description:
+      "Apple Inc. is an American multinational technology company headquartered in Cupertino, California, in Silicon Valley, and known for consumer electronics, software and online services. Founded in 1976 as Apple Computer Company by Steve Jobs, Steve Wozniak and Ronald Wayne, the company was incorporated by Jobs and Wozniak as Apple Computer, Inc. the following year. Its current name was adopted in 2007 as the company expanded its focus from computers to consumer electronics. Apple is one of the Big Tech companies.",
   },
   AMZN: {
     website: "https://aboutamazon.com",
@@ -200,6 +206,28 @@ const COMPANY_PROFILES: Record<string, CompanyProfile> = {
     ceo: "Greg Peters & Ted Sarandos",
     headquarters: "Los Gatos, California, USA",
     founded: "1997",
+  },
+  NVDA: {
+    website: "https://www.nvidia.com",
+    sector: "Technology",
+    industry: "Semiconductors",
+    ceo: "Jensen Huang",
+    headquarters: "Santa Clara, California, USA",
+    founded: "1993",
+    employees: "29,600",
+    description:
+      "NVIDIA Corporation is an American multinational corporation and technology company headquartered in Santa Clara, California. It designs graphics processing units (GPUs) for the gaming and professional markets, as well as system on a chip units (SoCs) for mobile computing and automotive markets, and is a dominant supplier of artificial intelligence hardware and software.",
+  },
+  TSLA: {
+    website: "https://www.tesla.com",
+    sector: "Consumer cyclical",
+    industry: "Automotive",
+    ceo: "Elon Musk",
+    headquarters: "Austin, Texas, USA",
+    founded: "2003",
+    employees: "140,473",
+    description:
+      "Tesla, Inc. is an American multinational automotive and clean energy company headquartered in Austin, Texas. Tesla designs, manufactures, and sells electric vehicles, stationary battery energy storage systems, solar panels, and related products and services.",
   },
 };
 
@@ -539,8 +567,9 @@ export default function StockDetailsPage({
       queryFn: () =>
         stockResearchService.getFinnhubMarketData(normalizedSymbol),
       enabled: Boolean(stock) && !isRwa,
-      staleTime: 60_000,
-      refetchInterval: 60_000,
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
+      refetchInterval: 5 * 60_000,
     });
 
   const finnhubMarketData = isRwa ? undefined : exchangeMarketData;
@@ -1660,6 +1689,39 @@ export default function StockDetailsPage({
   );
 }
 
+function CompanyDescription({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isLong = text.length > 200;
+
+  return (
+    <div className="mt-4 max-w-3xl">
+      <p
+        className={cn(
+          "text-sm leading-6 text-gray-300 transition-all",
+          !isExpanded && isLong && "line-clamp-3",
+        )}
+      >
+        {text}
+      </p>
+      {isLong ? (
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-40 hover:underline cursor-pointer"
+        >
+          {isExpanded ? "Show Less" : "Show More"}
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform duration-200",
+              isExpanded && "rotate-180",
+            )}
+          />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function StockResearchContent({
   tab,
   title,
@@ -1801,6 +1863,19 @@ function StockResearchContent({
     const betaValue =
       beta !== undefined ? `${Number(beta).toFixed(2)}` : fallback.beta || "—";
 
+    const categoryLabel = resolveStockCategory({
+      ticker,
+      company,
+      officialProfile,
+      wikidataProfile,
+      rwaCategory,
+    });
+    const resolvedDescription =
+      company?.description ||
+      (ticker && STOCK_DESCRIPTIONS[ticker]) ||
+      wikidataProfile?.description ||
+      description;
+
     return (
       <div className="space-y-4">
         {/* 1. Company Overview & Facts */}
@@ -1813,18 +1888,17 @@ function StockResearchContent({
                 title}
             </h2>
             <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-1 text-xs font-semibold text-primary-40">
-              {resolveStockCategory({
-                ticker,
-                company,
-                officialProfile,
-                wikidataProfile,
-                rwaCategory,
-              })}
+              {categoryLabel}
             </span>
+            {company?.industry && company.industry.toLowerCase() !== categoryLabel.toLowerCase() ? (
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-gray-300">
+                {company.industry}
+              </span>
+            ) : null}
           </div>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-gray-400">
-            {company?.description || wikidataProfile?.description || description}
-          </p>
+
+          <CompanyDescription text={resolvedDescription} />
+
           {company?.website ||
           wikidataProfile?.website ||
           officialProfile?.website ? (
@@ -1836,9 +1910,10 @@ function StockResearchContent({
               }
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-primary-60/40 px-5 text-sm font-semibold text-primary-40 transition hover:bg-primary-70/10"
+              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 bg-primary-70/10 px-5 text-sm font-semibold text-primary-40 transition hover:bg-primary-70/20 active:scale-[0.99]"
             >
-              Visit official website <ExternalLink className="h-4 w-4" />
+              <Globe className="h-4 w-4" />
+              Visit Official Website <ExternalLink className="h-4 w-4" />
             </a>
           ) : null}
 
@@ -1847,8 +1922,8 @@ function StockResearchContent({
               icon={<Building2 className="h-4 w-4" />}
               label="Chief executive"
               value={
-                wikidataProfile?.ceo ||
                 company?.ceo ||
+                wikidataProfile?.ceo ||
                 newsFacts.ceo?.value ||
                 "Not available"
               }
@@ -1857,8 +1932,8 @@ function StockResearchContent({
               icon={<MapPin className="h-4 w-4" />}
               label="Headquarters"
               value={
-                wikidataProfile?.headquarters ||
                 company?.headquarters ||
+                wikidataProfile?.headquarters ||
                 newsFacts.headquarters?.value ||
                 "Not available"
               }
@@ -1867,8 +1942,8 @@ function StockResearchContent({
               icon={<Landmark className="h-4 w-4" />}
               label="Founded"
               value={
-                wikidataProfile?.founded ||
                 company?.founded ||
+                wikidataProfile?.founded ||
                 newsFacts.founded?.value ||
                 "Not available"
               }
@@ -1877,8 +1952,8 @@ function StockResearchContent({
               icon={<Users className="h-4 w-4" />}
               label="Employees"
               value={
-                wikidataProfile?.employees ||
                 company?.employees ||
+                wikidataProfile?.employees ||
                 newsFacts.employees?.value ||
                 "Not available"
               }
