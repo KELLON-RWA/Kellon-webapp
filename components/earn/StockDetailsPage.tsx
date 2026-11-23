@@ -45,7 +45,7 @@ import {
   type FinnhubMarketData,
   type StockTradingData,
 } from "@/services/api/stock-research";
-import type { CompanyNewsArticle, CompanyNewsSource } from "@/lib/company-news";
+import type { CompanyNewsArticle } from "@/lib/company-news";
 import { getCompanyNewsName } from "@/lib/company-news";
 import type { NewsCompanyFacts } from "@/lib/company-news-facts";
 import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
@@ -631,21 +631,21 @@ export default function StockDetailsPage({
         activeInterval === "Line" || activeInterval === "Time" ? "15m" : activeInterval,
       ),
     enabled: Boolean(underlyingTicker) && !isRwa,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
     placeholderData: keepPreviousData,
   });
 
-  // Finnhub data
+  // Finnhub live market quote and cached company fundamentals
   const { data: exchangeMarketData, refetch: refetchFinnhubMarketData } =
     useQuery({
       queryKey: ["finnhub-stock-market-data", normalizedSymbol],
       queryFn: () =>
         stockResearchService.getFinnhubMarketData(normalizedSymbol),
       enabled: Boolean(stock) && !isRwa,
-      staleTime: 5 * 60_000,
-      gcTime: 30 * 60_000,
-      refetchInterval: 5 * 60_000,
+      staleTime: 5_000,
+      gcTime: 5 * 60_000,
+      refetchInterval: 10_000,
     });
 
   const finnhubMarketData = isRwa ? undefined : exchangeMarketData;
@@ -1686,7 +1686,6 @@ export default function StockDetailsPage({
           companyNews={companyNewsData?.articles || []}
           newsFacts={companyNewsFactsData?.facts || {}}
           wikidataProfile={companyProfileData?.profile || undefined}
-          companyNewsSource={companyNewsData?.source}
           isCompanyNewsLoading={isCompanyNewsLoading}
           isCompanyNewsError={isCompanyNewsError}
           provider={stock?.provider || "Backing"}
@@ -1833,7 +1832,6 @@ function StockResearchContent({
   companyNews,
   newsFacts,
   wikidataProfile,
-  companyNewsSource,
   isCompanyNewsLoading,
   isCompanyNewsError,
   provider,
@@ -1856,7 +1854,6 @@ function StockResearchContent({
   companyNews: CompanyNewsArticle[];
   newsFacts: NewsCompanyFacts;
   wikidataProfile?: WikidataCompanyProfile;
-  companyNewsSource?: CompanyNewsSource;
   isCompanyNewsLoading: boolean;
   isCompanyNewsError: boolean;
   provider: string;
@@ -1871,11 +1868,6 @@ function StockResearchContent({
 }) {
   const officialProfile = finnhubMarketData?.profile;
   const metric = (key: string) => finnhubMarketData?.metrics?.[key];
-  const hasFinnhubData = Boolean(
-    finnhubMarketData?.quote ||
-      officialProfile ||
-      Object.keys(finnhubMarketData?.metrics || {}).length,
-  );
 
   if (tab === "Company") {
     const fallback = (ticker && COMPANY_FINANCIAL_FALLBACKS[ticker]) || {};
@@ -2114,9 +2106,6 @@ function StockResearchContent({
                 Live market news and updates for {title}
               </p>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-400">
-              {companyNewsSource || "Company news"}
-            </span>
           </div>
 
           {isCompanyNewsLoading ? (
@@ -2144,10 +2133,11 @@ function StockResearchContent({
                     <p className="text-sm font-semibold text-white">
                       {article.title}
                     </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {article.source}
-                      {article.publishedAt ? ` • ${new Date(article.publishedAt).toLocaleDateString()}` : ""}
-                    </p>
+                    {article.publishedAt ? (
+                      <p className="mt-1 text-xs text-gray-400">
+                        {new Date(article.publishedAt).toLocaleDateString()}
+                      </p>
+                    ) : null}
                   </div>
                   <ExternalLink className="h-4 w-4 shrink-0 text-primary-40" />
                 </a>
@@ -2199,8 +2189,8 @@ function StockResearchContent({
       <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">Market & Valuation Data</h2>
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-            {hasFinnhubData ? "Live Finnhub" : "Market Data"}
+          <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
+            Market Data
           </span>
         </div>
 
@@ -2235,8 +2225,8 @@ function StockResearchContent({
         <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white">On-Chain DEX Liquidity</h2>
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-              Live DexScreener
+            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
+              DEX Liquidity
             </span>
           </div>
 
