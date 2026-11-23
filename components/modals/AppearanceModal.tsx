@@ -59,10 +59,10 @@ const AppearanceModal: FC<AppearanceModalProps> = ({ isOpen, onClose }) => {
         <div className="flex items-center gap-4">
           <div
             className={cn(
-              "p-3 rounded-xl",
+              "p-3 rounded-xl border border-transparent transition-colors",
               isActive
-                ? "bg-primary-70 text-white"
-                : "bg-gray-95 dark:bg-white/5 text-gray-30 dark:text-white",
+                ? "bg-primary-70 text-white dark:bg-white/5 dark:border-white/5 dark:text-primary-70"
+                : "bg-gray-95 text-gray-30 dark:bg-white/5 dark:border-white/5 dark:text-white",
             )}
           >
             <Icon className="w-5 h-5" />
@@ -100,7 +100,7 @@ const AppearanceModal: FC<AppearanceModalProps> = ({ isOpen, onClose }) => {
       {/* IMP END - Back Button */}
 
       {/* Header Icon */}
-      <div className="w-16 h-16 bg-primary-70/10 dark:bg-white/5 border border-transparent dark:border-white/5 rounded-full flex items-center justify-center mb-4 mt-2">
+      <div className="w-16 h-16 bg-primary-70/10 rounded-full flex items-center justify-center mb-4 mt-2">
         <Info className="w-8 h-8 text-primary-70 fill-primary-70/20" />
       </div>
 
