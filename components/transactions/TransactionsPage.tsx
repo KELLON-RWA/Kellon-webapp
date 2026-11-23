@@ -10,12 +10,14 @@ import {
   Filter,
   TrendingDown,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import HydrationSafeRelativeTime from "@/components/HydrationSafeRelativeTime";
 import Pagination from "@/components/Pagination";
 import { cn } from "@/lib/utils";
 import FlowHeader from "@/components/wallet/shared/FlowHeader";
+import { getUnderlyingTicker } from "@/lib/stock-catalog";
 import {
   getTransactionAmountLabel,
   getTransactionStatusClasses,
@@ -95,11 +97,19 @@ function matchesStockFilter(
   if (!isStockTransaction(transaction)) return false;
 
   const normalizedSymbol = stockSymbol.toUpperCase();
+  const normalizedUnderlying = getUnderlyingTicker(normalizedSymbol).toUpperCase();
   const rawSymbol = String(transaction.symbol || "").toUpperCase();
   const metadataSymbol = getTransactionSymbol(transaction).toUpperCase();
+  const rawUnderlying = getUnderlyingTicker(rawSymbol).toUpperCase();
+  const metadataUnderlying = getUnderlyingTicker(metadataSymbol).toUpperCase();
 
-  if (rawSymbol === normalizedSymbol) return true;
-  if (metadataSymbol !== normalizedSymbol) return false;
+  const matchesSymbol =
+    rawSymbol === normalizedSymbol ||
+    metadataSymbol === normalizedSymbol ||
+    rawUnderlying === normalizedUnderlying ||
+    metadataUnderlying === normalizedUnderlying;
+
+  if (!matchesSymbol) return false;
 
   return (
     !provider ||
@@ -270,7 +280,7 @@ export default function TransactionsPage() {
   return (
     <section className="container mx-auto flex h-[100dvh] max-w-4xl flex-col overflow-hidden px-4 pb-0 pt-4 md:px-6 md:pb-12 md:pt-20">
       <FlowHeader
-        title="Transactions"
+        title={stockSymbol ? `${stockSymbol} Transactions` : "Transactions"}
         onBack={() => router.back()}
         rightAction={{
           label: "Open filters",
@@ -311,6 +321,22 @@ export default function TransactionsPage() {
         ))}
       </div>
 
+      {stockSymbol ? (
+        <div className="mt-3 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-50/40 bg-primary-60/15 px-3 py-1 text-xs font-semibold text-primary-30 dark:text-primary-30">
+            <span>Stock: {stockSymbol}</span>
+            <button
+              type="button"
+              onClick={() => router.push("/transactions")}
+              className="ml-1 cursor-pointer text-gray-400 hover:text-cryptoNight dark:hover:text-white"
+              aria-label="Clear stock filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        </div>
+      ) : null}
+
       {/* Transaction List */}
       <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
         <div className="overflow-hidden rounded-2xl border border-black/5 bg-white dark:border-white/10 dark:bg-secondary-50">
@@ -330,7 +356,7 @@ export default function TransactionsPage() {
                 <ArrowUpRight className="h-5 w-5 text-gray-400" />
               </div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                No transactions yet
+                {stockSymbol ? `No transactions for ${stockSymbol}` : "No transactions yet"}
               </p>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Your transactions will appear here

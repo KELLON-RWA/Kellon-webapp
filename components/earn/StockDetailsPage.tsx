@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -46,7 +47,7 @@ import {
   type StockTradingData,
 } from "@/services/api/stock-research";
 import type { CompanyNewsArticle } from "@/lib/company-news";
-import { getCompanyNewsName } from "@/lib/company-news";
+import { formatNewsTimestamp, getCompanyNewsName } from "@/lib/company-news";
 import type { NewsCompanyFacts } from "@/lib/company-news-facts";
 import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
 import { DANGOTE_COMPANY_PROFILE } from "@/lib/dangote-company-profile";
@@ -61,6 +62,7 @@ import StockTradingChart, {
   type IndicatorType,
 } from "./StockTradingChart";
 import StockDesktopSidebar from "./StockDesktopSidebar";
+import { useStockRealtime } from "@/hooks/useStockRealtime";
 import {
   formatUsd,
   getStockProviderLabel,
@@ -617,6 +619,8 @@ export default function StockDetailsPage({
       ).toUpperCase()
     : "BASE";
 
+  // Real-time sub-second price and trade stream (Finnhub WebSocket / SSE)
+  const realtime = useStockRealtime(displayStockSymbol);
 
   // Fetch full candles and 24h trading statistics
   const {
@@ -677,7 +681,8 @@ export default function StockDetailsPage({
       Boolean(stock) &&
       Boolean(companyNewsName) &&
       (activeTab === "Company" || activeTab === "News"),
-    staleTime: 5 * 60_000,
+    staleTime: 15 * 60_000,
+    gcTime: 60 * 60_000,
   });
 
   const {
@@ -693,8 +698,9 @@ export default function StockDetailsPage({
       Boolean(stock) &&
       Boolean(companyNewsName) &&
       (activeTab === "News" || activeTab === "Company"),
-    staleTime: 5 * 60_000,
-    refetchInterval: 5 * 60_000,
+    staleTime: 15 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchInterval: 15 * 60_000,
   });
 
   // DexScreener query
@@ -870,27 +876,37 @@ export default function StockDetailsPage({
     );
   }
 
-  // Price & Stats
-  const currentPrice =
+  // Price & Stats (combining snapshot baseline with sub-second real-time stream)
+  const basePrice =
     tradingData?.stats?.currentPrice ||
     Number(finnhubMarketData?.quote?.current || stock?.price || 265.61);
 
+  const currentPrice = realtime.price || basePrice;
+
+  const previousClose =
+    finnhubMarketData?.quote?.previousClose ||
+    (tradingData?.stats?.change24hPercent !== undefined && tradingData.stats.change24hPercent !== -100
+      ? basePrice / (1 + tradingData.stats.change24hPercent / 100)
+      : basePrice);
+
   const changePercent =
-    tradingData?.stats?.change24hPercent ??
-    finnhubMarketData?.quote?.percentChange ??
-    0;
+    previousClose > 0
+      ? ((currentPrice - previousClose) / previousClose) * 100
+      : (tradingData?.stats?.change24hPercent ??
+        finnhubMarketData?.quote?.percentChange ??
+        0);
 
   const isPositive = changePercent >= 0;
 
-  const high24h =
-    tradingData?.stats?.high24h ||
-    finnhubMarketData?.quote?.high ||
-    currentPrice * 1.02;
+  const high24h = Math.max(
+    tradingData?.stats?.high24h || finnhubMarketData?.quote?.high || currentPrice,
+    currentPrice,
+  );
 
-  const low24h =
-    tradingData?.stats?.low24h ||
-    finnhubMarketData?.quote?.low ||
-    currentPrice * 0.98;
+  const low24h = Math.min(
+    tradingData?.stats?.low24h || finnhubMarketData?.quote?.low || currentPrice,
+    currentPrice,
+  );
 
   const vol24h = tradingData?.stats?.vol24h || 23_670_000;
   const turnover24h = tradingData?.stats?.turnover24h || vol24h * currentPrice;
@@ -914,16 +930,16 @@ export default function StockDetailsPage({
           type="button"
           onClick={() => router.back()}
           aria-label="Back"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-80 bg-white/80 text-gray-20 shadow-sm transition hover:bg-white active:scale-95 dark:border-white/10 dark:bg-secondary-60/60 dark:text-white dark:hover:bg-secondary-60 cursor-pointer"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
 
         <div className="min-w-0 flex-1 text-center">
-          <h1 className="truncate text-sm font-bold text-white sm:text-base">
+          <h1 className="truncate text-sm font-bold text-cryptoNight sm:text-base dark:text-white">
             {name.replace(/\s*Tokenized Stock$/i, "")} Tokenized Stock
           </h1>
-          <p className="truncate text-xs text-gray-400">
+          <p className="truncate text-xs text-gray-20 dark:text-gray-400">
             {displayStockSymbol}
           </p>
         </div>
@@ -933,10 +949,10 @@ export default function StockDetailsPage({
             type="button"
             onClick={handleRefreshAll}
             aria-label="Refresh"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-secondary-60/60 text-white transition hover:bg-secondary-60 active:scale-95 lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-80 bg-white/80 text-gray-20 shadow-sm transition hover:bg-white active:scale-95 lg:hidden dark:border-white/10 dark:bg-secondary-60/60 dark:text-white dark:hover:bg-secondary-60 cursor-pointer"
           >
             <RefreshCw
-              className={cn("h-4 w-4 text-gray-300", isRefetching && "animate-spin")}
+              className={cn("h-4 w-4 text-gray-400 dark:text-gray-300", isRefetching && "animate-spin")}
             />
           </button>
           <div className="hidden h-10 w-10 lg:block" aria-hidden="true" />
@@ -945,7 +961,7 @@ export default function StockDetailsPage({
 
       {/* 2. Top Tabs: Charts, Company, News, Token Info, Data */}
       <nav
-        className="mb-4 grid grid-cols-5 gap-1 rounded-xl border border-white/10 bg-secondary-60/40 p-1 backdrop-blur"
+        className="mb-4 grid grid-cols-5 gap-1 rounded-xl border border-gray-80 bg-white/70 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-60/40 dark:shadow-none"
         aria-label="Stock tabs"
       >
         {STOCK_PAGE_TABS.map((tab) => (
@@ -954,10 +970,10 @@ export default function StockDetailsPage({
             type="button"
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "h-9 rounded-lg px-1 truncate text-[11px] font-semibold transition sm:text-sm",
+              "h-9 rounded-lg px-1 truncate text-[11px] font-semibold transition sm:text-sm cursor-pointer",
               activeTab === tab
                 ? "bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-lg shadow-primary-60/20"
-                : "text-gray-400 hover:text-white hover:bg-white/5",
+                : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
             )}
           >
             {tab}
@@ -972,26 +988,26 @@ export default function StockDetailsPage({
           {activeTab === "Charts" ? (
         <div className="space-y-4">
           {/* 3. Stock Summary Card */}
-          <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-3 sm:p-5 shadow-lg backdrop-blur">
+          <section className="rounded-2xl border border-gray-80 bg-white/80 p-3 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-lg">
             {/* Top Row: Logo + Symbol + Network Badge + Watchlist Star (Left) & Historical Performance (Right on Desktop) */}
             <div className="flex items-center justify-between gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
               <div className="flex items-center gap-2 shrink-0">
                 <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
-                <span className="text-base font-bold text-white sm:text-lg">
+                <span className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
                   {displayStockSymbol}
                 </span>
                 <button
                   type="button"
                   onClick={() => handleToggleWatchlist()}
                   aria-label={isWatchlisted ? "Remove from watchlist" : "Add to watchlist"}
-                  className="group flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-white/10 active:scale-95"
+                  className="group flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-gray-90/80 active:scale-95 dark:hover:bg-white/10 cursor-pointer"
                 >
                   <Star
                     className={cn(
                       "h-4 w-4 transition-colors",
                       isWatchlisted
                         ? "fill-primary-50 text-primary-50"
-                        : "text-gray-400 group-hover:text-white",
+                        : "text-gray-400 group-hover:text-cryptoNight dark:group-hover:text-white",
                     )}
                   />
                 </button>
@@ -1000,11 +1016,11 @@ export default function StockDetailsPage({
               {/* Desktop Performance Metrics: next to logo/heading in top row */}
               <div className="hidden lg:flex items-center gap-5 xl:gap-8 text-right">
                 <div>
-                  <p className="text-[11px] text-gray-400">Today</p>
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">Today</p>
                   <p
                     className={cn(
                       "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.today >= 0 ? "text-emerald-400" : "text-rose-400",
+                      performance.today >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                     )}
                   >
                     {performance.today >= 0 ? "+" : ""}
@@ -1012,11 +1028,11 @@ export default function StockDetailsPage({
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-gray-400">7 Days</p>
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">7 Days</p>
                   <p
                     className={cn(
                       "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days7 >= 0 ? "text-emerald-400" : "text-rose-400",
+                      performance.days7 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                     )}
                   >
                     {performance.days7 >= 0 ? "+" : ""}
@@ -1024,11 +1040,11 @@ export default function StockDetailsPage({
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-gray-400">30 Days</p>
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">30 Days</p>
                   <p
                     className={cn(
                       "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days30 >= 0 ? "text-emerald-400" : "text-rose-400",
+                      performance.days30 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                     )}
                   >
                     {performance.days30 >= 0 ? "+" : ""}
@@ -1036,11 +1052,11 @@ export default function StockDetailsPage({
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-gray-400">90 Days</p>
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">90 Days</p>
                   <p
                     className={cn(
                       "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days90 >= 0 ? "text-emerald-400" : "text-rose-400",
+                      performance.days90 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                     )}
                   >
                     {performance.days90 >= 0 ? "+" : ""}
@@ -1048,11 +1064,11 @@ export default function StockDetailsPage({
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-gray-400">180 Days</p>
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">180 Days</p>
                   <p
                     className={cn(
                       "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                      performance.days180 >= 0 ? "text-emerald-400" : "text-rose-400",
+                      performance.days180 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                     )}
                   >
                     {performance.days180 >= 0 ? "+" : ""}
@@ -1063,7 +1079,7 @@ export default function StockDetailsPage({
             </div>
 
             {/* Subtle Divider Line */}
-            <div className="my-3.5 border-t border-white/10" />
+            <div className="my-3.5 border-t border-gray-80 dark:border-white/10" />
 
             {/* Bottom Row: Price & 24h Pill on Left, 2x2 Stats Grid on Right */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -1071,8 +1087,14 @@ export default function StockDetailsPage({
               <div>
                 <p
                   className={cn(
-                    "text-2xl font-bold tabular-nums sm:text-3xl",
-                    isPositive ? "text-emerald-400" : "text-rose-500",
+                    "text-2xl font-bold tabular-nums sm:text-3xl transition-colors duration-200",
+                    realtime.direction === "up"
+                      ? "text-emerald-500"
+                      : realtime.direction === "down"
+                        ? "text-rose-500"
+                        : isPositive
+                          ? "text-emerald-500 dark:text-emerald-400"
+                          : "text-rose-500",
                   )}
                 >
                   {formatUsd(currentPrice)}
@@ -1082,8 +1104,8 @@ export default function StockDetailsPage({
                     className={cn(
                       "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
                       isPositive
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-rose-500/15 text-rose-400",
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-rose-500/15 text-rose-600 dark:text-rose-400",
                     )}
                   >
                     {isPositive ? (
@@ -1100,28 +1122,28 @@ export default function StockDetailsPage({
               {/* Right Column: 2x2 Stats Grid */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-left sm:gap-x-12 sm:gap-y-2.5">
                 <div>
-                  <p className="text-[11px] text-gray-400">24h High</p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">24h High</p>
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
                     {formatUsd(high24h)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">
                     24h Vol ({displayStockSymbol})
                   </p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
                     {formatCompactVolume(vol24h)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-gray-400">24h Low</p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">24h Low</p>
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
                     {formatUsd(low24h)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-gray-400">24h Turnover ($)</p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-white sm:text-sm">
+                  <p className="text-[11px] text-gray-20 dark:text-gray-400">24h Turnover ($)</p>
+                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
                     {formatCompactTurnover(turnover24h)}
                   </p>
                 </div>
@@ -1130,7 +1152,7 @@ export default function StockDetailsPage({
           </section>
 
           {/* 4. Timeframe Bar & Chart Controls */}
-          <section className="relative rounded-2xl border border-white/10 bg-secondary-50/50 p-2 sm:p-3 backdrop-blur">
+          <section className="relative rounded-2xl border border-gray-80 bg-white/80 p-2 sm:p-3 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/50 dark:shadow-none">
             <div className="flex items-center justify-between gap-1 text-xs">
               <div className="flex items-center gap-1 sm:gap-2">
                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar sm:gap-2">
@@ -1156,7 +1178,7 @@ export default function StockDetailsPage({
                           "relative px-2.5 py-1.5 font-semibold transition rounded-md shrink-0 cursor-pointer",
                           isActive
                             ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
-                            : "text-gray-400 hover:text-white",
+                            : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
                         )}
                       >
                         {tf}
@@ -1176,8 +1198,8 @@ export default function StockDetailsPage({
                         chartType === "candlestick"
                         ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
                         : isMoreOpen
-                          ? "bg-white/10 text-white"
-                          : "text-gray-400 hover:text-white hover:bg-white/5",
+                          ? "bg-gray-90 text-cryptoNight dark:bg-white/10 dark:text-white"
+                          : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
                     )}
                   >
                     <span>
@@ -1195,10 +1217,10 @@ export default function StockDetailsPage({
                   </button>
 
                   {isMoreOpen ? (
-                    <div className="absolute left-0 top-full z-50 mt-2 w-72 sm:w-80 rounded-2xl border border-white/10 bg-secondary-60/95 p-3.5 sm:p-4 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150">
+                    <div className="absolute left-0 top-full z-50 mt-2 w-72 sm:w-80 rounded-2xl border border-gray-80 bg-white/95 p-3.5 sm:p-4 shadow-xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 dark:border-white/10 dark:bg-secondary-60/95 dark:shadow-2xl">
                       {/* Pinned Section */}
                       <div className="mb-2.5 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-20 dark:text-gray-400">
                           Pinned
                         </span>
                       </div>
@@ -1226,7 +1248,7 @@ export default function StockDetailsPage({
                                 "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer active:scale-95",
                                 isActive
                                   ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
-                                  : "border border-white/5 bg-white/5 text-gray-300 hover:border-white/10 hover:bg-white/10 hover:text-white",
+                                  : "border border-gray-80 bg-gray-90/60 text-gray-20 hover:border-gray-70 hover:bg-gray-80 hover:text-cryptoNight dark:border-white/5 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/10 dark:hover:text-white",
                               )}
                             >
                               {item}
@@ -1236,11 +1258,11 @@ export default function StockDetailsPage({
                       </div>
 
                       {/* Divider */}
-                      <div className="my-3 border-t border-white/10" />
+                      <div className="my-3 border-t border-gray-80 dark:border-white/10" />
 
                       {/* Available Section */}
                       <div className="mb-2.5 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-20 dark:text-gray-400">
                           Available Intervals
                         </span>
                       </div>
@@ -1262,7 +1284,7 @@ export default function StockDetailsPage({
                                 "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer active:scale-95",
                                 isActive
                                   ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
-                                  : "border border-white/5 bg-white/5 text-gray-300 hover:border-white/10 hover:bg-white/10 hover:text-white",
+                                  : "border border-gray-80 bg-gray-90/60 text-gray-20 hover:border-gray-70 hover:bg-gray-80 hover:text-cryptoNight dark:border-white/5 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/10 dark:hover:text-white",
                               )}
                             >
                               {item}
@@ -1295,22 +1317,22 @@ export default function StockDetailsPage({
             </div>
 
             {/* 5. OHLC & MA Readout */}
-            <div className="mt-3 border-t border-white/5 pt-2">
-              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-gray-400 sm:text-[11px]">
+            <div className="mt-3 border-t border-gray-80/60 pt-2 dark:border-white/5">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-gray-20 sm:text-[11px] dark:text-gray-400">
                 <span>{hoveredData?.timeStr || "Loading..."}</span>
                 {hoveredData ? (
                   <div className="flex items-center gap-2 tabular-nums">
                     <span>
-                      O <span className="text-white">{hoveredData.open.toFixed(2)}</span>
+                      O <span className="text-cryptoNight dark:text-white">{hoveredData.open.toFixed(2)}</span>
                     </span>
                     <span>
-                      H <span className="text-emerald-400">{hoveredData.high.toFixed(2)}</span>
+                      H <span className="text-emerald-500 dark:text-emerald-400">{hoveredData.high.toFixed(2)}</span>
                     </span>
                     <span>
-                      L <span className="text-rose-400">{hoveredData.low.toFixed(2)}</span>
+                      L <span className="text-rose-500 dark:text-rose-400">{hoveredData.low.toFixed(2)}</span>
                     </span>
                     <span>
-                      C <span className={hoveredData.close >= hoveredData.open ? "text-emerald-400" : "text-rose-400"}>
+                      C <span className={hoveredData.close >= hoveredData.open ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}>
                         {hoveredData.close.toFixed(2)}
                       </span>
                     </span>
@@ -1321,17 +1343,17 @@ export default function StockDetailsPage({
               {activeIndicators.has("MA") && hoveredData ? (
                 <div className="mt-1 flex items-center gap-3 text-[10px] tabular-nums">
                   {hoveredData.ma5 !== undefined ? (
-                    <span className="text-amber-400 font-medium">
+                    <span className="text-amber-500 font-medium dark:text-amber-400">
                       MA(5): {hoveredData.ma5.toFixed(2)}
                     </span>
                   ) : null}
                   {hoveredData.ma10 !== undefined ? (
-                    <span className="text-purple-400 font-medium">
+                    <span className="text-purple-600 font-medium dark:text-purple-400">
                       MA(10): {hoveredData.ma10.toFixed(2)}
                     </span>
                   ) : null}
                   {hoveredData.ma20 !== undefined ? (
-                    <span className="text-cyan-400 font-medium">
+                    <span className="text-cyan-600 font-medium dark:text-cyan-400">
                       MA(20): {hoveredData.ma20.toFixed(2)}
                     </span>
                   ) : null}
@@ -1353,6 +1375,7 @@ export default function StockDetailsPage({
                   avgBuyPrice={holding?.avgBuyPrice}
                   avgSellPrice={avgSellPrice > 0 ? avgSellPrice : undefined}
                   onHoverDataChange={handleHoverDataChange}
+                  liveTick={realtime.lastTick}
                   className="h-full"
                 />
               )}
@@ -1360,15 +1383,15 @@ export default function StockDetailsPage({
 
             {/* Volume Status bar */}
             {activeIndicators.has("VOL") && hoveredData ? (
-              <div className="mt-1 flex items-center gap-3 border-t border-white/5 pt-1.5 text-[10px] text-gray-400 tabular-nums">
+              <div className="mt-1 flex items-center gap-3 border-t border-gray-80/60 pt-1.5 text-[10px] text-gray-20 tabular-nums dark:border-white/5 dark:text-gray-400">
                 <span>VOL: {formatCompactVolume(hoveredData.volume)}</span>
                 {hoveredData.volMa5 !== undefined ? (
-                  <span className="text-amber-400 font-medium">
+                  <span className="text-amber-500 font-medium dark:text-amber-400">
                     MA(5): {formatCompactVolume(hoveredData.volMa5)}
                   </span>
                 ) : null}
                 {hoveredData.volMa10 !== undefined ? (
-                  <span className="text-purple-400 font-medium">
+                  <span className="text-purple-600 font-medium dark:text-purple-400">
                     MA(10): {formatCompactVolume(hoveredData.volMa10)}
                   </span>
                 ) : null}
@@ -1376,7 +1399,7 @@ export default function StockDetailsPage({
             ) : null}
 
             {/* 7. Indicator Selector Pills */}
-            <div className="mt-3 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar border-t border-white/5 pt-2 text-[10px] sm:gap-2 sm:text-[11px]">
+            <div className="mt-3 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar border-t border-gray-80/60 pt-2 text-[10px] sm:gap-2 sm:text-[11px] dark:border-white/5">
               <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                 {(["MA", "EMA", "BOLL", "SAR"] as IndicatorType[]).map((ind) => (
                   <button
@@ -1387,7 +1410,7 @@ export default function StockDetailsPage({
                       "rounded px-1.5 py-0.5 font-semibold transition sm:px-2 cursor-pointer",
                       activeIndicators.has(ind)
                         ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
-                        : "text-gray-400 hover:text-white",
+                        : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
                     )}
                   >
                     {ind}
@@ -1395,7 +1418,7 @@ export default function StockDetailsPage({
                 ))}
               </div>
 
-              <div className="h-3.5 w-px shrink-0 bg-white/10" />
+              <div className="h-3.5 w-px shrink-0 bg-gray-80 dark:bg-white/10" />
 
               <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                 {(["VOL", "MACD", "RSI", "KDJ"] as IndicatorType[]).map((ind) => (
@@ -1407,7 +1430,7 @@ export default function StockDetailsPage({
                       "rounded px-1.5 py-0.5 font-semibold transition sm:px-2 cursor-pointer",
                       activeIndicators.has(ind)
                         ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
-                        : "text-gray-400 hover:text-white",
+                        : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
                     )}
                   >
                     {ind}
@@ -1418,13 +1441,13 @@ export default function StockDetailsPage({
           </section>
 
           {/* 8. 5-Column Historical Performance Table (Mobile only; desktop renders in top summary card) */}
-          <section className="grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-secondary-50/70 p-2 sm:p-3 text-center backdrop-blur lg:hidden">
+          <section className="grid grid-cols-5 gap-1 rounded-2xl border border-gray-80 bg-white/80 p-2 sm:p-3 text-center shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none lg:hidden">
             <div>
-              <p className="text-[9px] text-gray-400 sm:text-xs">Today</p>
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">Today</p>
               <p
                 className={cn(
                   "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
-                  performance.today >= 0 ? "text-emerald-400" : "text-rose-400",
+                  performance.today >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
                 {performance.today >= 0 ? "+" : ""}
@@ -1432,11 +1455,11 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[9px] text-gray-400 sm:text-xs">7 Days</p>
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">7 Days</p>
               <p
                 className={cn(
                   "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
-                  performance.days7 >= 0 ? "text-emerald-400" : "text-rose-400",
+                  performance.days7 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
                 {performance.days7 >= 0 ? "+" : ""}
@@ -1444,11 +1467,11 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[9px] text-gray-400 sm:text-xs">30 Days</p>
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">30 Days</p>
               <p
                 className={cn(
                   "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
-                  performance.days30 >= 0 ? "text-emerald-400" : "text-rose-400",
+                  performance.days30 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
                 {performance.days30 >= 0 ? "+" : ""}
@@ -1456,11 +1479,11 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[9px] text-gray-400 sm:text-xs">90 Days</p>
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">90 Days</p>
               <p
                 className={cn(
                   "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
-                  performance.days90 >= 0 ? "text-emerald-400" : "text-rose-400",
+                  performance.days90 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
                 {performance.days90 >= 0 ? "+" : ""}
@@ -1468,11 +1491,11 @@ export default function StockDetailsPage({
               </p>
             </div>
             <div>
-              <p className="text-[9px] text-gray-400 sm:text-xs">180 Days</p>
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">180 Days</p>
               <p
                 className={cn(
                   "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
-                  performance.days180 >= 0 ? "text-emerald-400" : "text-rose-400",
+                  performance.days180 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
                 {performance.days180 >= 0 ? "+" : ""}
@@ -1484,17 +1507,17 @@ export default function StockDetailsPage({
           {/* 9 & 10. Position & Activity Grid (side-by-side on lg, stacked on mobile) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* 9. My Position Card */}
-            <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 backdrop-blur flex flex-col justify-between">
+            <section className="rounded-2xl border border-gray-80 bg-white/80 p-4 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold text-white">My Position</h2>
+                  <h2 className="text-base font-bold text-cryptoNight dark:text-white">My Position</h2>
                   {holding ? (
                     <span
                       className={cn(
                         "rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
                         holding.unrealizedPnL >= 0
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-rose-500/15 text-rose-400",
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          : "bg-rose-500/15 text-rose-600 dark:text-rose-400",
                       )}
                     >
                       {holding.unrealizedPnL >= 0 ? "+" : ""}
@@ -1505,45 +1528,45 @@ export default function StockDetailsPage({
 
                 {!holding ? (
                   <div className="my-6 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-80 bg-gray-90/60 dark:border-white/10 dark:bg-white/5">
                       <WalletCards className="h-6 w-6 text-gray-400" />
                     </div>
-                    <h3 className="mt-3 text-sm font-bold text-white">
+                    <h3 className="mt-3 text-sm font-bold text-cryptoNight dark:text-white">
                       No Active Position
                     </h3>
-                    <p className="mx-auto mt-1 max-w-sm text-xs text-gray-400">
+                    <p className="mx-auto mt-1 max-w-sm text-xs text-gray-20 dark:text-gray-400">
                       You do not own any {displayStockSymbol} shares yet. Start
                       investing with fractional shares from just $1.
                     </p>
                   </div>
                 ) : (
-                  <div className="mt-4 grid grid-cols-2 gap-y-4 border-t border-white/5 pt-4 text-xs">
+                  <div className="mt-4 grid grid-cols-2 gap-y-4 border-t border-gray-80/60 pt-4 text-xs dark:border-white/5">
                     <div>
-                      <p className="text-gray-400">Shares Owned</p>
-                      <p className="mt-1 text-sm font-bold tabular-nums text-white">
+                      <p className="text-gray-20 dark:text-gray-400">Shares Owned</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-cryptoNight dark:text-white">
                         {holding.shares.toFixed(4)}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-gray-400">Total Value</p>
-                      <p className="mt-1 text-sm font-bold tabular-nums text-white">
+                      <p className="text-gray-20 dark:text-gray-400">Total Value</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-cryptoNight dark:text-white">
                         {formatUsd(holding.currentValue)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Average Cost</p>
-                      <p className="mt-1 text-sm font-bold tabular-nums text-white">
+                      <p className="text-gray-20 dark:text-gray-400">Average Cost</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-cryptoNight dark:text-white">
                         {formatUsd(holding.avgBuyPrice)}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-gray-400">Total Return</p>
+                      <p className="text-gray-20 dark:text-gray-400">Total Return</p>
                       <p
                         className={cn(
                           "mt-1 text-sm font-bold tabular-nums",
                           holding.unrealizedPnL >= 0
-                            ? "text-emerald-400"
-                            : "text-rose-400",
+                            ? "text-emerald-500 dark:text-emerald-400"
+                            : "text-rose-500 dark:text-rose-400",
                         )}
                       >
                         {holding.unrealizedPnL >= 0 ? "+" : ""}
@@ -1553,14 +1576,14 @@ export default function StockDetailsPage({
                       </p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Average Sell</p>
-                      <p className="mt-1 text-sm font-bold tabular-nums text-amber-400">
+                      <p className="text-gray-20 dark:text-gray-400">Average Sell</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums text-amber-500 dark:text-amber-400">
                         {avgSellPrice > 0 ? formatUsd(avgSellPrice) : "—"}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-gray-400">Realized Status</p>
-                      <p className="mt-1 text-sm font-bold text-white">
+                      <p className="text-gray-20 dark:text-gray-400">Realized Status</p>
+                      <p className="mt-1 text-sm font-bold text-cryptoNight dark:text-white">
                         {sellTransactions.length > 0 ? "Settled Exit" : "Open Position"}
                       </p>
                     </div>
@@ -1570,13 +1593,20 @@ export default function StockDetailsPage({
             </section>
 
             {/* 10. Recent Activity Card */}
-            <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-4 sm:p-5 backdrop-blur flex flex-col justify-between">
+            <section className="rounded-2xl border border-gray-80 bg-white/80 p-4 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold text-white">Recent Activity</h2>
-                  {stockActivities.length > 0 ? (
-                    <span className="text-xs text-gray-400">
-                      {Math.min(stockActivities.length, 10)} of {stockActivities.length}
+                  <h2 className="text-base font-bold text-cryptoNight dark:text-white">Recent Activity</h2>
+                  {stockActivities.length > 5 ? (
+                    <Link
+                      href={`/transactions?stock=${encodeURIComponent(underlyingTicker)}`}
+                      className="cursor-pointer text-xs font-semibold text-primary-60 transition hover:text-primary-50 dark:text-primary-80 dark:hover:text-primary-70"
+                    >
+                      See more
+                    </Link>
+                  ) : stockActivities.length > 0 ? (
+                    <span className="text-xs text-gray-20 dark:text-gray-400">
+                      {stockActivities.length} of {stockActivities.length}
                     </span>
                   ) : null}
                 </div>
@@ -1586,85 +1616,99 @@ export default function StockDetailsPage({
                     {Array.from({ length: 2 }).map((_, i) => (
                       <div
                         key={i}
-                        className="h-14 animate-pulse rounded-xl bg-white/5"
+                        className="h-14 animate-pulse rounded-xl bg-gray-90/80 dark:bg-white/5"
                       />
                     ))}
                   </div>
                 ) : stockActivities.length === 0 ? (
                   <div className="my-6 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-80 bg-gray-90/60 dark:border-white/10 dark:bg-white/5">
                       <Clock className="h-6 w-6 text-gray-400" />
                     </div>
-                    <h3 className="mt-3 text-sm font-bold text-white">
+                    <h3 className="mt-3 text-sm font-bold text-cryptoNight dark:text-white">
                       No Past Transactions
                     </h3>
-                    <p className="mx-auto mt-1 max-w-sm text-xs text-gray-400">
+                    <p className="mx-auto mt-1 max-w-sm text-xs text-gray-20 dark:text-gray-400">
                       Your completed buy and sell orders for {displayStockSymbol} will
                       appear here.
                     </p>
                   </div>
                 ) : (
-                  <div className="mt-3 divide-y divide-white/5">
-                    {stockActivities.slice(0, 10).map((transaction) => {
-                      const isSale = transaction.type === "SELL";
-                      const dateStr = new Date(transaction.createdAt).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric" },
-                      );
-                      const shares = getStockTransactionShares(transaction) || 0;
-                      const fiatAmount =
-                        getStockTransactionFiatAmount(transaction) ||
-                        Number(transaction.amount || 0);
+                  <>
+                    <div className="mt-3 divide-y divide-gray-80/60 dark:divide-white/5">
+                      {stockActivities.slice(0, 5).map((transaction) => {
+                        const isSale = transaction.type === "SELL";
+                        const dateStr = new Date(transaction.createdAt).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric" },
+                        );
+                        const shares = getStockTransactionShares(transaction) || 0;
+                        const fiatAmount =
+                          getStockTransactionFiatAmount(transaction) ||
+                          Number(transaction.amount || 0);
 
-                      return (
-                        <div
-                          key={transaction.id}
-                          onClick={() => router.push(`/transactions/${transaction.id}`)}
-                          className="flex cursor-pointer items-center justify-between py-3 transition hover:opacity-80"
+                        return (
+                          <div
+                            key={transaction.id}
+                            onClick={() => router.push(`/transactions/${transaction.id}`)}
+                            className="flex cursor-pointer items-center justify-between py-3 transition hover:opacity-80"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={cn(
+                                  "flex h-9 w-9 items-center justify-center rounded-xl border",
+                                  isSale
+                                    ? "border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-800/40 dark:bg-purple-950/40 dark:text-purple-300"
+                                    : "border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/40 dark:text-emerald-300",
+                                )}
+                              >
+                                {isSale ? (
+                                  <TrendingDown className="h-4 w-4" />
+                                ) : (
+                                  <TrendingUp className="h-4 w-4" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-cryptoNight sm:text-sm dark:text-white">
+                                  {isSale ? "Sell" : "Buy"} {displayStockSymbol}
+                                </p>
+                                <p className="text-[11px] text-gray-20 dark:text-gray-400">
+                                  {dateStr} • {settlementChain.toLowerCase()}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <p
+                                className={cn(
+                                  "text-xs font-bold tabular-nums sm:text-sm",
+                                  isSale ? "text-purple-600 dark:text-purple-300" : "text-emerald-600 dark:text-emerald-400",
+                                )}
+                              >
+                                {isSale ? "-" : "+"}
+                                {shares > 0 ? shares.toFixed(6) : "0.00"} {displayStockSymbol}
+                              </p>
+                              <p className="text-[11px] text-gray-20 tabular-nums dark:text-gray-400">
+                                {isSale ? "+" : "-"}${fiatAmount.toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {stockActivities.length > 5 && (
+                      <div className="mt-3 border-t border-gray-80/60 pt-3 dark:border-white/5">
+                        <Link
+                          href={`/transactions?stock=${encodeURIComponent(underlyingTicker)}`}
+                          className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-80 bg-gray-90/40 py-2.5 text-xs font-semibold text-cryptoNight transition hover:bg-gray-80/60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
                         >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "flex h-9 w-9 items-center justify-center rounded-xl border",
-                                isSale
-                                  ? "border-purple-800/40 bg-purple-950/40 text-purple-300"
-                                  : "border-emerald-800/40 bg-emerald-950/40 text-emerald-300",
-                              )}
-                            >
-                              {isSale ? (
-                                <TrendingDown className="h-4 w-4" />
-                              ) : (
-                                <TrendingUp className="h-4 w-4" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-white sm:text-sm">
-                                {isSale ? "Sell" : "Buy"} {displayStockSymbol}
-                              </p>
-                              <p className="text-[11px] text-gray-400">
-                                {dateStr} • {settlementChain.toLowerCase()}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <p
-                              className={cn(
-                                "text-xs font-bold tabular-nums sm:text-sm",
-                                isSale ? "text-purple-300" : "text-emerald-400",
-                              )}
-                            >
-                              {isSale ? "-" : "+"}
-                              {shares > 0 ? shares.toFixed(6) : "0.00"} {displayStockSymbol}
-                            </p>
-                            <p className="text-[11px] text-gray-400 tabular-nums">
-                              {isSale ? "+" : "-"}${fiatAmount.toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          <span>See more ({stockActivities.length - 5} more)</span>
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                        </Link>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </section>
@@ -1708,6 +1752,7 @@ export default function StockDetailsPage({
             currentSymbol={underlyingTicker}
             watchlist={watchlist}
             onToggleWatchlist={handleToggleWatchlist}
+            currentLivePrice={currentPrice}
           />
         </aside>
       </div>
@@ -1719,7 +1764,7 @@ export default function StockDetailsPage({
             <>
               <Button
                 type="button"
-                className="h-12 flex-1 rounded-xl bg-rose-500 text-base font-bold text-white shadow-lg shadow-rose-900/30 hover:bg-rose-600 active:scale-[0.98] transition cursor-pointer"
+                className="h-12 flex-1 rounded-xl bg-red-500 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 active:scale-[0.98] transition cursor-pointer"
                 onClick={() => setStockAction("sell")}
               >
                 Sell{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
@@ -1752,6 +1797,7 @@ export default function StockDetailsPage({
         stockOptions={stockOptions}
         profile={profile}
         open={Boolean(stockAction)}
+        livePrice={currentPrice}
         onOpenChange={(open) => {
           if (!open) setStockAction(null);
         }}
@@ -1762,6 +1808,29 @@ export default function StockDetailsPage({
       />
     </main>
   );
+}
+
+function NewsRelativeTime({ value }: { value: string }) {
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNow(Date.now());
+  }, []);
+
+  const date = new Date(value);
+  const fallback = Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+
+  if (now === null) {
+    return <span suppressHydrationWarning>{fallback}</span>;
+  }
+
+  return <span suppressHydrationWarning>{formatNewsTimestamp(value, now)}</span>;
 }
 
 function CompanyDescription({ text }: { text: string }) {
@@ -1796,7 +1865,7 @@ function CompanyDescription({ text }: { text: string }) {
       <p
         ref={textRef}
         className={cn(
-          "text-sm leading-6 text-gray-300 transition-all",
+          "text-sm leading-6 text-gray-10 dark:text-gray-300 transition-all",
           !isExpanded && "line-clamp-3",
         )}
       >
@@ -1971,9 +2040,9 @@ function StockResearchContent({
     return (
       <div className="space-y-4">
         {/* 1. Company Overview & Facts */}
-        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="mr-2 text-xl font-bold text-white">
+            <h2 className="mr-2 text-xl font-bold text-cryptoNight dark:text-white">
               {company?.name ||
                 wikidataProfile?.name ||
                 officialProfile?.name ||
@@ -1983,7 +2052,7 @@ function StockResearchContent({
               {categoryLabel}
             </span>
             {company?.industry && company.industry.toLowerCase() !== categoryLabel.toLowerCase() ? (
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-gray-300">
+              <span className="rounded-full border border-gray-80 bg-gray-90/60 px-2.5 py-1 text-xs font-semibold text-gray-20 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
                 {company.industry}
               </span>
             ) : null}
@@ -2050,9 +2119,9 @@ function StockResearchContent({
         </section>
 
         {/* 2. Key Metrics Card */}
-        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Key Metrics</h2>
+            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Key Metrics</h2>
             <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
               Financial Overview
             </span>
@@ -2069,9 +2138,9 @@ function StockResearchContent({
         </section>
 
         {/* 3. Financial Summary Card */}
-        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Financial Summary</h2>
+            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Financial Summary</h2>
             <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
               Fundamentals (TTM)
             </span>
@@ -2098,11 +2167,11 @@ function StockResearchContent({
     return (
       <div className="space-y-4">
         {/* Latest news */}
-        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-white">Latest news</h2>
-              <p className="mt-0.5 text-xs text-gray-400">
+              <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Latest news</h2>
+              <p className="mt-0.5 text-xs text-gray-20 dark:text-gray-400">
                 Live market news and updates for {title}
               </p>
             </div>
@@ -2111,15 +2180,15 @@ function StockResearchContent({
           {isCompanyNewsLoading ? (
             <div className="mt-4 space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 animate-pulse rounded-xl bg-white/5" />
+                <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-90/60 dark:bg-white/5" />
               ))}
             </div>
           ) : isCompanyNewsError ? (
-            <p className="mt-4 text-xs text-gray-400">
+            <p className="mt-4 text-xs text-gray-20 dark:text-gray-400">
               News is temporarily unavailable.
             </p>
           ) : companyNews.length ? (
-            <div className="mt-4 divide-y divide-white/10">
+            <div className="mt-4 divide-y divide-gray-80 dark:divide-white/10">
               {companyNews.map((article) => (
                 <a
                   key={article.url}
@@ -2130,12 +2199,12 @@ function StockResearchContent({
                 >
                   <CompanyNewsThumbnail src={article.imageUrl} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-cryptoNight dark:text-white">
                       {article.title}
                     </p>
                     {article.publishedAt ? (
-                      <p className="mt-1 text-xs text-gray-400">
-                        {new Date(article.publishedAt).toLocaleDateString()}
+                      <p className="mt-1 text-xs text-gray-20 dark:text-gray-400">
+                        <NewsRelativeTime value={article.publishedAt} />
                       </p>
                     ) : null}
                   </div>
@@ -2144,7 +2213,7 @@ function StockResearchContent({
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-xs text-gray-400">No news articles found.</p>
+            <p className="mt-4 text-xs text-gray-20 dark:text-gray-400">No news articles found.</p>
           )}
         </section>
       </div>
@@ -2154,11 +2223,11 @@ function StockResearchContent({
   if (tab === "Token Info") {
     return (
       <div className="space-y-4">
-        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
-          <h2 className="text-lg font-bold text-white">Tokenholder Protections</h2>
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Tokenholder Protections</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <InfoBox
-              icon={<ShieldCheck className="h-4 w-4 text-emerald-400" />}
+              icon={<ShieldCheck className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />}
               title="1:1 Regulated Custody"
               desc="Underlying public equities are held by licensed trust custodians in segregated bankruptcy-remote accounts."
             />
@@ -2168,12 +2237,12 @@ function StockResearchContent({
               desc="Corporate actions and dividend distributions are reflected on-chain according to smart contract specifications."
             />
             <InfoBox
-              icon={<Scale className="h-4 w-4 text-cyan-400" />}
+              icon={<Scale className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />}
               title="Continuous Compliance"
               desc="Audited reserves and collateral proofs ensure on-chain tokens mirror real-world custody balances."
             />
             <InfoBox
-              icon={<Building2 className="h-4 w-4 text-amber-400" />}
+              icon={<Building2 className="h-4 w-4 text-amber-500 dark:text-amber-400" />}
               title="Settlement Network"
               desc={`Tokenized on ${settlementChain} with instant settlement and 24/7 liquidity access.`}
             />
@@ -2186,9 +2255,9 @@ function StockResearchContent({
   // Data tab
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Market & Valuation Data</h2>
+          <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Market & Valuation Data</h2>
           <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
             Market Data
           </span>
@@ -2222,9 +2291,9 @@ function StockResearchContent({
       </section>
 
       {dexPool ? (
-        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">On-Chain DEX Liquidity</h2>
+            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">On-Chain DEX Liquidity</h2>
             <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
               DEX Liquidity
             </span>
@@ -2251,11 +2320,11 @@ function StockResearchContent({
 
 function MetricBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.04] p-3.5 sm:p-4">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+    <div className="rounded-xl border border-gray-80 bg-gray-90/40 p-3.5 shadow-xs dark:border-white/5 dark:bg-white/[0.04] dark:shadow-none sm:p-4">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-20 dark:text-gray-400">
         {label}
       </span>
-      <p className="mt-1 text-base font-bold text-white sm:text-lg">
+      <p className="mt-1 text-base font-bold text-cryptoNight dark:text-white sm:text-lg">
         {value}
       </p>
     </div>
@@ -2272,21 +2341,21 @@ function InfoBox({
   desc: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/5 p-4">
-      <div className="flex items-center gap-2 text-white">
+    <div className="rounded-xl border border-gray-80 bg-gray-90/40 p-4 shadow-xs dark:border-white/5 dark:bg-white/5 dark:shadow-none">
+      <div className="flex items-center gap-2 text-cryptoNight dark:text-white">
         {icon}
         <h3 className="text-xs font-bold sm:text-sm">{title}</h3>
       </div>
-      <p className="mt-2 text-xs leading-5 text-gray-400">{desc}</p>
+      <p className="mt-2 text-xs leading-5 text-gray-20 dark:text-gray-400">{desc}</p>
     </div>
   );
 }
 
 function DataMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/5 p-3">
-      <p className="text-[11px] text-gray-400">{label}</p>
-      <p className="mt-1 text-sm font-bold tabular-nums text-white">{value}</p>
+    <div className="rounded-xl border border-gray-80 bg-gray-90/40 p-3 shadow-xs dark:border-white/5 dark:bg-white/5 dark:shadow-none">
+      <p className="text-[11px] text-gray-20 dark:text-gray-400">{label}</p>
+      <p className="mt-1 text-sm font-bold tabular-nums text-cryptoNight dark:text-white">{value}</p>
     </div>
   );
 }
