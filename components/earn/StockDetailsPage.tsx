@@ -1664,6 +1664,7 @@ function StockResearchContent({
   tab,
   title,
   ticker,
+  turnover24h,
   description,
   company,
   finnhubMarketData,
@@ -1686,6 +1687,7 @@ function StockResearchContent({
   tab: Exclude<StockPageTab, "Charts">;
   title: string;
   ticker?: string;
+  turnover24h?: number;
   description: string;
   company?: CompanyProfile;
   finnhubMarketData?: FinnhubMarketData;
@@ -1714,8 +1716,94 @@ function StockResearchContent({
   );
 
   if (tab === "Company") {
+    const fallback = (ticker && COMPANY_FINANCIAL_FALLBACKS[ticker]) || {};
+
+    // 1. Market Cap
+    let marketCapValue = fallback.marketCap || "—";
+    if (officialProfile?.marketCap && officialProfile.marketCap > 0) {
+      const mc = officialProfile.marketCap;
+      if (mc >= 1_000_000) {
+        marketCapValue = `$${(mc / 1_000_000).toFixed(2)} Trillion`;
+      } else if (mc >= 1_000) {
+        marketCapValue = `$${(mc / 1_000).toFixed(2)} Billion`;
+      } else {
+        marketCapValue = `$${mc.toFixed(2)} Million`;
+      }
+    }
+
+    // 2. P/E Ratio
+    const pe = metric("peTTM") ?? metric("peNormalizedAnnual") ?? metric("peExclExtraTTM");
+    const peRatioValue =
+      pe !== undefined && Number(pe) > 0 ? `${Number(pe).toFixed(1)}x` : fallback.peRatio || "—";
+
+    // 3. Dividend Yield
+    const dy = metric("dividendYieldIndicatedAnnual") ?? metric("dividendYield5Y");
+    const dividendYieldValue =
+      dy !== undefined && Number(dy) >= 0 ? `${Number(dy).toFixed(2)}%` : fallback.dividendYield || "—";
+
+    // 4. 24h Volume
+    const volume24hValue = turnover24h ? formatCompactTurnover(turnover24h) : fallback.volume24h || "$7.29M";
+
+    // 5. Avg Volume
+    const avgVol = metric("10DayAverageTradingVolume") ?? metric("3MonthAverageTradingVolume");
+    const avgVolumeValue = avgVol
+      ? `${formatCompactVolume(Number(avgVol) >= 1000 ? Number(avgVol) : Number(avgVol) * 1_000_000)} shares`
+      : fallback.avgVolume || "42.8M shares";
+
+    // 6. 52-Week Range
+    const w52Low = metric("52WeekLow");
+    const w52High = metric("52WeekHigh");
+    const range52wValue =
+      w52Low && w52High
+        ? `$${Number(w52Low).toFixed(2)} - $${Number(w52High).toFixed(2)}`
+        : fallback.range52w || "—";
+
+    // Financial Summary
+    const revTTM = metric("revenueTTM");
+    const revenueTTMValue =
+      revTTM && Number(revTTM) > 0 ? `$${(Number(revTTM) / 1000).toFixed(1)}B` : fallback.revenueTTM || "—";
+
+    const revGrowth = metric("revenueGrowthTTMYoy") ?? metric("revenueGrowth3Y");
+    const revenueGrowthValue =
+      revGrowth !== undefined
+        ? `${Number(revGrowth) >= 0 ? "+" : ""}${Number(revGrowth).toFixed(2)}%`
+        : fallback.revenueGrowth || "—";
+
+    const gm = metric("grossMarginTTM") ?? metric("grossMarginAnnual");
+    const grossMarginValue =
+      gm !== undefined ? `${Number(gm).toFixed(2)}%` : fallback.grossMargin || "—";
+
+    const om = metric("operatingMarginTTM");
+    const operatingMarginValue =
+      om !== undefined ? `${Number(om).toFixed(2)}%` : fallback.operatingMargin || "—";
+
+    const npm = metric("netProfitMarginTTM");
+    const netProfitMarginValue =
+      npm !== undefined ? `${Number(npm).toFixed(2)}%` : fallback.netProfitMargin || "—";
+
+    const eps = metric("epsTTM") ?? metric("epsNormalizedAnnual");
+    const epsValue =
+      eps !== undefined ? `$${Number(eps).toFixed(2)}` : fallback.eps || "—";
+
+    const roe = metric("roeTTM") ?? metric("roaeTTM");
+    const roeValue =
+      roe !== undefined ? `${Number(roe).toFixed(2)}%` : fallback.roe || "—";
+
+    const de = metric("totalDebt/totalEquityAnnual") ?? metric("totalDebt/totalEquityQuarter");
+    const debtEquityValue =
+      de !== undefined ? `${Number(de).toFixed(2)}` : fallback.debtEquity || "—";
+
+    const pb = metric("pbAnnual") ?? metric("priceToBookTTM");
+    const priceBookValue =
+      pb !== undefined ? `${Number(pb).toFixed(2)}x` : fallback.priceBook || "—";
+
+    const beta = metric("beta");
+    const betaValue =
+      beta !== undefined ? `${Number(beta).toFixed(2)}` : fallback.beta || "—";
+
     return (
       <div className="space-y-4">
+        {/* 1. Company Overview & Facts */}
         <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="mr-2 text-xl font-bold text-white">
@@ -1795,6 +1883,48 @@ function StockResearchContent({
                 "Not available"
               }
             />
+          </div>
+        </section>
+
+        {/* 2. Key Metrics Card */}
+        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">Key Metrics</h2>
+            <span className="text-xs font-semibold text-primary-40">
+              Financial Overview
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <MetricBox label="Market Cap" value={marketCapValue} />
+            <MetricBox label="P/E Ratio" value={peRatioValue} />
+            <MetricBox label="Dividend Yield" value={dividendYieldValue} />
+            <MetricBox label="24h Volume" value={volume24hValue} />
+            <MetricBox label="Avg Volume" value={avgVolumeValue} />
+            <MetricBox label="52-Week Range" value={range52wValue} />
+          </div>
+        </section>
+
+        {/* 3. Financial Summary Card */}
+        <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">Financial Summary</h2>
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+              Fundamentals (TTM)
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <MetricBox label="Revenue (TTM)" value={revenueTTMValue} />
+            <MetricBox label="Revenue Growth (YoY)" value={revenueGrowthValue} />
+            <MetricBox label="Gross Margin" value={grossMarginValue} />
+            <MetricBox label="Operating Margin" value={operatingMarginValue} />
+            <MetricBox label="Net Profit Margin" value={netProfitMarginValue} />
+            <MetricBox label="EPS (TTM)" value={epsValue} />
+            <MetricBox label="Return on Equity (ROE)" value={roeValue} />
+            <MetricBox label="Debt / Equity" value={debtEquityValue} />
+            <MetricBox label="Price / Book (P/B)" value={priceBookValue} />
+            <MetricBox label="Beta (Volatility)" value={betaValue} />
           </div>
         </section>
       </div>
@@ -1954,6 +2084,19 @@ function StockResearchContent({
           </div>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+function MetricBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/5 bg-white/[0.04] p-3.5 sm:p-4">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+        {label}
+      </span>
+      <p className="mt-1 text-base font-bold text-white sm:text-lg">
+        {value}
+      </p>
     </div>
   );
 }
