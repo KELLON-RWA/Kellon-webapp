@@ -67,6 +67,7 @@ import {
   formatUsd,
   getStockProviderLabel,
   getStockSettlementChain,
+  resolveStockCategory,
 } from "./earn-utils";
 import {
   getDisplayStockName,
@@ -78,7 +79,7 @@ import {
   StockLogo,
 } from "./EarnPage";
 
-const STOCK_PAGE_TABS = ["Charts", "Company", "Token Info", "Data"] as const;
+const STOCK_PAGE_TABS = ["Charts", "Company", "News", "Token Info", "Data"] as const;
 type StockPageTab = (typeof STOCK_PAGE_TABS)[number];
 
 const PINNED_TIMEFRAMES = ["Time", "1s", "15m", "1h", "4h", "1D", "1W"] as const;
@@ -199,6 +200,172 @@ const COMPANY_PROFILES: Record<string, CompanyProfile> = {
     ceo: "Greg Peters & Ted Sarandos",
     headquarters: "Los Gatos, California, USA",
     founded: "1997",
+  },
+};
+
+type CompanyFinancials = {
+  marketCap?: string;
+  peRatio?: string;
+  dividendYield?: string;
+  volume24h?: string;
+  avgVolume?: string;
+  range52w?: string;
+  revenueTTM?: string;
+  revenueGrowth?: string;
+  grossMargin?: string;
+  operatingMargin?: string;
+  netProfitMargin?: string;
+  eps?: string;
+  roe?: string;
+  debtEquity?: string;
+  priceBook?: string;
+  beta?: string;
+};
+
+const COMPANY_FINANCIAL_FALLBACKS: Record<string, CompanyFinancials> = {
+  AAPL: {
+    marketCap: "$4.98 Trillion",
+    peRatio: "37.7x",
+    dividendYield: "0.51%",
+    volume24h: "$7.29M",
+    avgVolume: "42.8M shares",
+    range52w: "$243.42 - $360.83",
+    revenueTTM: "—",
+    revenueGrowth: "+15.06%",
+    grossMargin: "48.79%",
+    operatingMargin: "33.01%",
+    netProfitMargin: "27.60%",
+    eps: "$8.98",
+    roe: "127.61%",
+    debtEquity: "0.71",
+    priceBook: "44.06x",
+    beta: "1.03",
+  },
+  MSFT: {
+    marketCap: "$3.15 Trillion",
+    peRatio: "34.2x",
+    dividendYield: "0.74%",
+    volume24h: "$5.84M",
+    avgVolume: "21.5M shares",
+    range52w: "$385.00 - $468.35",
+    revenueTTM: "$245.1B",
+    revenueGrowth: "+16.00%",
+    grossMargin: "69.80%",
+    operatingMargin: "44.60%",
+    netProfitMargin: "35.30%",
+    eps: "$11.80",
+    roe: "38.50%",
+    debtEquity: "0.38",
+    priceBook: "11.20x",
+    beta: "0.89",
+  },
+  NVDA: {
+    marketCap: "$3.35 Trillion",
+    peRatio: "45.1x",
+    dividendYield: "0.03%",
+    volume24h: "$12.45M",
+    avgVolume: "52.3M shares",
+    range52w: "$75.60 - $149.77",
+    revenueTTM: "$96.3B",
+    revenueGrowth: "+122.40%",
+    grossMargin: "75.10%",
+    operatingMargin: "62.10%",
+    netProfitMargin: "55.30%",
+    eps: "$2.95",
+    roe: "115.40%",
+    debtEquity: "0.15",
+    priceBook: "48.20x",
+    beta: "1.68",
+  },
+  AMZN: {
+    marketCap: "$2.15 Trillion",
+    peRatio: "42.8x",
+    dividendYield: "—",
+    volume24h: "$8.12M",
+    avgVolume: "38.1M shares",
+    range52w: "$144.05 - $215.90",
+    revenueTTM: "$604.3B",
+    revenueGrowth: "+11.00%",
+    grossMargin: "48.20%",
+    operatingMargin: "9.80%",
+    netProfitMargin: "7.70%",
+    eps: "$4.67",
+    roe: "21.80%",
+    debtEquity: "0.58",
+    priceBook: "8.40x",
+    beta: "1.15",
+  },
+  GOOGL: {
+    marketCap: "$2.20 Trillion",
+    peRatio: "24.5x",
+    dividendYield: "0.45%",
+    volume24h: "$6.34M",
+    avgVolume: "24.6M shares",
+    range52w: "$130.66 - $191.75",
+    revenueTTM: "$328.3B",
+    revenueGrowth: "+14.00%",
+    grossMargin: "57.50%",
+    operatingMargin: "32.00%",
+    netProfitMargin: "27.80%",
+    eps: "$7.54",
+    roe: "30.50%",
+    debtEquity: "0.11",
+    priceBook: "6.80x",
+    beta: "1.05",
+  },
+  META: {
+    marketCap: "$1.45 Trillion",
+    peRatio: "26.3x",
+    dividendYield: "0.35%",
+    volume24h: "$4.89M",
+    avgVolume: "14.2M shares",
+    range52w: "$314.50 - $602.95",
+    revenueTTM: "$156.2B",
+    revenueGrowth: "+22.00%",
+    grossMargin: "81.50%",
+    operatingMargin: "41.20%",
+    netProfitMargin: "35.80%",
+    eps: "$21.50",
+    roe: "33.70%",
+    debtEquity: "0.24",
+    priceBook: "8.90x",
+    beta: "1.21",
+  },
+  TSLA: {
+    marketCap: "$1.10 Trillion",
+    peRatio: "88.4x",
+    dividendYield: "—",
+    volume24h: "$15.60M",
+    avgVolume: "68.4M shares",
+    range52w: "$138.80 - $358.64",
+    revenueTTM: "$97.1B",
+    revenueGrowth: "+8.00%",
+    grossMargin: "17.90%",
+    operatingMargin: "8.20%",
+    netProfitMargin: "7.10%",
+    eps: "$3.95",
+    roe: "18.20%",
+    debtEquity: "0.09",
+    priceBook: "14.50x",
+    beta: "2.32",
+  },
+  AMD: {
+    marketCap: "$225.40 Billion",
+    peRatio: "112.5x",
+    dividendYield: "—",
+    volume24h: "$4.20M",
+    avgVolume: "48.2M shares",
+    range52w: "$130.00 - $227.30",
+    revenueTTM: "$24.3B",
+    revenueGrowth: "+18.00%",
+    grossMargin: "50.10%",
+    operatingMargin: "11.20%",
+    netProfitMargin: "9.50%",
+    eps: "$1.28",
+    roe: "5.40%",
+    debtEquity: "0.04",
+    priceBook: "3.95x",
+    beta: "1.72",
   },
 };
 
@@ -404,7 +571,7 @@ export default function StockDetailsPage({
       !isRwa &&
       Boolean(stock) &&
       Boolean(companyNewsName) &&
-      activeTab === "Company",
+      (activeTab === "Company" || activeTab === "News"),
     staleTime: 5 * 60_000,
   });
 
@@ -418,7 +585,9 @@ export default function StockDetailsPage({
     queryFn: () =>
       stockResearchService.getCompanyNews(normalizedSymbol, companyNewsName),
     enabled:
-      Boolean(stock) && Boolean(companyNewsName) && activeTab === "Company",
+      Boolean(stock) &&
+      Boolean(companyNewsName) &&
+      (activeTab === "News" || activeTab === "Company"),
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
   });
@@ -669,9 +838,9 @@ export default function StockDetailsPage({
         </div>
       </header>
 
-      {/* 2. Top Tabs: Charts, Company, Token Info, Data */}
+      {/* 2. Top Tabs: Charts, Company, News, Token Info, Data */}
       <nav
-        className="mb-4 grid grid-cols-4 gap-1 rounded-xl border border-white/10 bg-secondary-60/40 p-1 backdrop-blur"
+        className="mb-4 grid grid-cols-5 gap-1 rounded-xl border border-white/10 bg-secondary-60/40 p-1 backdrop-blur"
         aria-label="Stock tabs"
       >
         {STOCK_PAGE_TABS.map((tab) => (
@@ -1401,6 +1570,8 @@ export default function StockDetailsPage({
         <StockResearchContent
           tab={activeTab}
           title={displayStockSymbol}
+          ticker={underlyingTicker}
+          turnover24h={turnover24h}
           description={
             STOCK_DESCRIPTIONS[underlyingTicker] ||
             `${name} is available as a tokenized stock on Kellon.`
@@ -1421,6 +1592,7 @@ export default function StockDetailsPage({
           dexPool={dexScreenerData?.pair || null}
           isDexScreenerLoading={isDexScreenerLoading}
           hasDexPoolMetadata={Boolean(dexTokenAddress || dexPairAddress)}
+          rwaCategory={stock?.rwaCategory}
         />
       )}
         </div>
@@ -1491,6 +1663,7 @@ export default function StockDetailsPage({
 function StockResearchContent({
   tab,
   title,
+  ticker,
   description,
   company,
   finnhubMarketData,
@@ -1508,9 +1681,11 @@ function StockResearchContent({
   dexPool,
   isDexScreenerLoading,
   hasDexPoolMetadata,
+  rwaCategory,
 }: {
   tab: Exclude<StockPageTab, "Charts">;
   title: string;
+  ticker?: string;
   description: string;
   company?: CompanyProfile;
   finnhubMarketData?: FinnhubMarketData;
@@ -1528,6 +1703,7 @@ function StockResearchContent({
   dexPool: DexScreenerPool | null;
   isDexScreenerLoading: boolean;
   hasDexPoolMetadata: boolean;
+  rwaCategory?: string;
 }) {
   const officialProfile = finnhubMarketData?.profile;
   const metric = (key: string) => finnhubMarketData?.metrics?.[key];
@@ -1549,12 +1725,13 @@ function StockResearchContent({
                 title}
             </h2>
             <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-1 text-xs font-semibold text-primary-40">
-              {company?.facts
-                ? company.industry
-                : wikidataProfile?.industry ||
-                  officialProfile?.industry ||
-                  company?.sector ||
-                  "Public equity"}
+              {resolveStockCategory({
+                ticker,
+                company,
+                officialProfile,
+                wikidataProfile,
+                rwaCategory,
+              })}
             </span>
           </div>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-gray-400">
@@ -1620,19 +1797,30 @@ function StockResearchContent({
             />
           </div>
         </section>
+      </div>
+    );
+  }
 
+  if (tab === "News") {
+    return (
+      <div className="space-y-4">
         {/* Latest news */}
         <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Latest news</h2>
-            <span className="text-xs text-gray-400">
+            <div>
+              <h2 className="text-lg font-bold text-white">Latest news</h2>
+              <p className="mt-0.5 text-xs text-gray-400">
+                Live market news and updates for {title}
+              </p>
+            </div>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-400">
               {companyNewsSource || "Company news"}
             </span>
           </div>
 
           {isCompanyNewsLoading ? (
             <div className="mt-4 space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-16 animate-pulse rounded-xl bg-white/5" />
               ))}
             </div>
@@ -1648,7 +1836,7 @@ function StockResearchContent({
                   href={article.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-start justify-between gap-4 py-3 transition hover:opacity-80"
+                  className="flex items-start justify-between gap-4 py-3.5 transition hover:opacity-80"
                 >
                   <CompanyNewsThumbnail src={article.imageUrl} />
                   <div className="min-w-0 flex-1">
@@ -1660,7 +1848,7 @@ function StockResearchContent({
                       {article.publishedAt ? ` • ${new Date(article.publishedAt).toLocaleDateString()}` : ""}
                     </p>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-primary-40" />
+                  <ExternalLink className="h-4 w-4 shrink-0 text-primary-40" />
                 </a>
               ))}
             </div>

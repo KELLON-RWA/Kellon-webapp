@@ -4,6 +4,8 @@ import {
   getMaxUsableBalanceForChain,
   getStockProviderLabel,
   getStockSettlementChain,
+  resolveStockCategory,
+  sanitizeWikidataIndustry,
 } from "./earn-utils";
 import { getDisplayStockName } from "./EarnPage";
 
@@ -77,3 +79,69 @@ describe("getDisplayStockName", () => {
     expect(getDisplayStockName("Alibaba")).toBe("Alibaba");
   });
 });
+
+describe("resolveStockCategory", () => {
+  it("resolves clean stock category for Apple and other known tickers", () => {
+    expect(
+      resolveStockCategory({
+        ticker: "AAPL",
+        wikidataProfile: {
+          industry:
+            "software industry & consumer electronics industry & digital distribution & electronics industry & information technology industry & mobile phone industry & software development",
+        },
+      }),
+    ).toBe("Technology");
+
+    expect(resolveStockCategory({ ticker: "MSFT" })).toBe("Technology");
+    expect(resolveStockCategory({ ticker: "NVDA" })).toBe("Technology");
+    expect(resolveStockCategory({ ticker: "COIN" })).toBe("Financial Services");
+    expect(resolveStockCategory({ ticker: "TSLA" })).toBe("Automotive");
+  });
+
+  it("sanitizes long Wikidata industry strings into a concise category", () => {
+    expect(
+      sanitizeWikidataIndustry(
+        "software industry & consumer electronics industry & digital distribution & electronics industry & information technology industry & mobile phone industry & software development",
+      ),
+    ).toBe("Technology");
+
+    expect(
+      sanitizeWikidataIndustry("financial services & investment banking"),
+    ).toBe("Financial Services");
+
+    expect(
+      sanitizeWikidataIndustry("petroleum industry & oil refinery"),
+    ).toBe("Energy");
+  });
+
+  it("prioritizes company sector, facts industry, official Finnhub industry, and RWA category", () => {
+    expect(
+      resolveStockCategory({
+        company: { sector: "Technology" },
+        wikidataProfile: { industry: "some random string" },
+      }),
+    ).toBe("Technology");
+
+    expect(
+      resolveStockCategory({
+        company: {
+          facts: [{ label: "Refinery Capacity", value: "650,000 bpd" }],
+          industry: "Oil & Gas Refining",
+        },
+      }),
+    ).toBe("Oil & Gas Refining");
+
+    expect(
+      resolveStockCategory({
+        officialProfile: { industry: "Semiconductors" },
+      }),
+    ).toBe("Semiconductors");
+
+    expect(
+      resolveStockCategory({
+        rwaCategory: "treasuries",
+      }),
+    ).toBe("Treasuries");
+  });
+});
+

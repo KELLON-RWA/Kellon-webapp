@@ -176,3 +176,178 @@ export function getPositionOpportunity(
 export function getPositionValue(position: YieldPosition): number {
   return toNumber(position.amount);
 }
+
+export const KNOWN_STOCK_CATEGORIES: Record<string, string> = {
+  AAPL: "Technology",
+  MSFT: "Technology",
+  NVDA: "Technology",
+  AMD: "Technology",
+  INTC: "Technology",
+  AVGO: "Technology",
+  QCOM: "Technology",
+  ARM: "Technology",
+  ORCL: "Technology",
+  PLTR: "Technology",
+  CRM: "Technology",
+  GOOGL: "Technology",
+  META: "Technology",
+  AMZN: "Consumer Cyclical",
+  TSLA: "Automotive",
+  NFLX: "Entertainment",
+  COIN: "Financial Services",
+  HOOD: "Financial Services",
+  PYPL: "Financial Services",
+  CRCL: "Financial Services",
+  MSTR: "Technology",
+  BABA: "Consumer Cyclical",
+  UBER: "Technology",
+  ABNB: "Consumer Cyclical",
+  DIS: "Entertainment",
+  GME: "Consumer Cyclical",
+  KO: "Consumer Defensive",
+  MRNA: "Healthcare",
+  MRVL: "Technology",
+  NOK: "Technology",
+  SKHY: "Technology",
+  TSM: "Technology",
+  BE: "Clean Energy",
+  FLNC: "Clean Energy",
+  CRWV: "Technology",
+  DPRI: "Energy",
+  SPY: "Index ETF",
+  QQQ: "Index ETF",
+  TLT: "Fixed Income",
+  SGOV: "Fixed Income",
+  FXI: "Equity ETF",
+  SOXL: "Leveraged ETF",
+  DJT: "Media",
+};
+
+export function sanitizeWikidataIndustry(raw?: string): string | undefined {
+  if (!raw || typeof raw !== "string") return undefined;
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("technology") ||
+    lower.includes("software") ||
+    lower.includes("electronics") ||
+    lower.includes("information technology") ||
+    lower.includes("computer") ||
+    lower.includes("semiconductor") ||
+    lower.includes("digital")
+  ) {
+    return "Technology";
+  }
+  if (
+    lower.includes("finance") ||
+    lower.includes("financial") ||
+    lower.includes("banking") ||
+    lower.includes("crypto")
+  ) {
+    return "Financial Services";
+  }
+  if (
+    lower.includes("automotive") ||
+    lower.includes("automobile") ||
+    lower.includes("car") ||
+    lower.includes("vehicle")
+  ) {
+    return "Automotive";
+  }
+  if (
+    lower.includes("energy") ||
+    lower.includes("oil") ||
+    lower.includes("gas") ||
+    lower.includes("refining")
+  ) {
+    return "Energy";
+  }
+  if (
+    lower.includes("healthcare") ||
+    lower.includes("health") ||
+    lower.includes("biotech") ||
+    lower.includes("pharma")
+  ) {
+    return "Healthcare";
+  }
+  if (
+    lower.includes("entertainment") ||
+    lower.includes("media") ||
+    lower.includes("streaming") ||
+    lower.includes("film") ||
+    lower.includes("music")
+  ) {
+    return "Entertainment";
+  }
+  if (
+    lower.includes("retail") ||
+    lower.includes("commerce") ||
+    lower.includes("consumer")
+  ) {
+    return "Consumer";
+  }
+  if (lower.includes("telecom")) {
+    return "Telecommunications";
+  }
+
+  const firstItem = raw.split(/[&,]/)[0]?.trim();
+  if (!firstItem) return undefined;
+  const cleaned = firstItem.replace(/\s+industry$/i, "").trim();
+  if (!cleaned) return undefined;
+  return cleaned
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export interface ResolveStockCategoryParams {
+  ticker?: string;
+  company?: {
+    sector?: string;
+    industry?: string;
+    facts?: Array<{ label: string; value: string }>;
+  };
+  officialProfile?: {
+    industry?: string;
+  } | null;
+  wikidataProfile?: {
+    industry?: string;
+  } | null;
+  rwaCategory?: string;
+}
+
+export function resolveStockCategory({
+  ticker,
+  company,
+  officialProfile,
+  wikidataProfile,
+  rwaCategory,
+}: ResolveStockCategoryParams): string {
+  const normalizedTicker = ticker?.toUpperCase();
+  if (normalizedTicker && KNOWN_STOCK_CATEGORIES[normalizedTicker]) {
+    return KNOWN_STOCK_CATEGORIES[normalizedTicker];
+  }
+  if (company?.sector) {
+    return company.sector
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+  }
+  if (company?.facts && company.industry) {
+    return company.industry;
+  }
+  if (officialProfile?.industry) {
+    return officialProfile.industry;
+  }
+  if (rwaCategory) {
+    return rwaCategory.charAt(0).toUpperCase() + rwaCategory.slice(1);
+  }
+  const fromWikidata = sanitizeWikidataIndustry(wikidataProfile?.industry);
+  if (fromWikidata) {
+    return fromWikidata;
+  }
+  if (company?.industry) {
+    return company.industry;
+  }
+  return "Technology";
+}
+
