@@ -51,6 +51,7 @@ import { formatNewsTimestamp, getCompanyNewsName } from "@/lib/company-news";
 import type { NewsCompanyFacts } from "@/lib/company-news-facts";
 import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
 import { DANGOTE_COMPANY_PROFILE } from "@/lib/dangote-company-profile";
+import { getStockAnalysisData } from "@/lib/stock-analysis";
 import CompanyNewsThumbnail from "@/components/earn/CompanyNewsThumbnail";
 import { isRwaStockListing, stocksService, type StockListing } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
@@ -65,9 +66,9 @@ import StockDesktopSidebar from "./StockDesktopSidebar";
 import { useStockRealtime } from "@/hooks/useStockRealtime";
 import {
   formatUsd,
-  getStockProviderLabel,
   getStockSettlementChain,
   resolveStockCategory,
+  resolveVisibleTimeframes,
 } from "./earn-utils";
 import {
   getDisplayStockName,
@@ -79,11 +80,12 @@ import {
   StockLogo,
 } from "./EarnPage";
 
-const STOCK_PAGE_TABS = ["Charts", "Company", "News", "Token Info", "Data"] as const;
+const STOCK_PAGE_TABS = ["Charts", "Analysis", "Company", "News", "Token Info", "Data"] as const;
 type StockPageTab = (typeof STOCK_PAGE_TABS)[number];
 
-const PINNED_TIMEFRAMES = ["Time", "1s", "15m", "1h", "4h", "1D", "1W"] as const;
+const PINNED_TIMEFRAMES = ["Time", "15m", "1h", "4h", "1D", "1W"] as const;
 const AVAILABLE_TIMEFRAMES = [
+  "1s",
   "1m",
   "3m",
   "5m",
@@ -490,20 +492,62 @@ export default function StockDetailsPage({
   const [chartType, setChartType] = useState<ChartType>("candlestick");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreDropdownRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const timeframeScrollRef = useRef<HTMLDivElement>(null);
+  const activeTimeframeRef = useRef<HTMLButtonElement>(null);
+
+  const visibleTimeframes = useMemo(
+    () =>
+      resolveVisibleTimeframes(
+        PINNED_TIMEFRAMES,
+        activeInterval,
+        chartType === "candlestick",
+      ),
+    [chartType, activeInterval],
+  );
+
+  useEffect(() => {
+    const container = timeframeScrollRef.current;
+    const activeEl = activeTimeframeRef.current;
+    if (!container || !activeEl) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const elRect = activeEl.getBoundingClientRect();
+
+    if (elRect.left < containerRect.left || elRect.right > containerRect.right) {
+      activeEl.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [activeInterval, chartType, visibleTimeframes]);
 
   useEffect(() => {
     if (!isMoreOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
       if (
         moreDropdownRef.current &&
-        !moreDropdownRef.current.contains(event.target as Node)
+        !moreDropdownRef.current.contains(target) &&
+        moreButtonRef.current &&
+        !moreButtonRef.current.contains(target)
       ) {
         setIsMoreOpen(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMoreOpen(false);
+      }
+    };
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isMoreOpen]);
   const [watchlist, setWatchlist] = useState<Set<string>>(() => {
@@ -923,7 +967,7 @@ export default function StockDetailsPage({
   const candles = tradingData?.candles || [];
 
   return (
-    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-3 sm:px-4 pb-36 pt-4 md:px-6 md:pb-24 md:max-lg:pt-20 lg:max-w-none lg:px-6 lg:pt-3.5 xl:px-8">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] overflow-x-hidden px-3 sm:px-4 pb-36 pt-4 md:px-6 md:pb-24 md:max-lg:pt-20 lg:max-w-none lg:px-6 lg:pt-3.5 xl:px-8">
       {/* 1. Header Bar */}
       <header className="mb-4 flex items-center justify-between gap-2">
         <button
@@ -959,9 +1003,9 @@ export default function StockDetailsPage({
         </div>
       </header>
 
-      {/* 2. Top Tabs: Charts, Company, News, Token Info, Data */}
+      {/* 2. Top Tabs: Charts, Analysis, Company, News, Token Info, Data */}
       <nav
-        className="mb-4 grid grid-cols-5 gap-1 rounded-xl border border-gray-80 bg-white/70 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-60/40 dark:shadow-none"
+        className="mb-4 grid grid-cols-6 gap-1 rounded-xl border border-gray-80 bg-white/70 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-60/40 dark:shadow-none"
         aria-label="Stock tabs"
       >
         {STOCK_PAGE_TABS.map((tab) => (
@@ -970,7 +1014,7 @@ export default function StockDetailsPage({
             type="button"
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "h-9 rounded-lg px-1 truncate text-[11px] font-semibold transition sm:text-sm cursor-pointer",
+              "h-9 w-full flex items-center justify-center rounded-lg px-0.5 truncate text-[11px] min-[360px]:text-xs font-semibold transition sm:text-sm cursor-pointer",
               activeTab === tab
                 ? "bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-lg shadow-primary-60/20"
                 : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
@@ -982,11 +1026,11 @@ export default function StockDetailsPage({
       </nav>
 
       {/* Main Grid: Left Column for Chart/Content, Right Column for Binance-style Desktop Sidebar */}
-      <div className="grid grid-cols-1 gap-6 min-[1200px]:grid-cols-[minmax(0,1fr)_340px] min-[1400px]:grid-cols-[minmax(0,1fr)_380px] min-[1200px]:items-start">
+      <div className="grid w-full max-w-full grid-cols-1 gap-6 min-[1200px]:grid-cols-[minmax(0,1fr)_340px] min-[1400px]:grid-cols-[minmax(0,1fr)_380px] min-[1200px]:items-start">
         {/* Left Column: Charts / Company / Token Info / Data content */}
-        <div className="min-w-0">
+        <div className="min-w-0 w-full max-w-full">
           {activeTab === "Charts" ? (
-        <div className="space-y-4">
+        <div className="space-y-4 w-full max-w-full">
           {/* 3. Stock Summary Card */}
           <section className="rounded-2xl border border-gray-80 bg-white/80 p-3 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-lg">
             {/* Top Row: Logo + Symbol + Network Badge + Watchlist Star (Left) & Historical Performance (Right on Desktop) */}
@@ -1154,9 +1198,12 @@ export default function StockDetailsPage({
           {/* 4. Timeframe Bar & Chart Controls */}
           <section className="relative rounded-2xl border border-gray-80 bg-white/80 p-2 sm:p-3 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/50 dark:shadow-none">
             <div className="flex items-center justify-between gap-1 text-xs">
-              <div className="flex items-center gap-1 sm:gap-2">
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar sm:gap-2">
-                  {PINNED_TIMEFRAMES.map((tf) => {
+              <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+                <div
+                  ref={timeframeScrollRef}
+                  className="flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar sm:gap-1.5"
+                >
+                  {visibleTimeframes.map((tf) => {
                     const isActive =
                       tf === "Time"
                         ? chartType === "line"
@@ -1165,6 +1212,7 @@ export default function StockDetailsPage({
                     return (
                       <button
                         key={tf}
+                        ref={isActive ? activeTimeframeRef : undefined}
                         type="button"
                         onClick={() => {
                           if (tf === "Time") {
@@ -1175,9 +1223,9 @@ export default function StockDetailsPage({
                           }
                         }}
                         className={cn(
-                          "relative px-2.5 py-1.5 font-semibold transition rounded-md shrink-0 cursor-pointer",
+                          "relative px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs font-semibold transition rounded-md shrink-0 cursor-pointer touch-manipulation select-none",
                           isActive
-                            ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
+                            ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)] font-bold"
                             : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
                         )}
                       >
@@ -1187,114 +1235,26 @@ export default function StockDetailsPage({
                   })}
                 </div>
 
-                {/* More dropdown */}
-                <div className="relative shrink-0" ref={moreDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setIsMoreOpen((v) => !v)}
+                {/* More dropdown button */}
+                <button
+                  ref={moreButtonRef}
+                  type="button"
+                  onClick={() => setIsMoreOpen((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs font-semibold transition rounded-md shrink-0 cursor-pointer touch-manipulation select-none",
+                    isMoreOpen
+                      ? "bg-gray-90 text-cryptoNight dark:bg-white/10 dark:text-white"
+                      : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
+                  )}
+                >
+                  <span>More</span>
+                  <ChevronDown
                     className={cn(
-                      "flex items-center gap-1 px-2.5 py-1.5 font-semibold transition rounded-md cursor-pointer",
-                      (AVAILABLE_TIMEFRAMES as readonly string[]).includes(activeInterval) &&
-                        chartType === "candlestick"
-                        ? "bg-primary-70/25 text-primary-70 shadow-[inset_0_0_0_1px_rgba(193,92,165,0.20)]"
-                        : isMoreOpen
-                          ? "bg-gray-90 text-cryptoNight dark:bg-white/10 dark:text-white"
-                          : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
+                      "h-3 w-3 transition-transform duration-200",
+                      isMoreOpen && "rotate-180",
                     )}
-                  >
-                    <span>
-                      {(AVAILABLE_TIMEFRAMES as readonly string[]).includes(activeInterval) &&
-                      chartType === "candlestick"
-                        ? activeInterval
-                        : "More"}
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        "h-3 w-3 transition-transform duration-200",
-                        isMoreOpen && "rotate-180",
-                      )}
-                    />
-                  </button>
-
-                  {isMoreOpen ? (
-                    <div className="absolute left-0 top-full z-50 mt-2 w-72 sm:w-80 rounded-2xl border border-gray-80 bg-white/95 p-3.5 sm:p-4 shadow-xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 dark:border-white/10 dark:bg-secondary-60/95 dark:shadow-2xl">
-                      {/* Pinned Section */}
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-20 dark:text-gray-400">
-                          Pinned
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-                        {PINNED_TIMEFRAMES.map((item) => {
-                          const isActive =
-                            item === "Time"
-                              ? chartType === "line"
-                              : chartType === "candlestick" && activeInterval === item;
-
-                          return (
-                            <button
-                              key={item}
-                              type="button"
-                              onClick={() => {
-                                if (item === "Time") {
-                                  setChartType("line");
-                                } else {
-                                  setActiveInterval(item);
-                                  setChartType("candlestick");
-                                }
-                                setIsMoreOpen(false);
-                              }}
-                              className={cn(
-                                "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer active:scale-95",
-                                isActive
-                                  ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
-                                  : "border border-gray-80 bg-gray-90/60 text-gray-20 hover:border-gray-70 hover:bg-gray-80 hover:text-cryptoNight dark:border-white/5 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/10 dark:hover:text-white",
-                              )}
-                            >
-                              {item}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Divider */}
-                      <div className="my-3 border-t border-gray-80 dark:border-white/10" />
-
-                      {/* Available Section */}
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-20 dark:text-gray-400">
-                          Available Intervals
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-                        {AVAILABLE_TIMEFRAMES.map((item) => {
-                          const isActive =
-                            chartType === "candlestick" && activeInterval === item;
-
-                          return (
-                            <button
-                              key={item}
-                              type="button"
-                              onClick={() => {
-                                setActiveInterval(item);
-                                setChartType("candlestick");
-                                setIsMoreOpen(false);
-                              }}
-                              className={cn(
-                                "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer active:scale-95",
-                                isActive
-                                  ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
-                                  : "border border-gray-80 bg-gray-90/60 text-gray-20 hover:border-gray-70 hover:bg-gray-80 hover:text-cryptoNight dark:border-white/5 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/10 dark:hover:text-white",
-                              )}
-                            >
-                              {item}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                  />
+                </button>
               </div>
 
               {/* Chart Mode Toggle on Far Right */}
@@ -1315,6 +1275,99 @@ export default function StockDetailsPage({
                 )}
               </button>
             </div>
+
+            {/* More Timeframes Dropdown Menu */}
+            {isMoreOpen ? (
+              <>
+                {/* Mobile backdrop */}
+                <div
+                  className="fixed inset-0 z-40 sm:hidden"
+                  onClick={() => setIsMoreOpen(false)}
+                  onTouchStart={() => setIsMoreOpen(false)}
+                  aria-hidden="true"
+                />
+
+                <div
+                  ref={moreDropdownRef}
+                  className="absolute inset-x-2 top-11 z-50 rounded-2xl border border-gray-80 bg-white/95 p-3.5 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 sm:inset-x-auto sm:right-2 sm:top-12 sm:w-80 dark:border-white/10 dark:bg-secondary-60/95 dark:shadow-2xl"
+                >
+                  {/* Pinned Section */}
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase text-gray-20 dark:text-gray-400">
+                      Pinned
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                    {PINNED_TIMEFRAMES.map((item) => {
+                      const isActive =
+                        item === "Time"
+                          ? chartType === "line"
+                          : chartType === "candlestick" && activeInterval === item;
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => {
+                            if (item === "Time") {
+                              setChartType("line");
+                            } else {
+                              setActiveInterval(item);
+                              setChartType("candlestick");
+                            }
+                            setIsMoreOpen(false);
+                          }}
+                          className={cn(
+                            "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer select-none active:scale-95 touch-manipulation",
+                            isActive
+                              ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
+                              : "border border-gray-80 bg-gray-90/60 text-gray-20 hover:border-gray-70 hover:bg-gray-80 hover:text-cryptoNight dark:border-white/5 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/10 dark:hover:text-white",
+                          )}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="my-2.5 border-t border-gray-80 dark:border-white/10" />
+
+                  {/* Available Section */}
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase text-gray-20 dark:text-gray-400">
+                      Available Intervals
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                    {AVAILABLE_TIMEFRAMES.map((item) => {
+                      const isActive =
+                        chartType === "candlestick" && activeInterval === item;
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => {
+                            setActiveInterval(item);
+                            setChartType("candlestick");
+                            setIsMoreOpen(false);
+                          }}
+                          className={cn(
+                            "flex h-8.5 items-center justify-center rounded-xl text-xs font-semibold transition cursor-pointer select-none active:scale-95 touch-manipulation",
+                            isActive
+                              ? "border border-primary-60/40 bg-primary-70/20 text-primary-60 shadow-[0_0_12px_rgba(193,92,165,0.25)] font-bold"
+                              : "border border-gray-80 bg-gray-90/60 text-gray-20 hover:border-gray-70 hover:bg-gray-80 hover:text-cryptoNight dark:border-white/5 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/10 dark:hover:text-white",
+                          )}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : null}
 
             {/* 5. OHLC & MA Readout */}
             <div className="mt-3 border-t border-gray-80/60 pt-2 dark:border-white/5">
@@ -1362,7 +1415,7 @@ export default function StockDetailsPage({
             </div>
 
             {/* 6. Trading Chart Canvas */}
-            <div className="mt-2 h-[340px] w-full sm:h-[420px] lg:h-[480px]">
+            <div className="mt-2 h-[340px] w-full max-w-full overflow-hidden sm:h-[420px] lg:h-[480px]">
               {isCandlesLoading && candles.length === 0 ? (
                 <div className="flex h-full w-full items-center justify-center">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-60 border-t-transparent" />
@@ -1399,7 +1452,7 @@ export default function StockDetailsPage({
             ) : null}
 
             {/* 7. Indicator Selector Pills */}
-            <div className="mt-3 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar border-t border-gray-80/60 pt-2 text-[10px] sm:gap-2 sm:text-[11px] dark:border-white/5">
+            <div className="mt-3 flex items-center justify-start sm:justify-between gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar border-t border-gray-80/60 pt-2 text-[10px] sm:text-[11px] dark:border-white/5">
               <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                 {(["MA", "EMA", "BOLL", "SAR"] as IndicatorType[]).map((ind) => (
                   <button
@@ -1441,12 +1494,12 @@ export default function StockDetailsPage({
           </section>
 
           {/* 8. 5-Column Historical Performance Table (Mobile only; desktop renders in top summary card) */}
-          <section className="grid grid-cols-5 gap-1 rounded-2xl border border-gray-80 bg-white/80 p-2 sm:p-3 text-center shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none lg:hidden">
-            <div>
-              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">Today</p>
+          <section className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar rounded-2xl border border-gray-80 bg-white/80 p-2 sm:p-3 text-center shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none lg:hidden">
+            <div className="min-w-[50px] flex-1">
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-40">Today</p>
               <p
                 className={cn(
-                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
+                  "mt-0.5 text-[10px] min-[360px]:text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.today >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
@@ -1454,11 +1507,11 @@ export default function StockDetailsPage({
                 {performance.today.toFixed(2)}%
               </p>
             </div>
-            <div>
-              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">7 Days</p>
+            <div className="min-w-[50px] flex-1">
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-40">7 Days</p>
               <p
                 className={cn(
-                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
+                  "mt-0.5 text-[10px] min-[360px]:text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days7 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
@@ -1466,11 +1519,11 @@ export default function StockDetailsPage({
                 {performance.days7.toFixed(2)}%
               </p>
             </div>
-            <div>
-              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">30 Days</p>
+            <div className="min-w-[50px] flex-1">
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-40">30 Days</p>
               <p
                 className={cn(
-                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
+                  "mt-0.5 text-[10px] min-[360px]:text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days30 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
@@ -1478,11 +1531,11 @@ export default function StockDetailsPage({
                 {performance.days30.toFixed(2)}%
               </p>
             </div>
-            <div>
-              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">90 Days</p>
+            <div className="min-w-[50px] flex-1">
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-40">90 Days</p>
               <p
                 className={cn(
-                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
+                  "mt-0.5 text-[10px] min-[360px]:text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days90 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
@@ -1490,11 +1543,11 @@ export default function StockDetailsPage({
                 {performance.days90.toFixed(2)}%
               </p>
             </div>
-            <div>
-              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-400">180 Days</p>
+            <div className="min-w-[50px] flex-1">
+              <p className="text-[9px] text-gray-20 sm:text-xs dark:text-gray-40">180 Days</p>
               <p
                 className={cn(
-                  "mt-0.5 text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
+                  "mt-0.5 text-[10px] min-[360px]:text-[11px] font-bold tabular-nums sm:mt-1 sm:text-sm",
                   performance.days180 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400",
                 )}
               >
@@ -1743,6 +1796,7 @@ export default function StockDetailsPage({
           hasDexPoolMetadata={Boolean(dexTokenAddress || dexPairAddress)}
           rwaCategory={stock?.rwaCategory}
           isRwa={isRwa}
+          performance={performance}
         />
       )}
         </div>
@@ -1766,10 +1820,10 @@ export default function StockDetailsPage({
             <>
               <Button
                 type="button"
-                className="group relative overflow-hidden h-12 flex-1 rounded-xl bg-red-500 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl active:scale-[0.98] transition cursor-pointer"
+                className="group relative overflow-hidden h-12 flex-1 rounded-xl bg-red-500 text-sm sm:text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl active:scale-[0.98] transition cursor-pointer"
                 onClick={() => setStockAction("sell")}
               >
-                <span className="relative z-10 flex items-center justify-center gap-2">
+                <span className="relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 truncate">
                   Sell{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
                 </span>
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
@@ -1777,10 +1831,10 @@ export default function StockDetailsPage({
               <Button
                 type="button"
                 variant="flow"
-                className="h-12 flex-1 text-base shadow-primary-60/30 cursor-pointer"
+                className="h-12 flex-1 text-sm sm:text-base shadow-primary-60/30 cursor-pointer"
                 onClick={() => setStockAction("buy")}
               >
-                <span className="relative z-10 flex items-center justify-center gap-2">
+                <span className="relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 truncate">
                   Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
                 </span>
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
@@ -1790,10 +1844,10 @@ export default function StockDetailsPage({
             <Button
               type="button"
               variant="flow"
-              className="h-12 w-full text-base shadow-primary-60/30 cursor-pointer"
+              className="h-12 w-full text-sm sm:text-base shadow-primary-60/30 cursor-pointer"
               onClick={() => setStockAction("buy")}
             >
-              <span className="relative z-10 flex items-center justify-center gap-2">
+              <span className="relative z-10 flex items-center justify-center gap-2 truncate">
                 Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
               </span>
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
@@ -1927,6 +1981,7 @@ function StockResearchContent({
   hasDexPoolMetadata,
   rwaCategory,
   isRwa,
+  performance,
 }: {
   tab: Exclude<StockPageTab, "Charts">;
   title: string;
@@ -1951,9 +2006,302 @@ function StockResearchContent({
   hasDexPoolMetadata: boolean;
   rwaCategory?: string;
   isRwa?: boolean;
+  performance?: {
+    today: number;
+    days7: number;
+    days30: number;
+    days90: number;
+    days180: number;
+  };
 }) {
   const officialProfile = finnhubMarketData?.profile;
   const metric = (key: string) => finnhubMarketData?.metrics?.[key];
+
+  if (tab === "Analysis") {
+    const analysisData = getStockAnalysisData(
+      ticker || title,
+      stockName || title,
+      price,
+      performance,
+      finnhubMarketData?.metrics,
+    );
+    const { technical, socialPosts, consensus, insiderActivity } = analysisData;
+
+    return (
+      <div className="space-y-4 w-full max-w-full">
+        {/* 1. Technical Insights */}
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
+              Technical Insights
+            </h2>
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
+              {technical.statusBadge}
+            </span>
+          </div>
+
+          {/* Momentum (14-Day RSI) */}
+          <div className="mt-3.5 rounded-xl border border-black/5 bg-gray-50/80 p-3 sm:p-4 dark:border-white/5 dark:bg-secondary-60/50">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-700 sm:text-sm dark:text-gray-200">
+                Momentum (14-Day RSI)
+              </span>
+              <span className="text-xs font-semibold text-primary-60 sm:text-sm dark:text-primary-70">
+                {technical.rsi.toFixed(1)} · {technical.rsiStatus}
+              </span>
+            </div>
+            <div className="relative my-3.5 h-1.5 w-full rounded-full bg-gray-200 dark:bg-white/10">
+              <div
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary-70 to-primary-60 shadow-[0_0_8px_rgba(193,92,165,0.7)]"
+                style={{ left: `${Math.max(5, Math.min(95, technical.rsi))}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+              <span>Oversold (&lt;35)</span>
+              <span className="text-center">Balanced</span>
+              <span className="text-right">Overbought (&gt;65)</span>
+            </div>
+          </div>
+
+          {/* vs 30-Day SMA & 52-Week Position */}
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="rounded-xl border border-black/5 bg-gray-50/80 p-3 dark:border-white/5 dark:bg-secondary-60/50">
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">vs 30-Day SMA</p>
+              <p
+                className={cn(
+                  "mt-0.5 text-sm font-bold sm:text-base",
+                  technical.vsSma30dIsNegative
+                    ? "text-rose-500 dark:text-rose-400"
+                    : "text-emerald-500 dark:text-emerald-400",
+                )}
+              >
+                {technical.vsSma30d}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                SMA {technical.sma30dPrice}
+              </p>
+            </div>
+            <div className="rounded-xl border border-black/5 bg-gray-50/80 p-3 dark:border-white/5 dark:bg-secondary-60/50">
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">52-Week Position</p>
+              <p className="mt-0.5 text-sm font-bold text-cryptoNight sm:text-base dark:text-white">
+                {technical.range52wPosition}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {technical.range52wText}
+              </p>
+            </div>
+          </div>
+
+          {/* 5-Column Historical Returns Row */}
+          <div className="mt-3 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar rounded-xl border border-black/5 bg-gray-50/80 p-2.5 text-center dark:border-white/5 dark:bg-secondary-60/50">
+            <div className="flex-1 min-w-[50px]">
+              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">Today</p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                  technical.performance.today >= 0
+                    ? "text-emerald-500 dark:text-emerald-400"
+                    : "text-rose-500 dark:text-rose-400",
+                )}
+              >
+                {technical.performance.today >= 0 ? "+" : ""}
+                {technical.performance.today.toFixed(1)}%
+              </p>
+            </div>
+            <div className="flex-1 min-w-[50px]">
+              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">7D</p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                  technical.performance.days7 >= 0
+                    ? "text-emerald-500 dark:text-emerald-400"
+                    : "text-rose-500 dark:text-rose-400",
+                )}
+              >
+                {technical.performance.days7 >= 0 ? "+" : ""}
+                {technical.performance.days7.toFixed(1)}%
+              </p>
+            </div>
+            <div className="flex-1 min-w-[50px]">
+              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">30D</p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                  technical.performance.days30 >= 0
+                    ? "text-emerald-500 dark:text-emerald-400"
+                    : "text-rose-500 dark:text-rose-400",
+                )}
+              >
+                {technical.performance.days30 >= 0 ? "+" : ""}
+                {technical.performance.days30.toFixed(1)}%
+              </p>
+            </div>
+            <div className="flex-1 min-w-[50px]">
+              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">90D</p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                  technical.performance.days90 >= 0
+                    ? "text-emerald-500 dark:text-emerald-400"
+                    : "text-rose-500 dark:text-rose-400",
+                )}
+              >
+                {technical.performance.days90 >= 0 ? "+" : ""}
+                {technical.performance.days90.toFixed(1)}%
+              </p>
+            </div>
+            <div className="flex-1 min-w-[50px]">
+              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">180D</p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                  technical.performance.days180 >= 0
+                    ? "text-emerald-500 dark:text-emerald-400"
+                    : "text-rose-500 dark:text-rose-400",
+                )}
+              >
+                {technical.performance.days180 >= 0 ? "+" : ""}
+                {technical.performance.days180.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* 2. Social & Trader Sentiment */}
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
+            Social &amp; Trader Sentiment
+          </h2>
+          <div className="mt-3 rounded-xl border border-black/5 bg-gray-50/80 p-3 text-xs text-gray-600 sm:p-3.5 dark:border-white/5 dark:bg-secondary-60/40 dark:text-gray-300">
+            {socialPosts.length} recent X (Twitter) posts discussing {stockName || title}.
+          </div>
+
+          <p className="mt-4 text-xs font-semibold text-gray-500 sm:text-sm dark:text-gray-400">
+            Recent Posts on ${ticker || title}
+          </p>
+
+          <div className="mt-2.5 space-y-2.5">
+            {socialPosts.map((post, idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-black/5 bg-gray-50/80 p-3 transition sm:p-3.5 dark:border-white/5 dark:bg-secondary-60/40"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-gray-500 sm:text-xs dark:text-gray-400">
+                    {post.source}
+                  </span>
+                  <span className="rounded-full bg-gray-200/60 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                    {post.sentiment}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-cryptoNight dark:text-gray-200">
+                  {post.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 3. Analyst Consensus */}
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
+              Analyst Consensus
+            </h2>
+            <span className="rounded-full border border-primary-60/30 bg-primary-70/15 px-2.5 py-0.5 text-xs font-semibold text-primary-60 dark:text-primary-40">
+              {consensus.label}
+            </span>
+          </div>
+
+          {/* Segmented Bar */}
+          <div className="my-3 flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-gray-200 sm:h-2.5 dark:bg-white/10">
+            {consensus.strongBuy > 0 && (
+              <div
+                className="bg-emerald-500"
+                style={{ width: `${(consensus.strongBuy / consensus.total) * 100}%` }}
+              />
+            )}
+            {consensus.buy > 0 && (
+              <div
+                className="bg-teal-400"
+                style={{ width: `${(consensus.buy / consensus.total) * 100}%` }}
+              />
+            )}
+            {consensus.hold > 0 && (
+              <div
+                className="bg-amber-400"
+                style={{ width: `${(consensus.hold / consensus.total) * 100}%` }}
+              />
+            )}
+            {consensus.sell > 0 && (
+              <div
+                className="bg-rose-500"
+                style={{ width: `${(consensus.sell / consensus.total) * 100}%` }}
+              />
+            )}
+          </div>
+
+          {/* Breakdown Stats */}
+          <div className="flex items-center justify-between text-[11px] font-semibold sm:text-xs">
+            <span className="text-emerald-500 dark:text-emerald-400">
+              Strong Buy: {consensus.strongBuy}
+            </span>
+            <span className="text-teal-600 dark:text-teal-400">
+              Buy: {consensus.buy}
+            </span>
+            <span className="text-amber-500 dark:text-amber-400">
+              Hold: {consensus.hold}
+            </span>
+            <span className="text-rose-500 dark:text-rose-400">
+              Sell: {consensus.sell}
+            </span>
+          </div>
+        </section>
+
+        {/* 4. Insider Activity */}
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
+            Insider Activity ({ticker || title})
+          </h2>
+
+          <div className="mt-3 divide-y divide-gray-80/60 dark:divide-white/5">
+            {insiderActivity.map((tx, idx) => (
+              <div key={idx} className="flex items-center justify-between py-2.5">
+                <div>
+                  <p className="text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+                    {tx.name}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {tx.date}
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded px-1.5 py-0.2 text-[10px] font-semibold",
+                        tx.type === "Sell"
+                          ? "bg-rose-500/15 text-rose-500 dark:text-rose-400"
+                          : "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400",
+                      )}
+                    >
+                      {tx.type}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
+                    {tx.shares}
+                  </p>
+                  <p className="text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+                    {tx.value}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   if (tab === "Company") {
     const fallback = (ticker && COMPANY_FINANCIAL_FALLBACKS[ticker]) || {};
@@ -2055,21 +2403,21 @@ function StockResearchContent({
       description;
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 w-full max-w-full">
         {/* 1. Company Overview & Facts */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="mr-2 text-xl font-bold text-cryptoNight dark:text-white">
+            <h2 className="mr-1 text-lg sm:text-xl font-bold text-cryptoNight dark:text-white break-words">
               {company?.name ||
                 wikidataProfile?.name ||
                 officialProfile?.name ||
                 title}
             </h2>
-            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-1 text-xs font-semibold text-primary-40">
+            <span className="shrink-0 rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-1 text-xs font-semibold text-primary-40">
               {categoryLabel}
             </span>
             {company?.industry && company.industry.toLowerCase() !== categoryLabel.toLowerCase() ? (
-              <span className="rounded-full border border-gray-80 bg-gray-90/60 px-2.5 py-1 text-xs font-semibold text-gray-20 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
+              <span className="shrink-0 rounded-full border border-gray-80 bg-gray-90/60 px-2.5 py-1 text-xs font-semibold text-gray-20 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
                 {company.industry}
               </span>
             ) : null}
@@ -2088,14 +2436,15 @@ function StockResearchContent({
               }
               target="_blank"
               rel="noreferrer"
-              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 bg-primary-70/10 px-5 text-sm font-semibold text-primary-40 transition hover:bg-primary-70/20 active:scale-[0.99]"
+              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 bg-primary-70/10 px-4 text-xs sm:text-sm font-semibold text-primary-40 transition hover:bg-primary-70/20 active:scale-[0.99] text-center"
             >
-              <Globe className="h-4 w-4" />
-              Visit Official Website <ExternalLink className="h-4 w-4" />
+              <Globe className="h-4 w-4 shrink-0" />
+              <span className="truncate">Visit Official Website</span>
+              <ExternalLink className="h-4 w-4 shrink-0" />
             </a>
           ) : null}
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3">
             <MetricBox
               label="Chief executive"
               value={
@@ -2136,15 +2485,15 @@ function StockResearchContent({
         </section>
 
         {/* 2. Key Metrics Card */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Key Metrics</h2>
-            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">Key Metrics</h2>
+            <span className="shrink-0 rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-[11px] sm:text-xs font-semibold text-primary-40">
               Financial Overview
             </span>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
             <MetricBox label="Market Cap" value={marketCapValue} />
             <MetricBox label="P/E Ratio" value={peRatioValue} />
             <MetricBox label="Dividend Yield" value={dividendYieldValue} />
@@ -2155,15 +2504,15 @@ function StockResearchContent({
         </section>
 
         {/* 3. Financial Summary Card */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Financial Summary</h2>
-            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">Financial Summary</h2>
+            <span className="shrink-0 rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-[11px] sm:text-xs font-semibold text-primary-40">
               Fundamentals (TTM)
             </span>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
             <MetricBox label="Revenue (TTM)" value={revenueTTMValue} />
             <MetricBox label="Revenue Growth (YoY)" value={revenueGrowthValue} />
             <MetricBox label="Gross Margin" value={grossMarginValue} />
@@ -2182,12 +2531,12 @@ function StockResearchContent({
 
   if (tab === "News") {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 w-full max-w-full">
         {/* Latest news */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex items-center justify-between">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Latest news</h2>
+              <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">Latest news</h2>
               <p className="mt-0.5 text-xs text-gray-20 dark:text-gray-400">
                 Live market news and updates for {title}
               </p>
@@ -2196,7 +2545,7 @@ function StockResearchContent({
 
           {isCompanyNewsLoading ? (
             <div className="mt-4 space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
+              {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-90/60 dark:bg-white/5" />
               ))}
             </div>
@@ -2250,25 +2599,7 @@ function StockResearchContent({
         ? `${rawBase}${ticker ? ` (${ticker})` : ""}`
         : `${rawBase.replace(/\s+stock$/i, "")} Tokenized Stock${ticker ? ` (${ticker})` : ""}`;
 
-    const normProvider = (provider || "base_b20").toLowerCase();
-    let badge = "Base20";
-    if (normProvider.includes("b20")) badge = "Base20";
-    else if (normProvider.includes("ondo")) badge = "Ondo";
-    else if (
-      normProvider.includes("backed") ||
-      normProvider.includes("pancake") ||
-      normProvider.includes("bstock")
-    )
-      badge = "Backed";
-    else if (
-      normProvider.includes("xstock") ||
-      normProvider.includes("btech") ||
-      normProvider.includes("solana")
-    )
-      badge = "BTech";
-    else badge = getStockProviderLabel(provider || "Base20");
-
-    const specIssuers = isRwa ? "B20" : "B20 · Ondo · BTech · Backed";
+    const specIssuers = isRwa ? "B20" : "B20 · Ondo · xStock · bStock";
     const specTokenStandard = isRwa ? "ERC-20" : "ERC-20 · BEP-20 · SPL Token-2022";
     const specCustodian = isRwa
       ? "Segregated Trust Custody"
@@ -2276,69 +2607,66 @@ function StockResearchContent({
     const specNetworks = isRwa ? "Base" : "Base, BNB Smart Chain, Solana";
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 w-full max-w-full">
         {/* 1. Token Specifications */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex items-center justify-between">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
               Token Specifications
             </h2>
-            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
-              {badge}
-            </span>
           </div>
 
-          <div className="mt-5 space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+          <div className="mt-4 space-y-3 sm:space-y-4">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400 shrink-0">
                 Underlying Asset
               </span>
-              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white break-words min-w-0">
                 {underlyingAsset}
               </span>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400 shrink-0">
                 Issuers
               </span>
-              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white break-words min-w-0">
                 {specIssuers}
               </span>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400 shrink-0">
                 Token Standard
               </span>
-              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white break-words min-w-0">
                 {specTokenStandard}
               </span>
             </div>
 
-            <div className="flex items-start justify-between gap-4">
-              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400 shrink-0">
                 Custodian
               </span>
-              <span className="max-w-[70%] text-right text-xs font-semibold leading-relaxed text-cryptoNight sm:text-sm dark:text-white">
+              <span className="max-w-[70%] text-right text-xs font-semibold leading-relaxed text-cryptoNight sm:text-sm dark:text-white break-words min-w-0">
                 {specCustodian}
               </span>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400 shrink-0">
                 Networks
               </span>
-              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white break-words min-w-0">
                 {specNetworks}
               </span>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400 shrink-0">
                 Settlement
               </span>
-              <span className="text-right text-xs font-semibold text-primary-40 sm:text-sm">
+              <span className="text-right text-xs font-semibold text-primary-40 sm:text-sm shrink-0">
                 On-Chain
               </span>
             </div>
@@ -2346,7 +2674,7 @@ function StockResearchContent({
         </section>
 
         {/* 2. Tokenholder Protections & Rights */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
           <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
             Tokenholder Protections & Rights
           </h2>
@@ -2415,16 +2743,16 @@ function StockResearchContent({
 
   // Data tab
   return (
-    <div className="space-y-4">
-      <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Market & Valuation Data</h2>
-          <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
+    <div className="space-y-4 w-full max-w-full">
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">Market & Valuation Data</h2>
+          <span className="shrink-0 rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
             Market Data
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3">
           <DataMetric label="Official Price" value={formatUsd(price)} />
           <DataMetric label="24h High" value={formatUsd(chartHigh)} />
           <DataMetric label="24h Low" value={formatUsd(chartLow)} />
@@ -2452,15 +2780,15 @@ function StockResearchContent({
       </section>
 
       {dexPool ? (
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-cryptoNight dark:text-white">On-Chain DEX Liquidity</h2>
-            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">On-Chain DEX Liquidity</h2>
+            <span className="shrink-0 rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
               DEX Liquidity
             </span>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
             <DataMetric label="Pool Price" value={formatUsd(Number(dexPool.priceUsd || 0))} />
             <DataMetric label="Liquidity" value={formatCompactTurnover(dexPool.liquidityUsd || 0)} />
             <DataMetric label="24h Volume" value={formatCompactTurnover(dexPool.volume24hUsd || 0)} />
@@ -2481,11 +2809,11 @@ function StockResearchContent({
 
 function MetricBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-gray-80 bg-gray-90/40 p-3.5 shadow-xs dark:border-white/5 dark:bg-white/[0.04] dark:shadow-none sm:p-4">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-20 dark:text-gray-400">
+    <div className="min-w-0 rounded-xl border border-gray-80 bg-gray-90/40 p-2.5 sm:p-4 shadow-xs dark:border-white/5 dark:bg-white/[0.04] dark:shadow-none flex flex-col justify-between">
+      <span className="block text-[10px] sm:text-[11px] font-semibold uppercase leading-tight text-gray-20 dark:text-gray-400 break-words line-clamp-2">
         {label}
       </span>
-      <p className="mt-1 text-base font-bold text-cryptoNight dark:text-white sm:text-lg">
+      <p className="mt-1 text-sm sm:text-base lg:text-lg font-bold text-cryptoNight dark:text-white break-words">
         {value}
       </p>
     </div>
@@ -2494,9 +2822,13 @@ function MetricBox({ label, value }: { label: string; value: string }) {
 
 function DataMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-gray-80 bg-gray-90/40 p-3 shadow-xs dark:border-white/5 dark:bg-white/5 dark:shadow-none">
-      <p className="text-[11px] text-gray-20 dark:text-gray-400">{label}</p>
-      <p className="mt-1 text-sm font-bold tabular-nums text-cryptoNight dark:text-white">{value}</p>
+    <div className="min-w-0 rounded-xl border border-gray-80 bg-gray-90/40 p-2.5 sm:p-3 shadow-xs dark:border-white/5 dark:bg-white/5 dark:shadow-none flex flex-col justify-between">
+      <p className="text-[10px] sm:text-[11px] font-semibold leading-tight text-gray-20 dark:text-gray-400 break-words line-clamp-2">
+        {label}
+      </p>
+      <p className="mt-1 text-xs sm:text-sm font-bold tabular-nums text-cryptoNight dark:text-white break-words">
+        {value}
+      </p>
     </div>
   );
 }
