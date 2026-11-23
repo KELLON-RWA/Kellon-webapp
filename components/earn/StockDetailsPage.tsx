@@ -5,8 +5,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowLeft,
+  Banknote,
   BarChart2,
-  Building2,
   CandlestickChart,
   ChevronDown,
   ChevronRight,
@@ -1720,6 +1720,7 @@ export default function StockDetailsPage({
           tab={activeTab}
           title={displayStockSymbol}
           ticker={underlyingTicker}
+          stockName={stock?.name || name}
           turnover24h={turnover24h}
           description={
             STOCK_DESCRIPTIONS[underlyingTicker] ||
@@ -1732,7 +1733,7 @@ export default function StockDetailsPage({
           wikidataProfile={companyProfileData?.profile || undefined}
           isCompanyNewsLoading={isCompanyNewsLoading}
           isCompanyNewsError={isCompanyNewsError}
-          provider={stock?.provider || "Backing"}
+          provider={stock?.provider || "base_b20"}
           settlementChain={settlementChain}
           price={currentPrice}
           chartHigh={high24h}
@@ -1741,6 +1742,7 @@ export default function StockDetailsPage({
           isDexScreenerLoading={isDexScreenerLoading}
           hasDexPoolMetadata={Boolean(dexTokenAddress || dexPairAddress)}
           rwaCategory={stock?.rwaCategory}
+          isRwa={isRwa}
         />
       )}
         </div>
@@ -1894,6 +1896,7 @@ function StockResearchContent({
   tab,
   title,
   ticker,
+  stockName,
   turnover24h,
   description,
   company,
@@ -1912,10 +1915,12 @@ function StockResearchContent({
   isDexScreenerLoading,
   hasDexPoolMetadata,
   rwaCategory,
+  isRwa,
 }: {
   tab: Exclude<StockPageTab, "Charts">;
   title: string;
   ticker?: string;
+  stockName?: string;
   turnover24h?: number;
   description: string;
   company?: CompanyProfile;
@@ -1934,6 +1939,7 @@ function StockResearchContent({
   isDexScreenerLoading: boolean;
   hasDexPoolMetadata: boolean;
   rwaCategory?: string;
+  isRwa?: boolean;
 }) {
   const officialProfile = finnhubMarketData?.profile;
   const metric = (key: string) => finnhubMarketData?.metrics?.[key];
@@ -2221,31 +2227,175 @@ function StockResearchContent({
   }
 
   if (tab === "Token Info") {
+    const rawBase =
+      company?.name ||
+      stockName?.replace(/\s+(?:[bcx]stock)$/i, "").trim() ||
+      ticker ||
+      title ||
+      "Asset";
+    const underlyingAsset = isRwa
+      ? `${rawBase}${ticker ? ` (${ticker})` : ""}`
+      : /tokenized\s+stock/i.test(rawBase)
+        ? `${rawBase}${ticker ? ` (${ticker})` : ""}`
+        : `${rawBase.replace(/\s+stock$/i, "")} Tokenized Stock${ticker ? ` (${ticker})` : ""}`;
+
+    const normProvider = (provider || "base_b20").toLowerCase();
+    let badge = "Base20";
+    if (normProvider.includes("b20")) badge = "Base20";
+    else if (normProvider.includes("ondo")) badge = "Ondo";
+    else if (
+      normProvider.includes("backed") ||
+      normProvider.includes("pancake") ||
+      normProvider.includes("bstock")
+    )
+      badge = "Backed";
+    else if (
+      normProvider.includes("xstock") ||
+      normProvider.includes("btech") ||
+      normProvider.includes("solana")
+    )
+      badge = "BTech";
+    else badge = getStockProviderLabel(provider || "Base20");
+
+    const specIssuers = isRwa ? "B20" : "B20 · Ondo · BTech · Backed";
+    const specTokenStandard = isRwa ? "ERC-20" : "ERC-20 · BEP-20 · SPL Token-2022";
+    const specCustodian = isRwa
+      ? "Segregated Trust Custody"
+      : "InCore Bank AG · Apex Clearing · DriveWealth Qualified Custody";
+    const specNetworks = isRwa ? "Base" : "Base, BNB Smart Chain, Solana";
+
     return (
       <div className="space-y-4">
+        {/* 1. Token Specifications */}
         <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <h2 className="text-lg font-bold text-cryptoNight dark:text-white">Tokenholder Protections</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <InfoBox
-              icon={<ShieldCheck className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />}
-              title="1:1 Regulated Custody"
-              desc="Underlying public equities are held by licensed trust custodians in segregated bankruptcy-remote accounts."
-            />
-            <InfoBox
-              icon={<Vote className="h-4 w-4 text-primary-40" />}
-              title="Pass-Through Rights"
-              desc="Corporate actions and dividend distributions are reflected on-chain according to smart contract specifications."
-            />
-            <InfoBox
-              icon={<Scale className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />}
-              title="Continuous Compliance"
-              desc="Audited reserves and collateral proofs ensure on-chain tokens mirror real-world custody balances."
-            />
-            <InfoBox
-              icon={<Building2 className="h-4 w-4 text-amber-500 dark:text-amber-400" />}
-              title="Settlement Network"
-              desc={`Tokenized on ${settlementChain} with instant settlement and 24/7 liquidity access.`}
-            />
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+              Token Specifications
+            </h2>
+            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
+              {badge}
+            </span>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+                Underlying Asset
+              </span>
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+                {underlyingAsset}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+                Issuers
+              </span>
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+                {specIssuers}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+                Token Standard
+              </span>
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+                {specTokenStandard}
+              </span>
+            </div>
+
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+                Custodian
+              </span>
+              <span className="max-w-[70%] text-right text-xs font-semibold leading-relaxed text-cryptoNight sm:text-sm dark:text-white">
+                {specCustodian}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+                Networks
+              </span>
+              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
+                {specNetworks}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400">
+                Settlement
+              </span>
+              <span className="text-right text-xs font-semibold text-primary-40 sm:text-sm">
+                On-Chain
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* 2. Tokenholder Protections & Rights */}
+        <section className="rounded-2xl border border-gray-80 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+          <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+            Tokenholder Protections & Rights
+          </h2>
+
+          <div className="mt-5 space-y-4 sm:space-y-5">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-500/10 text-pink-500 dark:bg-pink-500/15 dark:text-pink-400">
+                <Scale className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-cryptoNight dark:text-white">
+                  100% Economic Exposure
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
+                  Token holders receive identical financial exposure to price movements and corporate actions of the underlying public shares.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/15 dark:text-emerald-400">
+                <Banknote className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-cryptoNight dark:text-white">
+                  Dividend Pass-Through
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
+                  Cash dividends declared by the issuer are converted and distributed directly to the token holder&apos;s wallet in USDC upon settlement.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 dark:bg-amber-500/15 dark:text-amber-400">
+                <Vote className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-cryptoNight dark:text-white">
+                  Voting Rights Disclosure
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
+                  Tokens represent digital depository certificates. Voting rights are held by the qualified custodian in trust for underlying share pools.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-500 dark:bg-purple-500/15 dark:text-purple-400">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-cryptoNight dark:text-white">
+                  Bankruptcy-Remote Custody
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
+                  Underlying securities are held in segregated, bankruptcy-remote accounts protected from issuer or distributor insolvency.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -2327,26 +2477,6 @@ function MetricBox({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-base font-bold text-cryptoNight dark:text-white sm:text-lg">
         {value}
       </p>
-    </div>
-  );
-}
-
-function InfoBox({
-  icon,
-  title,
-  desc,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-80 bg-gray-90/40 p-4 shadow-xs dark:border-white/5 dark:bg-white/5 dark:shadow-none">
-      <div className="flex items-center gap-2 text-cryptoNight dark:text-white">
-        {icon}
-        <h3 className="text-xs font-bold sm:text-sm">{title}</h3>
-      </div>
-      <p className="mt-2 text-xs leading-5 text-gray-20 dark:text-gray-400">{desc}</p>
     </div>
   );
 }
