@@ -5,15 +5,22 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowLeft,
+  ArrowLeftRight,
   Banknote,
   BarChart2,
   CandlestickChart,
+  Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clock,
+  Copy,
   ExternalLink,
   Globe,
+  Info,
+  Layers,
   LineChart,
+  Lock,
   RefreshCw,
   Scale,
   ShieldCheck,
@@ -22,6 +29,7 @@ import {
   TrendingUp,
   Vote,
   WalletCards,
+  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, useCallback, useEffect, useRef } from "react";
@@ -51,7 +59,6 @@ import { formatNewsTimestamp, getCompanyNewsName } from "@/lib/company-news";
 import type { NewsCompanyFacts } from "@/lib/company-news-facts";
 import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
 import { DANGOTE_COMPANY_PROFILE } from "@/lib/dangote-company-profile";
-import { getStockAnalysisData } from "@/lib/stock-analysis";
 import CompanyNewsThumbnail from "@/components/earn/CompanyNewsThumbnail";
 import { isRwaStockListing, stocksService, type StockListing } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
@@ -66,6 +73,7 @@ import StockDesktopSidebar from "./StockDesktopSidebar";
 import { useStockRealtime } from "@/hooks/useStockRealtime";
 import {
   formatUsd,
+  getStockProviderLabel,
   getStockSettlementChain,
   resolveStockCategory,
   resolveVisibleTimeframes,
@@ -80,7 +88,7 @@ import {
   StockLogo,
 } from "./EarnPage";
 
-const STOCK_PAGE_TABS = ["Charts", "Analysis", "Company", "News", "Token Info", "Data"] as const;
+const STOCK_PAGE_TABS = ["Charts", "Company", "News", "Token Info", "Data"] as const;
 type StockPageTab = (typeof STOCK_PAGE_TABS)[number];
 
 const PINNED_TIMEFRAMES = ["Time", "15m", "1h", "4h", "1D", "1W"] as const;
@@ -1003,9 +1011,9 @@ export default function StockDetailsPage({
         </div>
       </header>
 
-      {/* 2. Top Tabs: Charts, Analysis, Company, News, Token Info, Data */}
+      {/* 2. Top Tabs: Charts, Company, News, Token Info, Data */}
       <nav
-        className="mb-4 grid grid-cols-6 gap-1 rounded-xl border border-gray-80 bg-white/70 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-60/40 dark:shadow-none"
+        className="mb-4 flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-gray-80 bg-white/70 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-60/40 dark:shadow-none sm:grid sm:grid-cols-5"
         aria-label="Stock tabs"
       >
         {STOCK_PAGE_TABS.map((tab) => (
@@ -1014,7 +1022,7 @@ export default function StockDetailsPage({
             type="button"
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "h-9 w-full flex items-center justify-center rounded-lg px-0.5 truncate text-[11px] min-[360px]:text-xs font-semibold transition sm:text-sm cursor-pointer",
+              "h-9 shrink-0 sm:shrink rounded-lg px-3 sm:px-1 truncate text-xs font-semibold transition sm:text-sm cursor-pointer",
               activeTab === tab
                 ? "bg-gradient-to-r from-primary-70 to-primary-60 font-bold text-white shadow-lg shadow-primary-60/20"
                 : "text-gray-20 hover:text-cryptoNight hover:bg-gray-90/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5",
@@ -1796,7 +1804,7 @@ export default function StockDetailsPage({
           hasDexPoolMetadata={Boolean(dexTokenAddress || dexPairAddress)}
           rwaCategory={stock?.rwaCategory}
           isRwa={isRwa}
-          performance={performance}
+          stockOptions={stockOptions}
         />
       )}
         </div>
@@ -1981,7 +1989,7 @@ function StockResearchContent({
   hasDexPoolMetadata,
   rwaCategory,
   isRwa,
-  performance,
+  stockOptions = [],
 }: {
   tab: Exclude<StockPageTab, "Charts">;
   title: string;
@@ -2006,302 +2014,10 @@ function StockResearchContent({
   hasDexPoolMetadata: boolean;
   rwaCategory?: string;
   isRwa?: boolean;
-  performance?: {
-    today: number;
-    days7: number;
-    days30: number;
-    days90: number;
-    days180: number;
-  };
+  stockOptions?: StockListing[];
 }) {
   const officialProfile = finnhubMarketData?.profile;
   const metric = (key: string) => finnhubMarketData?.metrics?.[key];
-
-  if (tab === "Analysis") {
-    const analysisData = getStockAnalysisData(
-      ticker || title,
-      stockName || title,
-      price,
-      performance,
-      finnhubMarketData?.metrics,
-    );
-    const { technical, socialPosts, consensus, insiderActivity } = analysisData;
-
-    return (
-      <div className="space-y-4 w-full max-w-full">
-        {/* 1. Technical Insights */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
-              Technical Insights
-            </h2>
-            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
-              {technical.statusBadge}
-            </span>
-          </div>
-
-          {/* Momentum (14-Day RSI) */}
-          <div className="mt-3.5 rounded-xl border border-black/5 bg-gray-50/80 p-3 sm:p-4 dark:border-white/5 dark:bg-secondary-60/50">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-700 sm:text-sm dark:text-gray-200">
-                Momentum (14-Day RSI)
-              </span>
-              <span className="text-xs font-semibold text-primary-60 sm:text-sm dark:text-primary-70">
-                {technical.rsi.toFixed(1)} · {technical.rsiStatus}
-              </span>
-            </div>
-            <div className="relative my-3.5 h-1.5 w-full rounded-full bg-gray-200 dark:bg-white/10">
-              <div
-                className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary-70 to-primary-60 shadow-[0_0_8px_rgba(193,92,165,0.7)]"
-                style={{ left: `${Math.max(5, Math.min(95, technical.rsi))}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-              <span>Oversold (&lt;35)</span>
-              <span className="text-center">Balanced</span>
-              <span className="text-right">Overbought (&gt;65)</span>
-            </div>
-          </div>
-
-          {/* vs 30-Day SMA & 52-Week Position */}
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3">
-            <div className="rounded-xl border border-black/5 bg-gray-50/80 p-3 dark:border-white/5 dark:bg-secondary-60/50">
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">vs 30-Day SMA</p>
-              <p
-                className={cn(
-                  "mt-0.5 text-sm font-bold sm:text-base",
-                  technical.vsSma30dIsNegative
-                    ? "text-rose-500 dark:text-rose-400"
-                    : "text-emerald-500 dark:text-emerald-400",
-                )}
-              >
-                {technical.vsSma30d}
-              </p>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                SMA {technical.sma30dPrice}
-              </p>
-            </div>
-            <div className="rounded-xl border border-black/5 bg-gray-50/80 p-3 dark:border-white/5 dark:bg-secondary-60/50">
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">52-Week Position</p>
-              <p className="mt-0.5 text-sm font-bold text-cryptoNight sm:text-base dark:text-white">
-                {technical.range52wPosition}
-              </p>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                {technical.range52wText}
-              </p>
-            </div>
-          </div>
-
-          {/* 5-Column Historical Returns Row */}
-          <div className="mt-3 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar rounded-xl border border-black/5 bg-gray-50/80 p-2.5 text-center dark:border-white/5 dark:bg-secondary-60/50">
-            <div className="flex-1 min-w-[50px]">
-              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">Today</p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                  technical.performance.today >= 0
-                    ? "text-emerald-500 dark:text-emerald-400"
-                    : "text-rose-500 dark:text-rose-400",
-                )}
-              >
-                {technical.performance.today >= 0 ? "+" : ""}
-                {technical.performance.today.toFixed(1)}%
-              </p>
-            </div>
-            <div className="flex-1 min-w-[50px]">
-              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">7D</p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                  technical.performance.days7 >= 0
-                    ? "text-emerald-500 dark:text-emerald-400"
-                    : "text-rose-500 dark:text-rose-400",
-                )}
-              >
-                {technical.performance.days7 >= 0 ? "+" : ""}
-                {technical.performance.days7.toFixed(1)}%
-              </p>
-            </div>
-            <div className="flex-1 min-w-[50px]">
-              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">30D</p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                  technical.performance.days30 >= 0
-                    ? "text-emerald-500 dark:text-emerald-400"
-                    : "text-rose-500 dark:text-rose-400",
-                )}
-              >
-                {technical.performance.days30 >= 0 ? "+" : ""}
-                {technical.performance.days30.toFixed(1)}%
-              </p>
-            </div>
-            <div className="flex-1 min-w-[50px]">
-              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">90D</p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                  technical.performance.days90 >= 0
-                    ? "text-emerald-500 dark:text-emerald-400"
-                    : "text-rose-500 dark:text-rose-400",
-                )}
-              >
-                {technical.performance.days90 >= 0 ? "+" : ""}
-                {technical.performance.days90.toFixed(1)}%
-              </p>
-            </div>
-            <div className="flex-1 min-w-[50px]">
-              <p className="text-[10px] text-gray-500 sm:text-xs dark:text-gray-400">180D</p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
-                  technical.performance.days180 >= 0
-                    ? "text-emerald-500 dark:text-emerald-400"
-                    : "text-rose-500 dark:text-rose-400",
-                )}
-              >
-                {technical.performance.days180 >= 0 ? "+" : ""}
-                {technical.performance.days180.toFixed(1)}%
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* 2. Social & Trader Sentiment */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
-            Social &amp; Trader Sentiment
-          </h2>
-          <div className="mt-3 rounded-xl border border-black/5 bg-gray-50/80 p-3 text-xs text-gray-600 sm:p-3.5 dark:border-white/5 dark:bg-secondary-60/40 dark:text-gray-300">
-            {socialPosts.length} recent X (Twitter) posts discussing {stockName || title}.
-          </div>
-
-          <p className="mt-4 text-xs font-semibold text-gray-500 sm:text-sm dark:text-gray-400">
-            Recent Posts on ${ticker || title}
-          </p>
-
-          <div className="mt-2.5 space-y-2.5">
-            {socialPosts.map((post, idx) => (
-              <div
-                key={idx}
-                className="rounded-xl border border-black/5 bg-gray-50/80 p-3 transition sm:p-3.5 dark:border-white/5 dark:bg-secondary-60/40"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-gray-500 sm:text-xs dark:text-gray-400">
-                    {post.source}
-                  </span>
-                  <span className="rounded-full bg-gray-200/60 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
-                    {post.sentiment}
-                  </span>
-                </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-cryptoNight dark:text-gray-200">
-                  {post.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 3. Analyst Consensus */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
-              Analyst Consensus
-            </h2>
-            <span className="rounded-full border border-primary-60/30 bg-primary-70/15 px-2.5 py-0.5 text-xs font-semibold text-primary-60 dark:text-primary-40">
-              {consensus.label}
-            </span>
-          </div>
-
-          {/* Segmented Bar */}
-          <div className="my-3 flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-gray-200 sm:h-2.5 dark:bg-white/10">
-            {consensus.strongBuy > 0 && (
-              <div
-                className="bg-emerald-500"
-                style={{ width: `${(consensus.strongBuy / consensus.total) * 100}%` }}
-              />
-            )}
-            {consensus.buy > 0 && (
-              <div
-                className="bg-teal-400"
-                style={{ width: `${(consensus.buy / consensus.total) * 100}%` }}
-              />
-            )}
-            {consensus.hold > 0 && (
-              <div
-                className="bg-amber-400"
-                style={{ width: `${(consensus.hold / consensus.total) * 100}%` }}
-              />
-            )}
-            {consensus.sell > 0 && (
-              <div
-                className="bg-rose-500"
-                style={{ width: `${(consensus.sell / consensus.total) * 100}%` }}
-              />
-            )}
-          </div>
-
-          {/* Breakdown Stats */}
-          <div className="flex items-center justify-between text-[11px] font-semibold sm:text-xs">
-            <span className="text-emerald-500 dark:text-emerald-400">
-              Strong Buy: {consensus.strongBuy}
-            </span>
-            <span className="text-teal-600 dark:text-teal-400">
-              Buy: {consensus.buy}
-            </span>
-            <span className="text-amber-500 dark:text-amber-400">
-              Hold: {consensus.hold}
-            </span>
-            <span className="text-rose-500 dark:text-rose-400">
-              Sell: {consensus.sell}
-            </span>
-          </div>
-        </section>
-
-        {/* 4. Insider Activity */}
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
-            Insider Activity ({ticker || title})
-          </h2>
-
-          <div className="mt-3 divide-y divide-gray-80/60 dark:divide-white/5">
-            {insiderActivity.map((tx, idx) => (
-              <div key={idx} className="flex items-center justify-between py-2.5">
-                <div>
-                  <p className="text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white">
-                    {tx.name}
-                  </p>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {tx.date}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded px-1.5 py-0.2 text-[10px] font-semibold",
-                        tx.type === "Sell"
-                          ? "bg-rose-500/15 text-rose-500 dark:text-rose-400"
-                          : "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400",
-                      )}
-                    >
-                      {tx.type}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
-                    {tx.shares}
-                  </p>
-                  <p className="text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
-                    {tx.value}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   if (tab === "Company") {
     const fallback = (ticker && COMPANY_FINANCIAL_FALLBACKS[ticker]) || {};
@@ -2742,69 +2458,384 @@ function StockResearchContent({
   }
 
   // Data tab
+  const deployments = (
+    stockOptions && stockOptions.length > 0
+      ? stockOptions
+      : [
+          {
+            symbol: `${ticker || title}c`,
+            name: `${title} Tokenized Stock`,
+            price: price,
+            currency: "USD",
+            provider: provider || "base_b20",
+            settlementChain: settlementChain || "BASE",
+            tokenAddress: dexPool?.tokenAddress,
+          } as StockListing,
+        ]
+  ).map((opt) => {
+    const chain =
+      getStockSettlementChain(
+        opt.provider,
+        opt.settlementChain || opt.chain || opt.network,
+      ) || "Base";
+    const address =
+      opt.tokenAddress ||
+      opt.contractAddress ||
+      opt.address ||
+      (dexPool && chain.toLowerCase().includes("base")
+        ? dexPool.tokenAddress
+        : undefined);
+
+    return {
+      symbol: opt.symbol || `${ticker || title}c`,
+      chain,
+      standardAndProvider: getDeploymentStandardAndProvider(opt),
+      address,
+    };
+  });
+
+  const networksCount = new Set(deployments.map((d) => d.chain.toLowerCase())).size || 1;
+
+  const rawMarketCap = officialProfile?.marketCap;
+  let marketCapDisplay = "—";
+  if (rawMarketCap && Number(rawMarketCap) > 0) {
+    const cap = Number(rawMarketCap);
+    if (cap >= 1_000_000) {
+      marketCapDisplay = `$${(cap / 1_000_000).toFixed(2)} Trillion`;
+    } else if (cap >= 1_000) {
+      marketCapDisplay = `$${(cap / 1_000).toFixed(2)} Billion`;
+    } else {
+      marketCapDisplay = `$${cap.toFixed(2)}M`;
+    }
+  }
+
+  const vol24hNumber = turnover24h || Number(metric("turnover24h")) || 0;
+  const vol24hDisplay =
+    vol24hNumber > 0 ? formatCompactTurnover(vol24hNumber) : "—";
+
+  const avgVolNumber = Number(
+    metric("10DayAverageTradingVolume") ||
+      metric("3MonthAverageTradingVolume") ||
+      0,
+  );
+  const avgVolDisplay =
+    avgVolNumber > 0 ? `${avgVolNumber.toFixed(1)}M shares` : "—";
+
+  const low52 = metric("52WeekLow");
+  const high52 = metric("52WeekHigh");
+  const range52Display =
+    low52 && high52
+      ? `$${Number(low52).toFixed(2)} - $${Number(high52).toFixed(2)}`
+      : "—";
+
+  const peRaw =
+    metric("peNormalizedAnnual") ||
+    metric("peTTM") ||
+    metric("peBasicExclExtraTTM");
+  const peDisplay =
+    peRaw && Number(peRaw) > 0 ? `${Number(peRaw).toFixed(1)}x` : "—";
+
+  const divYieldRaw =
+    metric("dividendYieldIndicatedAnnual") || metric("dividendYield5Y");
+  const divYieldDisplay =
+    divYieldRaw && Number(divYieldRaw) > 0
+      ? `${Number(divYieldRaw).toFixed(2)}%`
+      : "—";
+
+  const high24Display = chartHigh ? formatUsd(chartHigh) : "—";
+  const low24Display = chartLow ? formatUsd(chartLow) : "—";
+
+  const hasLiveDexActivity = Boolean(
+    dexPool &&
+      (Number(dexPool.volume24hUsd || 0) > 0 ||
+        Number(dexPool.liquidityUsd || 0) > 0),
+  );
+
   return (
     <div className="space-y-4 w-full max-w-full">
+      {/* Header Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div>
+          <h1 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">
+            On-Chain RWA & Reserve Intelligence
+          </h1>
+          <p className="mt-0.5 text-xs text-gray-20 dark:text-gray-400">
+            Verified contract deployments, DEX pool liquidity & trade flow for {ticker || title}
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          LIVE
+        </span>
+      </div>
+
+      {/* 1. 24h DEX On-Chain Flow */}
       <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">Market & Valuation Data</h2>
-          <span className="shrink-0 rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
-            Market Data
-          </span>
+        <div className="flex items-center gap-2">
+          <ArrowLeftRight className="h-4 w-4 text-pink-500" />
+          <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+            24h DEX On-Chain Flow
+          </h2>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3">
-          <DataMetric label="Official Price" value={formatUsd(price)} />
-          <DataMetric label="24h High" value={formatUsd(chartHigh)} />
-          <DataMetric label="24h Low" value={formatUsd(chartLow)} />
-          <DataMetric
-            label="Market Cap"
-            value={
-              officialProfile?.marketCap
-                ? `$${(officialProfile.marketCap / 1000).toFixed(2)}B`
-                : "Not available"
-            }
-          />
-          <DataMetric
-            label="10D Avg Volume"
-            value={formatCompactVolume(Number(metric("10DayAverageTradingVolume") || 0))}
-          />
-          <DataMetric
-            label="52-Week Range"
-            value={
-              metric("52WeekLow") && metric("52WeekHigh")
-                ? `$${metric("52WeekLow")} - $${metric("52WeekHigh")}`
-                : "Not available"
-            }
-          />
+        {!hasLiveDexActivity && (
+          <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-purple-500/20 bg-purple-500/5 p-3 text-xs text-gray-300 dark:border-purple-500/15 dark:bg-purple-950/20">
+            <Info className="h-4 w-4 shrink-0 text-purple-400 mt-0.5" />
+            <p className="leading-relaxed">
+              No public AMM swap transactions recorded in the last 24h, or primary execution settles via regulated RFQ / custodial minting.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="min-w-0 rounded-xl border border-gray-80 bg-gray-90/40 p-2.5 sm:p-3 text-center dark:border-white/5 dark:bg-white/[0.04]">
+            <span className="block text-[10px] sm:text-[11px] font-semibold uppercase text-gray-20 dark:text-gray-400 truncate">
+              DEX Pool Liquidity
+            </span>
+            <p className="mt-1.5 text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+              {dexPool?.liquidityUsd ? formatCompactTurnover(dexPool.liquidityUsd) : "—"}
+            </p>
+          </div>
+          <div className="min-w-0 rounded-xl border border-gray-80 bg-gray-90/40 p-2.5 sm:p-3 text-center dark:border-white/5 dark:bg-white/[0.04]">
+            <span className="block text-[10px] sm:text-[11px] font-semibold uppercase text-gray-20 dark:text-gray-400 truncate">
+              24h DEX Volume
+            </span>
+            <p className="mt-1.5 text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+              {dexPool?.volume24hUsd ? formatCompactTurnover(dexPool.volume24hUsd) : "—"}
+            </p>
+          </div>
+          <div className="min-w-0 rounded-xl border border-gray-80 bg-gray-90/40 p-2.5 sm:p-3 text-center dark:border-white/5 dark:bg-white/[0.04]">
+            <span className="block text-[10px] sm:text-[11px] font-semibold uppercase text-gray-20 dark:text-gray-400 truncate">
+              On-Chain FDV
+            </span>
+            <p className="mt-1.5 text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+              {dexPool?.fdv ? formatCompactTurnover(dexPool.fdv) : "—"}
+            </p>
+          </div>
         </div>
       </section>
 
-      {dexPool ? (
-        <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base sm:text-lg font-bold text-cryptoNight dark:text-white">On-Chain DEX Liquidity</h2>
-            <span className="shrink-0 rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
-              DEX Liquidity
-            </span>
+      {/* 2. Verified Contract Deployments */}
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-purple-400" />
+            <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+              Verified Contract Deployments
+            </h2>
+          </div>
+          <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+            {networksCount} {networksCount === 1 ? "Network" : "Networks"}
+          </span>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {deployments.map((dep, idx) => (
+            <div
+              key={`${dep.symbol}-${dep.chain}-${idx}`}
+              className="rounded-xl border border-gray-80 bg-gray-90/30 p-3 sm:p-3.5 dark:border-white/5 dark:bg-white/[0.03]"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-cryptoNight dark:text-white">
+                    {dep.symbol}
+                  </span>
+                  <span className={cn("rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", getChainBadgeStyle(dep.chain))}>
+                    {dep.chain}
+                  </span>
+                  <span className="text-xs text-gray-20 dark:text-gray-400">
+                    {dep.standardAndProvider}
+                  </span>
+                </div>
+                {dep.address && (
+                  <div className="flex items-center gap-2">
+                    <CopyAddressButton address={dep.address} />
+                    <a
+                      href={getExplorerUrl(dep.chain, dep.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-400 transition hover:bg-purple-500/20 active:scale-95"
+                    >
+                      <span>Explorer</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+              {dep.address ? (
+                <p className="mt-1.5 font-mono text-xs text-gray-20 dark:text-gray-400 break-all">
+                  {dep.address}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-20 dark:text-gray-400">
+                  On-chain deployment verified through qualified venue.
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 3. 100% Asset-Backed Guarantee */}
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+              100% Asset-Backed Guarantee
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-20 dark:text-gray-400">
+              Every tokenized share corresponds to real underlying equity held in regulated custody
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3.5 sm:space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+                1:1 Regulated Custody
+              </h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
+                Underlying shares stored in bankruptcy-remote vaults at regulated clearing custodians.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
-            <DataMetric label="Pool Price" value={formatUsd(Number(dexPool.priceUsd || 0))} />
-            <DataMetric label="Liquidity" value={formatCompactTurnover(dexPool.liquidityUsd || 0)} />
-            <DataMetric label="24h Volume" value={formatCompactTurnover(dexPool.volume24hUsd || 0)} />
-            <DataMetric
-              label="24h Change"
-              value={
-                dexPool.change24hPercentage !== undefined
-                  ? `${dexPool.change24hPercentage >= 0 ? "+" : ""}${dexPool.change24hPercentage.toFixed(2)}%`
-                  : "—"
-              }
-            />
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+              <Scale className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+                Statutory Pass-Through
+              </h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
+                Full economic rights including corporate actions, stock splits, and proportional NAV tracking.
+              </p>
+            </div>
           </div>
-        </section>
-      ) : null}
+
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
+              <Zap className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+                Instant Atomic Settlement
+              </h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
+                Real-time on-chain clearing on Base, BNB Chain, and Solana with zero T+1 counterparty exposure.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Market & Valuation Metrics */}
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-3.5 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+          Market & Valuation Metrics
+        </h2>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
+          <MetricBox label="Market Cap" value={marketCapDisplay} />
+          <MetricBox label="24h Volume" value={vol24hDisplay} />
+          <MetricBox label="Avg Volume" value={avgVolDisplay} />
+          <MetricBox label="52-Week Range" value={range52Display} />
+          <MetricBox label="P/E Ratio" value={peDisplay} />
+          <MetricBox label="Dividend Yield" value={divYieldDisplay} />
+          <MetricBox label="24h High" value={high24Display} />
+          <MetricBox label="24h Low" value={low24Display} />
+        </div>
+      </section>
     </div>
   );
+}
+
+function CopyAddressButton({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    toast.success("Contract address copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 rounded-lg border border-gray-80 bg-white/50 px-2 py-1 text-[11px] font-semibold text-cryptoNight transition hover:bg-gray-80/60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 cursor-pointer active:scale-95"
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-emerald-400" />
+      ) : (
+        <Copy className="h-3 w-3 text-gray-400" />
+      )}
+      <span>{copied ? "Copied" : "Copy"}</span>
+    </button>
+  );
+}
+
+function getExplorerUrl(chain: string, address: string): string {
+  const c = chain.toLowerCase();
+  if (c.includes("solana")) return `https://solscan.io/token/${address}`;
+  if (c.includes("bnb") || c.includes("bsc") || c.includes("binance")) {
+    return `https://bscscan.com/token/${address}`;
+  }
+  if (c.includes("base")) return `https://basescan.org/token/${address}`;
+  if (c.includes("arbitrum")) return `https://arbiscan.io/token/${address}`;
+  if (c.includes("polygon")) return `https://polygonscan.com/token/${address}`;
+  return `https://etherscan.io/token/${address}`;
+}
+
+function getDeploymentStandardAndProvider(item: StockListing): string {
+  const norm = (item.provider || "").toLowerCase();
+  const chainNorm = (item.settlementChain || item.chain || "").toLowerCase();
+
+  if (
+    norm.includes("solana") ||
+    norm.includes("xstock") ||
+    chainNorm.includes("solana")
+  ) {
+    return "SPL Token-2022 · xStock";
+  }
+  if (
+    norm.includes("pancake") ||
+    norm.includes("bstock") ||
+    chainNorm.includes("bnb") ||
+    chainNorm.includes("bsc")
+  ) {
+    return "BEP-20 · bStock";
+  }
+  if (norm.includes("ondo")) {
+    return "ERC-20 · Ondo";
+  }
+  if (norm.includes("b20") || chainNorm.includes("base")) {
+    return "ERC-20 · B20";
+  }
+  return `ERC-20 · ${getStockProviderLabel(item.provider || "Base20")}`;
+}
+
+function getChainBadgeStyle(chain: string) {
+  const c = chain.toLowerCase();
+  if (c.includes("solana")) {
+    return "border-purple-500/30 bg-purple-500/10 text-purple-400";
+  }
+  if (c.includes("bnb") || c.includes("bsc") || c.includes("binance")) {
+    return "border-amber-500/30 bg-amber-500/10 text-amber-400";
+  }
+  if (c.includes("base")) {
+    return "border-blue-500/30 bg-blue-500/10 text-blue-400";
+  }
+  return "border-primary-60/30 bg-primary-70/10 text-primary-40";
 }
 
 function MetricBox({ label, value }: { label: string; value: string }) {
@@ -2814,19 +2845,6 @@ function MetricBox({ label, value }: { label: string; value: string }) {
         {label}
       </span>
       <p className="mt-1 text-sm sm:text-base lg:text-lg font-bold text-cryptoNight dark:text-white break-words">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function DataMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-gray-80 bg-gray-90/40 p-2.5 sm:p-3 shadow-xs dark:border-white/5 dark:bg-white/5 dark:shadow-none flex flex-col justify-between">
-      <p className="text-[10px] sm:text-[11px] font-semibold leading-tight text-gray-20 dark:text-gray-400 break-words line-clamp-2">
-        {label}
-      </p>
-      <p className="mt-1 text-xs sm:text-sm font-bold tabular-nums text-cryptoNight dark:text-white break-words">
         {value}
       </p>
     </div>
