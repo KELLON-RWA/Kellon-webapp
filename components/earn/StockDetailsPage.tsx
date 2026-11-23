@@ -1767,19 +1767,43 @@ export default function StockDetailsPage({
 
 function CompanyDescription({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const isLong = text.length > 200;
+  const [canExpand, setCanExpand] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [text]);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      if (!isExpanded) {
+        setCanExpand(el.scrollHeight > el.clientHeight + 1);
+      }
+    };
+
+    checkOverflow();
+
+    const resizeObserver = new ResizeObserver(checkOverflow);
+    resizeObserver.observe(el);
+
+    return () => resizeObserver.disconnect();
+  }, [text, isExpanded]);
 
   return (
     <div className="mt-4 max-w-3xl">
       <p
+        ref={textRef}
         className={cn(
           "text-sm leading-6 text-gray-300 transition-all",
-          !isExpanded && isLong && "line-clamp-3",
+          !isExpanded && "line-clamp-3",
         )}
       >
         {text}
       </p>
-      {isLong ? (
+      {canExpand ? (
         <button
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
