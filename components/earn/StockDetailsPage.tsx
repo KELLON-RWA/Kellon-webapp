@@ -12,16 +12,13 @@ import {
   Clock,
   ExternalLink,
   Globe,
-  Landmark,
   LineChart,
-  MapPin,
   RefreshCw,
   Scale,
   ShieldCheck,
   Star,
   TrendingDown,
   TrendingUp,
-  Users,
   Vote,
   WalletCards,
 } from "lucide-react";
@@ -54,7 +51,7 @@ import type { NewsCompanyFacts } from "@/lib/company-news-facts";
 import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
 import { DANGOTE_COMPANY_PROFILE } from "@/lib/dangote-company-profile";
 import CompanyNewsThumbnail from "@/components/earn/CompanyNewsThumbnail";
-import { isRwaStockListing, stocksService } from "@/services/api/stocks";
+import { isRwaStockListing, stocksService, type StockListing } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
 import StockNairaPrice from "./StockNairaPrice";
@@ -137,6 +134,8 @@ const STOCK_DESCRIPTIONS: Record<string, string> = {
   NVDA: "NVIDIA Corporation is an American multinational corporation and technology company headquartered in Santa Clara, California. It designs graphics processing units (GPUs) for the gaming and professional markets, as well as system on a chip units (SoCs) for mobile computing and automotive markets, and is a dominant supplier of artificial intelligence hardware and software.",
   TSLA: "Tesla, Inc. is an American multinational automotive and clean energy company headquartered in Austin, Texas. Tesla designs, manufactures, and sells electric vehicles, stationary battery energy storage systems, solar panels, and related products and services.",
   COIN: "Coinbase Global, Inc. operates a cryptocurrency exchange platform. The company provides financial infrastructure and technology for the crypto economy, offering retail users and institutions a platform to buy, sell, and store digital assets securely.",
+  AMC: "AMC Entertainment Holdings, Inc. is an American theatrical exhibition company headquartered in Leawood, Kansas. Founded in 1920, it is the largest movie theater chain in the world, with thousands of screens across the United States and Europe.",
+  INTC: "Intel Corporation is an American multinational corporation and technology company headquartered in Santa Clara, California. It is one of the world's largest semiconductor chip manufacturers by revenue and the developer of the x86 microprocessors found in the majority of personal computers.",
 };
 
 type CompanyProfile = {
@@ -228,6 +227,24 @@ const COMPANY_PROFILES: Record<string, CompanyProfile> = {
     employees: "140,473",
     description:
       "Tesla, Inc. is an American multinational automotive and clean energy company headquartered in Austin, Texas. Tesla designs, manufactures, and sells electric vehicles, stationary battery energy storage systems, solar panels, and related products and services.",
+  },
+  AMC: {
+    website: "https://www.amctheatres.com",
+    sector: "Communication Services",
+    industry: "Entertainment / Movie Theaters",
+    ceo: "Adam Aron",
+    headquarters: "Leawood, Kansas, USA",
+    founded: "1920",
+    employees: "26,000+",
+  },
+  INTC: {
+    website: "https://www.intel.com",
+    sector: "Technology",
+    industry: "Semiconductors",
+    ceo: "Pat Gelsinger",
+    headquarters: "Santa Clara, California, USA",
+    founded: "1968",
+    employees: "124,800+",
   },
 };
 
@@ -395,6 +412,42 @@ const COMPANY_FINANCIAL_FALLBACKS: Record<string, CompanyFinancials> = {
     priceBook: "3.95x",
     beta: "1.72",
   },
+  AMC: {
+    marketCap: "$1.25 Billion",
+    peRatio: "—",
+    dividendYield: "—",
+    volume24h: "$2.64M",
+    avgVolume: "14.8M shares",
+    range52w: "$2.38 - $13.78",
+    revenueTTM: "$4.81B",
+    revenueGrowth: "+2.50%",
+    grossMargin: "18.20%",
+    operatingMargin: "2.10%",
+    netProfitMargin: "-3.80%",
+    eps: "-$0.82",
+    roe: "-18.40%",
+    debtEquity: "3.85",
+    priceBook: "1.15x",
+    beta: "2.45",
+  },
+  INTC: {
+    marketCap: "$102.50 Billion",
+    peRatio: "—",
+    dividendYield: "1.85%",
+    volume24h: "$12.40M",
+    avgVolume: "54.2M shares",
+    range52w: "$18.51 - $51.28",
+    revenueTTM: "$54.2B",
+    revenueGrowth: "-1.00%",
+    grossMargin: "40.50%",
+    operatingMargin: "3.20%",
+    netProfitMargin: "1.80%",
+    eps: "$0.45",
+    roe: "3.80%",
+    debtEquity: "0.45",
+    priceBook: "0.95x",
+    beta: "1.15",
+  },
 };
 
 function matchesStockActivity(
@@ -513,15 +566,38 @@ export default function StockDetailsPage({
   });
 
   const stockOptions = useMemo(
-    () =>
-      stocks.filter(
-        (item) =>
-          getListingSymbol(item.symbol) === normalizedSymbol ||
-          getUnderlyingTicker(item.symbol, item.provider) === normalizedSymbol,
-      ),
+    () => {
+      const target = normalizedSymbol.toUpperCase();
+      return stocks.filter((item) => {
+        const listingSym = getListingSymbol(item.symbol).toUpperCase();
+        const underlying = getUnderlyingTicker(
+          item.symbol,
+          item.provider,
+        ).toUpperCase();
+        const rawTicker = (item.ticker || item.symbol || "").toUpperCase();
+        return (
+          listingSym === target ||
+          underlying === target ||
+          rawTicker === target ||
+          getUnderlyingTicker(item.symbol).toUpperCase() === target
+        );
+      });
+    },
     [normalizedSymbol, stocks],
   );
-  const stock = stockOptions[0];
+  const matchedStock = stockOptions[0];
+  const stock =
+    matchedStock ||
+    (normalizedSymbol
+      ? ({
+          symbol: normalizedSymbol,
+          name: `${normalizedSymbol} Tokenized Stock`,
+          price: 0,
+          currency: "USD",
+          provider: "base_b20",
+          settlementChain: "BASE",
+        } as StockListing)
+      : undefined);
   const isRwa = Boolean(stock && isRwaStockListing(stock));
 
   const underlyingTicker = stock
@@ -1917,9 +1993,8 @@ function StockResearchContent({
             </a>
           ) : null}
 
-          <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-2">
-            <CompanyFact
-              icon={<Building2 className="h-4 w-4" />}
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <MetricBox
               label="Chief executive"
               value={
                 company?.ceo ||
@@ -1928,8 +2003,7 @@ function StockResearchContent({
                 "Not available"
               }
             />
-            <CompanyFact
-              icon={<MapPin className="h-4 w-4" />}
+            <MetricBox
               label="Headquarters"
               value={
                 company?.headquarters ||
@@ -1938,8 +2012,7 @@ function StockResearchContent({
                 "Not available"
               }
             />
-            <CompanyFact
-              icon={<Landmark className="h-4 w-4" />}
+            <MetricBox
               label="Founded"
               value={
                 company?.founded ||
@@ -1948,8 +2021,7 @@ function StockResearchContent({
                 "Not available"
               }
             />
-            <CompanyFact
-              icon={<Users className="h-4 w-4" />}
+            <MetricBox
               label="Employees"
               value={
                 company?.employees ||
@@ -1965,7 +2037,7 @@ function StockResearchContent({
         <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white">Key Metrics</h2>
-            <span className="text-xs font-semibold text-primary-40">
+            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
               Financial Overview
             </span>
           </div>
@@ -1984,7 +2056,7 @@ function StockResearchContent({
         <section className="rounded-2xl border border-white/10 bg-secondary-50/70 p-5 backdrop-blur">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white">Financial Summary</h2>
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+            <span className="rounded-full border border-primary-60/40 bg-primary-70/10 px-2.5 py-0.5 text-xs font-semibold text-primary-40">
               Fundamentals (TTM)
             </span>
           </div>
@@ -2172,26 +2244,6 @@ function MetricBox({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-base font-bold text-white sm:text-lg">
         {value}
       </p>
-    </div>
-  );
-}
-
-function CompanyFact({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="bg-secondary-50 p-4">
-      <div className="flex items-center gap-2 text-gray-400">
-        {icon}
-        <span className="text-xs">{label}</span>
-      </div>
-      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
     </div>
   );
 }
