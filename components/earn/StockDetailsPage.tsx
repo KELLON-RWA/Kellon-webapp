@@ -1766,26 +1766,37 @@ export default function StockDetailsPage({
             <>
               <Button
                 type="button"
-                className="h-12 flex-1 rounded-xl bg-red-500 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 active:scale-[0.98] transition cursor-pointer"
+                className="group relative overflow-hidden h-12 flex-1 rounded-xl bg-red-500 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl active:scale-[0.98] transition cursor-pointer"
                 onClick={() => setStockAction("sell")}
               >
-                Sell{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  Sell{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+                </span>
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
               </Button>
               <Button
                 type="button"
-                className="h-12 flex-1 rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/30 hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+                variant="flow"
+                className="h-12 flex-1 text-base shadow-primary-60/30 cursor-pointer"
                 onClick={() => setStockAction("buy")}
               >
-                Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+                </span>
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
               </Button>
             </>
           ) : (
             <Button
               type="button"
-              className="h-12 w-full rounded-xl bg-gradient-to-r from-primary-70 to-primary-60 text-base font-bold text-white shadow-lg shadow-primary-60/30 hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+              variant="flow"
+              className="h-12 w-full text-base shadow-primary-60/30 cursor-pointer"
               onClick={() => setStockAction("buy")}
             >
-              Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+              </span>
+              <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
             </Button>
           )}
         </div>
