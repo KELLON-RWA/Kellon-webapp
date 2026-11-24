@@ -55,6 +55,8 @@ import {
 } from "@/services/api/cards";
 import type { User } from "@/types/db";
 
+const CARDS_FEATURE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_CARDS === "true";
+
 type VerificationType = CardVerification["verificationType"];
 type Pending = {
   run: (verification: CardVerification) => Promise<void>;
@@ -215,6 +217,7 @@ export default function CardsPage({ profile }: { profile: User }) {
   const programQuery = useQuery({
     queryKey: ["cards-program"],
     queryFn: async () => (await cardsService.getProgram()).data,
+    enabled: CARDS_FEATURE_ENABLED,
   });
   const program: CardProgram | undefined = programQuery.data;
   const holder = program?.holder ?? null;
@@ -563,7 +566,7 @@ export default function CardsPage({ profile }: { profile: User }) {
     setDialog(kind);
   };
 
-  if (programQuery.isLoading) {
+  if (CARDS_FEATURE_ENABLED && programQuery.isLoading) {
     return (
       <section className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="size-6 animate-spin text-primary-50" />
@@ -571,17 +574,28 @@ export default function CardsPage({ profile }: { profile: User }) {
     );
   }
 
-  if (!program?.enabled) {
+  if (!CARDS_FEATURE_ENABLED || !program?.enabled) {
     return (
-      <section className="mx-auto max-w-xl space-y-4 py-10 text-center">
-        <CreditCard className="mx-auto size-10 text-primary-50" />
-        <h1 className="text-2xl font-bold text-cryptoNight dark:text-white">
-          Virtual dollar cards are coming soon
-        </h1>
-        <p className="text-sm text-gray-30 dark:text-gray-40">
-          Spend your USDC and USDT anywhere Visa and Mastercard are accepted,
-          topped up straight from your Kellon wallet.
-        </p>
+      <section className="mx-auto max-w-xl space-y-6 py-16 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50/10 text-primary-50">
+          <CreditCard className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold text-cryptoNight dark:text-white sm:text-3xl">
+            Virtual Dollar Cards Coming Soon
+          </h1>
+          <p className="mx-auto max-w-md text-sm text-gray-30 dark:text-gray-40">
+            We are currently polishing the cards experience. You will soon be able to spend USDC and USDT worldwide anywhere Visa and Mastercard are accepted, topped up straight from your Kellon wallet.
+          </p>
+        </div>
+        <div className="flex justify-center gap-3 pt-2">
+          <Button asChild>
+            <Link href="/">Back to Home</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/earn">Explore Earn</Link>
+          </Button>
+        </div>
       </section>
     );
   }

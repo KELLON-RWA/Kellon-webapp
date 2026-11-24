@@ -119,12 +119,12 @@ const kellonFeatures = [
     href: "/bridge",
     keywords: "bridge chain network crosschain transfer lifi",
   },
-  {
-    label: "Cards",
-    description: "Manage your Kellon cards",
-    href: "/cards",
-    keywords: "card virtual payment spend",
-  },
+  // {
+  //   label: "Cards",
+  //   description: "Manage your Kellon cards",
+  //   href: "/cards",
+  //   keywords: "card virtual payment spend",
+  // },
   {
     label: "Invoices",
     description: "Create and manage payment invoices",

@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   Clock3,
-  CreditCard,
   Gift,
   Home,
   PanelLeftClose,
@@ -23,7 +22,7 @@ import type { User } from "@/types/db";
 
 const items = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/cards", label: "Cards", icon: CreditCard },
+  // { href: "/cards", label: "Cards", icon: CreditCard },
   { href: "/earn", label: "Earn", icon: Icons.Earn },
   { href: "/rewards", label: "Rewards", icon: Gift },
   { href: "/transactions", label: "Activity", icon: Clock3 },

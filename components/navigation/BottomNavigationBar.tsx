@@ -50,7 +50,12 @@ const BottomNavigationBar: FC<BottomNavigationBarProps> = ({
     <section className={cn(className, "fixed bottom-0 w-full")}>
       {/* IMP START - Navigation Menu Container */}
       <nav className="bg-white dark:bg-secondary-50  border-t border-input ">
-        <ul className="grid grid-cols-5">
+        <ul
+          className="grid"
+          style={{
+            gridTemplateColumns: `repeat(${navigationListUrls.length + 1}, minmax(0, 1fr))`,
+          }}
+        >
           {/* IMP START - Render Navigation Items */}
           {navigationListUrls.map(({ label, href, icon }, i) => {
             const Icon = icon && Icons[icon]; // IMP - Dynamically map icon string to actual component

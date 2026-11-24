@@ -11,11 +11,11 @@ export const navigationListUrls: INavigationListUrl[] = [
   //   href: "/swap",
   //   icon: "Swap",
   // },
-  {
-    label: "cards",
-    href: "/cards",
-    icon: "Card",
-  },
+  // {
+  //   label: "cards",
+  //   href: "/cards",
+  //   icon: "Card",
+  // },
   {
     label: "earn",
     href: "/earn",
