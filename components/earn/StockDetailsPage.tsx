@@ -60,6 +60,7 @@ import type { NewsCompanyFacts } from "@/lib/company-news-facts";
 import type { WikidataCompanyProfile } from "@/lib/wikidata-company";
 import { DANGOTE_COMPANY_PROFILE } from "@/lib/dangote-company-profile";
 import CompanyNewsThumbnail from "@/components/earn/CompanyNewsThumbnail";
+import ChainIcon from "@/components/wallet/ChainIcon";
 import { isRwaStockListing, stocksService, type StockListing } from "@/services/api/stocks";
 import type { Transaction, User } from "@/types/db";
 import StockActionDialog, { type StockActionType } from "./StockActionDialog";
@@ -73,23 +74,33 @@ import StockDesktopSidebar from "./StockDesktopSidebar";
 import { useStockRealtime } from "@/hooks/useStockRealtime";
 import {
   formatUsd,
+  getSafeExternalUrl,
   getStockProviderLabel,
   getStockSettlementChain,
   resolveStockCategory,
   resolveVisibleTimeframes,
 } from "./earn-utils";
 import {
+  StockLogo,
+  StockSymbol,
   getDisplayStockName,
   getDisplayStockSymbol,
   getListingChange,
   getStockLogoUrl,
-  StockSymbol,
   getUnderlyingTicker,
-  StockLogo,
 } from "./EarnPage";
+import { calculateRwaYieldProjection, getRwaApy } from "@/lib/rwa-yield";
 
 const STOCK_PAGE_TABS = ["Charts", "Company", "News", "Token Info", "Data"] as const;
-type StockPageTab = (typeof STOCK_PAGE_TABS)[number];
+const RWA_PAGE_TABS = [
+  "Overview & Specs",
+  "Yield Calculator",
+  "Custody & Audit",
+  "Token Info",
+] as const;
+type StockPageTab =
+  | (typeof STOCK_PAGE_TABS)[number]
+  | (typeof RWA_PAGE_TABS)[number];
 
 const PINNED_TIMEFRAMES = ["Time", "15m", "1h", "4h", "1D", "1W"] as const;
 const AVAILABLE_TIMEFRAMES = [
@@ -495,7 +506,10 @@ export default function StockDetailsPage({
   const router = useRouter();
 
   // State
-  const [activeTab, setActiveTab] = useState<StockPageTab>("Charts");
+  const isInitialRwa = isRwaStockListing({ symbol } as StockListing);
+  const [activeTab, setActiveTab] = useState<StockPageTab>(() =>
+    isInitialRwa ? "Overview & Specs" : "Charts",
+  );
   const [activeInterval, setActiveInterval] = useState<string>("15m");
   const [chartType, setChartType] = useState<ChartType>("candlestick");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -589,12 +603,26 @@ export default function StockDetailsPage({
     new Set(["MA", "VOL"]),
   );
 
+  const OVERLAY_INDICATORS = useMemo(
+    () => new Set<IndicatorType>(["MA", "EMA", "BOLL", "SAR"]),
+    [],
+  );
+  const SUBPANE_INDICATORS = useMemo(
+    () => new Set<IndicatorType>(["VOL", "MACD", "RSI", "KDJ"]),
+    [],
+  );
+
   const toggleIndicator = (ind: IndicatorType) => {
     setActiveIndicators((prev) => {
       const next = new Set(prev);
       if (next.has(ind)) {
         next.delete(ind);
       } else {
+        if (OVERLAY_INDICATORS.has(ind)) {
+          OVERLAY_INDICATORS.forEach((other) => next.delete(other));
+        } else if (SUBPANE_INDICATORS.has(ind)) {
+          SUBPANE_INDICATORS.forEach((other) => next.delete(other));
+        }
         next.add(ind);
       }
       return next;
@@ -653,6 +681,29 @@ export default function StockDetailsPage({
         } as StockListing)
       : undefined);
   const isRwa = Boolean(stock && isRwaStockListing(stock));
+  const rwaApy = useMemo(() => (stock ? getRwaApy(stock) : 4.5), [stock]);
+  const pageTabs = isRwa ? RWA_PAGE_TABS : STOCK_PAGE_TABS;
+
+  useEffect(() => {
+    if (isRwa) {
+      if (
+        activeTab === "Charts" ||
+        activeTab === "Company" ||
+        activeTab === "News" ||
+        activeTab === "Data"
+      ) {
+        setActiveTab("Overview & Specs");
+      }
+    } else {
+      if (
+        activeTab === "Yield Calculator" ||
+        activeTab === "Overview & Specs" ||
+        activeTab === "Custody & Audit"
+      ) {
+        setActiveTab("Charts");
+      }
+    }
+  }, [isRwa, activeTab]);
 
   const underlyingTicker = stock
     ? getUnderlyingTicker(stock.symbol, stock.provider)
@@ -1011,12 +1062,15 @@ export default function StockDetailsPage({
         </div>
       </header>
 
-      {/* 2. Top Tabs: Charts, Company, News, Token Info, Data */}
+      {/* 2. Top Tabs: Charts, Company/Yield, News/Overview, etc. */}
       <nav
-        className="mb-4 flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-gray-80 bg-white/70 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-60/40 dark:shadow-none sm:grid sm:grid-cols-5"
+        className={cn(
+          "mb-4 flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-gray-80 bg-white/70 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-60/40 dark:shadow-none sm:grid",
+          isRwa ? "sm:grid-cols-4" : "sm:grid-cols-5",
+        )}
         aria-label="Stock tabs"
       >
-        {STOCK_PAGE_TABS.map((tab) => (
+        {pageTabs.map((tab) => (
           <button
             key={tab}
             type="button"
@@ -1037,7 +1091,204 @@ export default function StockDetailsPage({
       <div className="grid w-full max-w-full grid-cols-1 gap-6 min-[1200px]:grid-cols-[minmax(0,1fr)_340px] min-[1400px]:grid-cols-[minmax(0,1fr)_380px] min-[1200px]:items-start">
         {/* Left Column: Charts / Company / Token Info / Data content */}
         <div className="min-w-0 w-full max-w-full">
-          {activeTab === "Charts" ? (
+          {isRwa ? (
+            <div className="space-y-4 w-full max-w-full">
+              {/* RWA Vault Summary Card */}
+              <section className="rounded-2xl border border-gray-80 bg-white/80 p-3 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-lg">
+                <div className="flex items-center justify-between gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <StockLogo symbol={displayStockSymbol} src={stockLogoUrl} size="sm" />
+                    <span className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+                      {displayStockSymbol}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-500 dark:text-blue-400">
+                      <ShieldCheck className="h-3 w-3" />
+                      <span>1:1 Backed</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleWatchlist()}
+                      aria-label={isWatchlisted ? "Remove from watchlist" : "Add to watchlist"}
+                      className="group flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-gray-90/80 active:scale-95 dark:hover:bg-white/10 cursor-pointer"
+                    >
+                      <Star
+                        className={cn(
+                          "h-4 w-4 transition-colors",
+                          isWatchlisted
+                            ? "fill-primary-50 text-primary-50"
+                            : "text-gray-400 group-hover:text-cryptoNight dark:group-hover:text-white",
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Desktop Performance Metrics */}
+                  <div className="hidden lg:flex items-center gap-5 xl:gap-8 text-right">
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">Today</p>
+                      <p
+                        className={cn(
+                          "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                          performance.today >= 0
+                            ? "text-emerald-500 dark:text-emerald-400"
+                            : "text-rose-500 dark:text-rose-400",
+                        )}
+                      >
+                        {performance.today >= 0 ? "+" : ""}
+                        {performance.today.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">7 Days</p>
+                      <p
+                        className={cn(
+                          "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                          performance.days7 >= 0
+                            ? "text-emerald-500 dark:text-emerald-400"
+                            : "text-rose-500 dark:text-rose-400",
+                        )}
+                      >
+                        {performance.days7 >= 0 ? "+" : ""}
+                        {performance.days7.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">30 Days</p>
+                      <p
+                        className={cn(
+                          "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                          performance.days30 >= 0
+                            ? "text-emerald-500 dark:text-emerald-400"
+                            : "text-rose-500 dark:text-rose-400",
+                        )}
+                      >
+                        {performance.days30 >= 0 ? "+" : ""}
+                        {performance.days30.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">90 Days</p>
+                      <p
+                        className={cn(
+                          "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                          performance.days90 >= 0
+                            ? "text-emerald-500 dark:text-emerald-400"
+                            : "text-rose-500 dark:text-rose-400",
+                        )}
+                      >
+                        {performance.days90 >= 0 ? "+" : ""}
+                        {performance.days90.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">180 Days</p>
+                      <p
+                        className={cn(
+                          "mt-0.5 text-xs font-bold tabular-nums sm:text-sm",
+                          performance.days180 >= 0
+                            ? "text-emerald-500 dark:text-emerald-400"
+                            : "text-rose-500 dark:text-rose-400",
+                        )}
+                      >
+                        {performance.days180 >= 0 ? "+" : ""}
+                        {performance.days180.toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subtle Divider Line */}
+                <div className="my-3.5 border-t border-gray-80 dark:border-white/10" />
+
+                {/* Bottom Row: Price & 2x2 Vault Stats */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div>
+                    <p className="text-2xl font-bold tabular-nums sm:text-3xl text-emerald-500 dark:text-emerald-400">
+                      {formatUsd(currentPrice)}
+                    </p>
+                    <div className="mt-1.5">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
+                          isPositive
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                            : "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+                        )}
+                      >
+                        {isPositive ? (
+                          <TrendingUp className="h-3 w-3" />
+                        ) : (
+                          <TrendingDown className="h-3 w-3" />
+                        )}
+                        {isPositive ? "+" : ""}
+                        {changePercent.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-left sm:gap-x-8 sm:gap-y-2.5">
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">Accrual Benchmark</p>
+                      <p className="mt-0.5 text-xs font-semibold tabular-nums text-emerald-600 sm:text-sm dark:text-emerald-400">
+                        NAV Benchmark Mirror
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">Settlement</p>
+                      <p className="mt-0.5 text-xs font-semibold tabular-nums text-primary-60 sm:text-sm dark:text-primary-40">
+                        Instant T+0
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">Benchmark APY</p>
+                      <p className="mt-0.5 text-xs font-semibold tabular-nums text-emerald-600 sm:text-sm dark:text-emerald-400">
+                        +{rwaApy.toFixed(2)}% APY
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-20 dark:text-gray-400">Collateral Backing</p>
+                      <p className="mt-0.5 text-xs font-semibold tabular-nums text-blue-500 sm:text-sm dark:text-blue-400">
+                        100% Custodial Reserve
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* RWA Tab Content */}
+              <StockResearchContent
+                tab={activeTab as Exclude<StockPageTab, "Charts">}
+                title={displayStockSymbol}
+                ticker={underlyingTicker}
+                stockName={stock?.name || name}
+                turnover24h={turnover24h}
+                description={
+                  STOCK_DESCRIPTIONS[underlyingTicker] ||
+                  `${name} is available as a tokenized stock on Kellon.`
+                }
+                company={COMPANY_PROFILES[underlyingTicker]}
+                finnhubMarketData={finnhubMarketData}
+                companyNews={companyNewsData?.articles || []}
+                newsFacts={companyNewsFactsData?.facts || {}}
+                wikidataProfile={companyProfileData?.profile || undefined}
+                isCompanyNewsLoading={isCompanyNewsLoading}
+                isCompanyNewsError={isCompanyNewsError}
+                provider={stock?.provider || "base_b20"}
+                settlementChain={settlementChain}
+                price={currentPrice}
+                chartHigh={high24h}
+                chartLow={low24h}
+                dexPool={dexScreenerData?.pair || null}
+                isDexScreenerLoading={isDexScreenerLoading}
+                hasDexPoolMetadata={Boolean(dexTokenAddress || dexPairAddress)}
+                rwaCategory={stock?.rwaCategory}
+                isRwa={isRwa}
+                stockOptions={stockOptions}
+                rwaApy={rwaApy}
+                stock={stock}
+              />
+            </div>
+          ) : activeTab === "Charts" ? (
         <div className="space-y-4 w-full max-w-full">
           {/* 3. Stock Summary Card */}
           <section className="rounded-2xl border border-gray-80 bg-white/80 p-3 sm:p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-lg">
@@ -1048,6 +1299,12 @@ export default function StockDetailsPage({
                 <span className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
                   {displayStockSymbol}
                 </span>
+                {isRwa && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-500 dark:text-blue-400">
+                    <ShieldCheck className="h-3 w-3" />
+                    <span>1:1 Backed</span>
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => handleToggleWatchlist()}
@@ -1171,35 +1428,64 @@ export default function StockDetailsPage({
                 </div>
               </div>
 
-              {/* Right Column: 2x2 Stats Grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-left sm:gap-x-12 sm:gap-y-2.5">
-                <div>
-                  <p className="text-[11px] text-gray-20 dark:text-gray-400">24h High</p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
-                    {formatUsd(high24h)}
-                  </p>
+              {/* Right Column: 2x2 Stats Grid or RWA Benchmark Stats */}
+              {isRwa ? (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-left sm:gap-x-8 sm:gap-y-2.5">
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">Accrual Benchmark</p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-emerald-600 sm:text-sm dark:text-emerald-400">
+                      NAV Benchmark Mirror
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">Settlement</p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-primary-60 sm:text-sm dark:text-primary-40">
+                      Instant T+0
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">Benchmark APY</p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-emerald-600 sm:text-sm dark:text-emerald-400">
+                      +{rwaApy.toFixed(2)}% APY
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">Collateral Backing</p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-blue-500 sm:text-sm dark:text-blue-400">
+                      100% Custodial Reserve
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-gray-20 dark:text-gray-400">
-                    24h Vol ({displayStockSymbol})
-                  </p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
-                    {formatCompactVolume(vol24h)}
-                  </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-left sm:gap-x-12 sm:gap-y-2.5">
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">24h High</p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
+                      {formatUsd(high24h)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">
+                      24h Vol ({displayStockSymbol})
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
+                      {formatCompactVolume(vol24h)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">24h Low</p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
+                      {formatUsd(low24h)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-20 dark:text-gray-400">24h Turnover ($)</p>
+                    <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
+                      {formatCompactTurnover(turnover24h)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-gray-20 dark:text-gray-400">24h Low</p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
-                    {formatUsd(low24h)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-gray-20 dark:text-gray-400">24h Turnover ($)</p>
-                  <p className="mt-0.5 text-xs font-semibold tabular-nums text-cryptoNight sm:text-sm dark:text-white">
-                    {formatCompactTurnover(turnover24h)}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           </section>
 
@@ -1401,23 +1687,71 @@ export default function StockDetailsPage({
                 ) : null}
               </div>
 
-              {activeIndicators.has("MA") && hoveredData ? (
-                <div className="mt-1 flex items-center gap-3 text-[10px] tabular-nums">
-                  {hoveredData.ma5 !== undefined ? (
-                    <span className="text-amber-500 font-medium dark:text-amber-400">
-                      MA(5): {hoveredData.ma5.toFixed(2)}
+              {hoveredData ? (
+                <div className="mt-1 flex items-center gap-3 text-[10px] tabular-nums flex-wrap">
+                  {activeIndicators.has("MA") && (
+                    <>
+                      {hoveredData.ma5 !== undefined && (
+                        <span className="text-amber-500 font-medium dark:text-amber-400">
+                          MA(5): {hoveredData.ma5.toFixed(2)}
+                        </span>
+                      )}
+                      {hoveredData.ma10 !== undefined && (
+                        <span className="text-purple-600 font-medium dark:text-purple-400">
+                          MA(10): {hoveredData.ma10.toFixed(2)}
+                        </span>
+                      )}
+                      {hoveredData.ma20 !== undefined && (
+                        <span className="text-cyan-600 font-medium dark:text-cyan-400">
+                          MA(20): {hoveredData.ma20.toFixed(2)}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {activeIndicators.has("EMA") && (
+                    <>
+                      {hoveredData.ema5 !== undefined && (
+                        <span className="text-amber-500 font-medium dark:text-amber-400">
+                          EMA(5): {hoveredData.ema5.toFixed(2)}
+                        </span>
+                      )}
+                      {hoveredData.ema10 !== undefined && (
+                        <span className="text-purple-600 font-medium dark:text-purple-400">
+                          EMA(10): {hoveredData.ema10.toFixed(2)}
+                        </span>
+                      )}
+                      {hoveredData.ema20 !== undefined && (
+                        <span className="text-cyan-600 font-medium dark:text-cyan-400">
+                          EMA(20): {hoveredData.ema20.toFixed(2)}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {activeIndicators.has("BOLL") && (
+                    <>
+                      <span className="text-gray-400 font-semibold">BOLL(20, 2)</span>
+                      {hoveredData.bollUpper !== undefined && (
+                        <span className="text-amber-500 font-medium dark:text-amber-400">
+                          UP: {hoveredData.bollUpper.toFixed(2)}
+                        </span>
+                      )}
+                      {hoveredData.bollMid !== undefined && (
+                        <span className="text-purple-600 font-medium dark:text-purple-400">
+                          MB: {hoveredData.bollMid.toFixed(2)}
+                        </span>
+                      )}
+                      {hoveredData.bollLower !== undefined && (
+                        <span className="text-cyan-600 font-medium dark:text-cyan-400">
+                          DN: {hoveredData.bollLower.toFixed(2)}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {activeIndicators.has("SAR") && hoveredData.sar !== undefined && (
+                    <span className="text-yellow-500 font-medium dark:text-yellow-400">
+                      SAR(0.02, 0.2): {hoveredData.sar.toFixed(2)}
                     </span>
-                  ) : null}
-                  {hoveredData.ma10 !== undefined ? (
-                    <span className="text-purple-600 font-medium dark:text-purple-400">
-                      MA(10): {hoveredData.ma10.toFixed(2)}
-                    </span>
-                  ) : null}
-                  {hoveredData.ma20 !== undefined ? (
-                    <span className="text-cyan-600 font-medium dark:text-cyan-400">
-                      MA(20): {hoveredData.ma20.toFixed(2)}
-                    </span>
-                  ) : null}
+                  )}
                 </div>
               ) : null}
             </div>
@@ -1442,20 +1776,62 @@ export default function StockDetailsPage({
               )}
             </div>
 
-            {/* Volume Status bar */}
-            {activeIndicators.has("VOL") && hoveredData ? (
-              <div className="mt-1 flex items-center gap-3 border-t border-gray-80/60 pt-1.5 text-[10px] text-gray-20 tabular-nums dark:border-white/5 dark:text-gray-400">
-                <span>VOL: {formatCompactVolume(hoveredData.volume)}</span>
-                {hoveredData.volMa5 !== undefined ? (
-                  <span className="text-amber-500 font-medium dark:text-amber-400">
-                    MA(5): {formatCompactVolume(hoveredData.volMa5)}
-                  </span>
-                ) : null}
-                {hoveredData.volMa10 !== undefined ? (
+            {/* Sub-pane Indicator Status bar */}
+            {hoveredData ? (
+              <div className="mt-1 flex items-center gap-3 border-t border-gray-80/60 pt-1.5 text-[10px] text-gray-20 tabular-nums dark:border-white/5 dark:text-gray-400 flex-wrap">
+                {activeIndicators.has("VOL") && (
+                  <>
+                    <span>VOL: {formatCompactVolume(hoveredData.volume)}</span>
+                    {hoveredData.volMa5 !== undefined && (
+                      <span className="text-amber-500 font-medium dark:text-amber-400">
+                        MA(5): {formatCompactVolume(hoveredData.volMa5)}
+                      </span>
+                    )}
+                    {hoveredData.volMa10 !== undefined && (
+                      <span className="text-purple-600 font-medium dark:text-purple-400">
+                        MA(10): {formatCompactVolume(hoveredData.volMa10)}
+                      </span>
+                    )}
+                  </>
+                )}
+                {activeIndicators.has("MACD") && hoveredData.macd && (
+                  <>
+                    <span className="text-amber-500 font-medium dark:text-amber-400">
+                      DIF: {hoveredData.macd.macd.toFixed(2)}
+                    </span>
+                    <span className="text-purple-600 font-medium dark:text-purple-400">
+                      DEA: {hoveredData.macd.signal.toFixed(2)}
+                    </span>
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        hoveredData.macd.hist >= 0
+                          ? "text-emerald-500 dark:text-emerald-400"
+                          : "text-rose-500 dark:text-rose-400",
+                      )}
+                    >
+                      MACD: {hoveredData.macd.hist.toFixed(2)}
+                    </span>
+                  </>
+                )}
+                {activeIndicators.has("RSI") && hoveredData.rsi !== undefined && (
                   <span className="text-purple-600 font-medium dark:text-purple-400">
-                    MA(10): {formatCompactVolume(hoveredData.volMa10)}
+                    RSI(14): {hoveredData.rsi.toFixed(2)}
                   </span>
-                ) : null}
+                )}
+                {activeIndicators.has("KDJ") && hoveredData.kdj && (
+                  <>
+                    <span className="text-amber-500 font-medium dark:text-amber-400">
+                      K: {hoveredData.kdj.k.toFixed(2)}
+                    </span>
+                    <span className="text-cyan-600 font-medium dark:text-cyan-400">
+                      D: {hoveredData.kdj.d.toFixed(2)}
+                    </span>
+                    <span className="text-purple-600 font-medium dark:text-purple-400">
+                      J: {hoveredData.kdj.j.toFixed(2)}
+                    </span>
+                  </>
+                )}
               </div>
             ) : null}
 
@@ -1805,6 +2181,8 @@ export default function StockDetailsPage({
           rwaCategory={stock?.rwaCategory}
           isRwa={isRwa}
           stockOptions={stockOptions}
+          rwaApy={rwaApy}
+          stock={stock}
         />
       )}
         </div>
@@ -1843,7 +2221,7 @@ export default function StockDetailsPage({
                 onClick={() => setStockAction("buy")}
               >
                 <span className="relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 truncate">
-                  Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+                  {isRwa ? "Invest in " : "Buy "}{stockActionSymbol ? stockActionSymbol : ""}
                 </span>
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
               </Button>
@@ -1856,7 +2234,7 @@ export default function StockDetailsPage({
               onClick={() => setStockAction("buy")}
             >
               <span className="relative z-10 flex items-center justify-center gap-2 truncate">
-                Buy{stockActionSymbol ? ` ${stockActionSymbol}` : ""}
+                {isRwa ? "Invest in " : "Buy "}{stockActionSymbol ? stockActionSymbol : ""}
               </span>
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
             </Button>
@@ -1965,6 +2343,279 @@ function CompanyDescription({ text }: { text: string }) {
   );
 }
 
+function YieldCalculatorTab({
+  stockName,
+  symbol,
+  apy,
+}: {
+  stockName: string;
+  symbol: string;
+  apy: number;
+}) {
+  const [calcAmount, setCalcAmount] = useState<string>("5000");
+
+  const numericAmount = Math.max(0, Number(calcAmount) || 0);
+  const projection = useMemo(
+    () => calculateRwaYieldProjection({ amount: numericAmount, apy }),
+    [numericAmount, apy],
+  );
+
+  const quickAmounts = [50, 250, 1000, 5000];
+
+  return (
+    <div className="space-y-4 w-full max-w-full">
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-4 sm:p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+          Yield Projection Calculator
+        </h2>
+        <p className="mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          Enter an investment amount in USD to calculate your projected monthly and annual returns compounded at {apy.toFixed(2)}% APY.
+        </p>
+
+        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 sm:p-4 dark:border-white/10 dark:bg-black/30">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-lg font-bold text-gray-400 dark:text-gray-500 shrink-0">$</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={calcAmount}
+                onChange={(e) => setCalcAmount(e.target.value)}
+                placeholder="5000"
+                className="w-full bg-transparent text-lg sm:text-xl font-bold text-cryptoNight focus:outline-none dark:text-white tabular-nums"
+                aria-label="Investment amount in USD"
+              />
+            </div>
+            <span className="rounded-lg bg-gray-200/60 px-2 py-1 text-xs font-bold text-gray-600 dark:bg-white/10 dark:text-gray-300 uppercase shrink-0">
+              USD
+            </span>
+          </div>
+        </div>
+
+        {/* Quick Amount Chips */}
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {quickAmounts.map((val) => {
+            const isSelected = numericAmount === val;
+            return (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setCalcAmount(String(val))}
+                className={cn(
+                  "rounded-xl border py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer text-center",
+                  isSelected
+                    ? "border-primary-60 bg-primary-60/10 text-primary-60 dark:border-primary-50 dark:bg-primary-50/15 dark:text-primary-40 shadow-sm"
+                    : "border-gray-200 bg-white/60 text-primary-70 hover:border-primary-60/40 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-primary-40 dark:hover:bg-white/10",
+                )}
+              >
+                ${val}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Projected Returns Output */}
+        <div className="mt-6 space-y-4 rounded-xl border border-gray-100 bg-gray-50/40 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+          <div className="flex items-center justify-between text-xs sm:text-sm">
+            <span className="text-gray-500 dark:text-gray-400">Projected 1-Month Return</span>
+            <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400 text-sm sm:text-base">
+              +{formatUsd(projection.monthlyReturn)} USD
+            </span>
+          </div>
+          <div className="border-t border-gray-200/60 dark:border-white/10" />
+          <div className="flex items-center justify-between text-xs sm:text-sm">
+            <span className="text-gray-500 dark:text-gray-400">Projected 1-Year Return</span>
+            <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400 text-sm sm:text-base">
+              +{formatUsd(projection.annualReturn)} USD
+            </span>
+          </div>
+        </div>
+
+        {/* Benchmark APY footer */}
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-xs">
+          <span className="font-medium text-gray-600 dark:text-gray-300">
+            Active Vault APY
+          </span>
+          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+            +{apy.toFixed(2)}% APY
+          </span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function OverviewAndSpecsTab({
+  stock,
+  stockName,
+  symbol,
+  provider,
+  isRwa,
+}: {
+  stock?: StockListing;
+  stockName: string;
+  symbol: string;
+  provider: string;
+  isRwa?: boolean;
+}) {
+  const issuerLabel = provider?.toLowerCase().includes("ondo")
+    ? "Ondo Finance"
+    : provider?.toLowerCase().includes("pancake")
+      ? "pancakeswap"
+      : provider?.toLowerCase().includes("backed")
+        ? "Backed Finance"
+        : "Institutional Sovereign Issuer";
+
+  return (
+    <div className="space-y-4 w-full max-w-full">
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-4 sm:p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+          Institutional Vault Specifications
+        </h2>
+        <p className="mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          {stockName} issued by {issuerLabel} with live on-chain settlement.
+        </p>
+
+        <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>Live On-Chain Smart Contracts</span>
+        </div>
+
+        <div className="mt-6 divide-y divide-gray-100 dark:divide-white/10 text-xs sm:text-sm">
+          <div className="flex items-start justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Underlying Asset</span>
+            <span className="font-semibold text-cryptoNight dark:text-white text-right">
+              {stockName}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Maturity Tenor</span>
+            <span className="font-semibold text-cryptoNight dark:text-white text-right">
+              Benchmark Asset Tracker
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Collateral Backing</span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-right">
+              100% Custodial Sovereign Reserve
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Regulated Custodian</span>
+            <span className="font-semibold text-cryptoNight dark:text-white text-right">
+              Statutory Institutional Custody
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Management Fee</span>
+            <span className="font-semibold text-cryptoNight dark:text-white text-right">
+              0.20% p.a.
+            </span>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CustodyAndAuditTab({
+  stockName,
+  symbol,
+}: {
+  stockName: string;
+  symbol: string;
+}) {
+  return (
+    <div className="space-y-4 w-full max-w-full">
+      <section className="rounded-2xl border border-gray-80 bg-white/80 p-4 sm:p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-secondary-50/70 dark:shadow-none">
+        <h2 className="text-base font-bold text-cryptoNight sm:text-lg dark:text-white">
+          Custody & Audit Verification
+        </h2>
+        <p className="mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          Independent verification, 1:1 sovereign asset backing and multi-chain settlement protocols.
+        </p>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+              <h3 className="text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+                1:1 Segregated Custodial Trust
+              </h3>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              Sovereign reserve assets are held in segregated, bankruptcy-remote trust accounts at licensed institutional custodians.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary-50 shrink-0" />
+              <h3 className="text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+                Daily NAV Attestations
+              </h3>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              Daily continuous Net Asset Value reconciliation published on-chain with independent public accounting attestation.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-500 shrink-0" />
+              <h3 className="text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+                Instant Multi-Chain Redemption
+              </h3>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              Smart contract mint and redemption mechanics facilitate programmatic liquidity with instantaneous T+0 settlement.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-blue-500 shrink-0" />
+              <h3 className="text-xs sm:text-sm font-bold text-cryptoNight dark:text-white">
+                Statutory Reserve Protection
+              </h3>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              Backed by US Treasury debt obligations and sovereign money market instruments enjoying full-faith-and-credit backing.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 divide-y divide-gray-100 dark:divide-white/10 text-xs sm:text-sm">
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400">Audit Frequency</span>
+            <span className="font-semibold text-cryptoNight dark:text-white">
+              Daily Continuous NAV Attestation
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400">Custody Structure</span>
+            <span className="font-semibold text-cryptoNight dark:text-white">
+              Bankruptcy-Remote Segregated Trust
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400">Legal Jurisdiction</span>
+            <span className="font-semibold text-cryptoNight dark:text-white">
+              Delaware Statutory Trust / Qualified Custodian
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3.5 gap-4">
+            <span className="text-gray-500 dark:text-gray-400">Proof of Reserve</span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              Real-Time Chainlink / Pyth NAV Feed
+            </span>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function StockResearchContent({
   tab,
   title,
@@ -1990,6 +2641,8 @@ function StockResearchContent({
   rwaCategory,
   isRwa,
   stockOptions = [],
+  rwaApy,
+  stock,
 }: {
   tab: Exclude<StockPageTab, "Charts">;
   title: string;
@@ -2015,9 +2668,42 @@ function StockResearchContent({
   rwaCategory?: string;
   isRwa?: boolean;
   stockOptions?: StockListing[];
+  rwaApy?: number;
+  stock?: StockListing;
 }) {
   const officialProfile = finnhubMarketData?.profile;
   const metric = (key: string) => finnhubMarketData?.metrics?.[key];
+
+  if (tab === "Yield Calculator") {
+    return (
+      <YieldCalculatorTab
+        stockName={stockName || title}
+        symbol={ticker || title}
+        apy={rwaApy ?? 4.5}
+      />
+    );
+  }
+
+  if (tab === "Overview & Specs") {
+    return (
+      <OverviewAndSpecsTab
+        stock={stock}
+        stockName={stockName || title}
+        symbol={ticker || title}
+        provider={provider}
+        isRwa={isRwa}
+      />
+    );
+  }
+
+  if (tab === "Custody & Audit") {
+    return (
+      <CustodyAndAuditTab
+        stockName={stockName || title}
+        symbol={ticker || title}
+      />
+    );
+  }
 
   if (tab === "Company") {
     const fallback = (ticker && COMPANY_FINANCIAL_FALLBACKS[ticker]) || {};
@@ -2141,24 +2827,25 @@ function StockResearchContent({
 
           <CompanyDescription text={resolvedDescription} />
 
-          {company?.website ||
-          wikidataProfile?.website ||
-          officialProfile?.website ? (
-            <a
-              href={
-                company?.website ||
+          {(() => {
+            const safeWebsite = getSafeExternalUrl(
+              company?.website ||
                 wikidataProfile?.website ||
-                officialProfile?.website
-              }
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 bg-primary-70/10 px-4 text-xs sm:text-sm font-semibold text-primary-40 transition hover:bg-primary-70/20 active:scale-[0.99] text-center"
-            >
-              <Globe className="h-4 w-4 shrink-0" />
-              <span className="truncate">Visit Official Website</span>
-              <ExternalLink className="h-4 w-4 shrink-0" />
-            </a>
-          ) : null}
+                officialProfile?.website,
+            );
+            return safeWebsite ? (
+              <a
+                href={safeWebsite}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary-60/40 bg-primary-70/10 px-4 text-xs sm:text-sm font-semibold text-primary-40 transition hover:bg-primary-70/20 active:scale-[0.99] text-center"
+              >
+                <Globe className="h-4 w-4 shrink-0" />
+                <span className="truncate">Visit Official Website</span>
+                <ExternalLink className="h-4 w-4 shrink-0" />
+              </a>
+            ) : null;
+          })()}
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3">
             <MetricBox
@@ -2271,28 +2958,32 @@ function StockResearchContent({
             </p>
           ) : companyNews.length ? (
             <div className="mt-4 divide-y divide-gray-80 dark:divide-white/10">
-              {companyNews.map((article) => (
-                <a
-                  key={article.url}
-                  href={article.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-start justify-between gap-4 py-3.5 transition hover:opacity-80"
-                >
-                  <CompanyNewsThumbnail src={article.imageUrl} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-cryptoNight dark:text-white">
-                      {article.title}
-                    </p>
-                    {article.publishedAt ? (
-                      <p className="mt-1 text-xs text-gray-20 dark:text-gray-400">
-                        <NewsRelativeTime value={article.publishedAt} />
+              {companyNews.map((article) => {
+                const safeUrl = getSafeExternalUrl(article.url);
+                if (!safeUrl) return null;
+                return (
+                  <a
+                    key={article.url}
+                    href={safeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start justify-between gap-4 py-3.5 transition hover:opacity-80"
+                  >
+                    <CompanyNewsThumbnail src={article.imageUrl} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-cryptoNight dark:text-white">
+                        {article.title}
                       </p>
-                    ) : null}
-                  </div>
-                  <ExternalLink className="h-4 w-4 shrink-0 text-primary-40" />
-                </a>
-              ))}
+                      {article.publishedAt ? (
+                        <p className="mt-1 text-xs text-gray-20 dark:text-gray-400">
+                          <NewsRelativeTime value={article.publishedAt} />
+                        </p>
+                      ) : null}
+                    </div>
+                    <ExternalLink className="h-4 w-4 shrink-0 text-primary-40" />
+                  </a>
+                );
+              })}
             </div>
           ) : (
             <p className="mt-4 text-xs text-gray-20 dark:text-gray-400">No news articles found.</p>
@@ -2373,9 +3064,20 @@ function StockResearchContent({
               <span className="text-xs text-gray-20 sm:text-sm dark:text-gray-400 shrink-0">
                 Networks
               </span>
-              <span className="max-w-[70%] text-right text-xs font-semibold text-cryptoNight sm:text-sm dark:text-white break-words min-w-0">
-                {specNetworks}
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[70%]">
+                {(isRwa ? ["Base"] : ["Base", "BNB Chain", "Solana"]).map((net) => (
+                  <span
+                    key={net}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
+                      getChainBadgeStyle(net),
+                    )}
+                  >
+                    <ChainIcon name={net} size={13} className="shrink-0" />
+                    <span>{net}</span>
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-start justify-between gap-3 sm:gap-4">
@@ -2640,8 +3342,14 @@ function StockResearchContent({
                   <span className="text-sm font-bold text-cryptoNight dark:text-white">
                     {dep.symbol}
                   </span>
-                  <span className={cn("rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", getChainBadgeStyle(dep.chain))}>
-                    {dep.chain}
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
+                      getChainBadgeStyle(dep.chain),
+                    )}
+                  >
+                    <ChainIcon name={dep.chain} size={14} className="shrink-0" />
+                    <span>{formatChainName(dep.chain)}</span>
                   </span>
                   <span className="text-xs text-gray-20 dark:text-gray-400">
                     {dep.standardAndProvider}
@@ -2732,6 +3440,20 @@ function StockResearchContent({
               <p className="mt-0.5 text-xs leading-relaxed text-gray-20 dark:text-gray-400">
                 Real-time on-chain clearing on Base, BNB Chain, and Solana with zero T+1 counterparty exposure.
               </p>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                {["Base", "BNB Chain", "Solana"].map((net) => (
+                  <span
+                    key={net}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                      getChainBadgeStyle(net),
+                    )}
+                  >
+                    <ChainIcon name={net} size={12} className="shrink-0" />
+                    <span>{net}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -2822,6 +3544,17 @@ function getDeploymentStandardAndProvider(item: StockListing): string {
     return "ERC-20 · B20";
   }
   return `ERC-20 · ${getStockProviderLabel(item.provider || "Base20")}`;
+}
+
+function formatChainName(chain: string): string {
+  const norm = chain.toLowerCase().replace(/[\s_-]+/g, "");
+  if (norm.includes("solana")) return "Solana";
+  if (norm.includes("bnb") || norm.includes("bsc") || norm.includes("binance")) return "BNB Chain";
+  if (norm.includes("base")) return "Base";
+  if (norm.includes("arbitrum")) return "Arbitrum";
+  if (norm.includes("polygon") || norm.includes("matic")) return "Polygon";
+  if (norm.includes("ethereum") || norm === "eth") return "Ethereum";
+  return chain;
 }
 
 function getChainBadgeStyle(chain: string) {

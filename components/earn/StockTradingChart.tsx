@@ -7,6 +7,8 @@ import {
   useMemo,
   useCallback,
 } from "react";
+import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 import type { Candle } from "@/services/api/stock-research";
 
 let lcPromise: Promise<typeof import("lightweight-charts")> | null = null;
@@ -34,8 +36,24 @@ export type HoveredData = {
   ma5?: number;
   ma10?: number;
   ma20?: number;
+  ema5?: number;
+  ema10?: number;
+  ema20?: number;
+  bollUpper?: number;
+  bollMid?: number;
+  bollLower?: number;
+  sar?: number;
   volMa5?: number;
   volMa10?: number;
+  macd?: { macd: number; signal: number; hist: number };
+  rsi?: number;
+  kdj?: { k: number; d: number; j: number };
+};
+
+export type LiveTick = {
+  price: number;
+  volume?: number;
+  timestamp?: number;
 };
 
 interface StockTradingChartProps {
@@ -46,6 +64,7 @@ interface StockTradingChartProps {
   avgSellPrice?: number;
   onHoverDataChange?: (data: HoveredData | null) => void;
   className?: string;
+  liveTick?: LiveTick | null;
 }
 
 function calculateSMA(candles: Candle[], period: number) {
@@ -108,19 +127,23 @@ function calculateBollingerBands(candles: Candle[], period = 20, multiplier = 2)
   const middle: Array<{ time: number; value: number }> = [];
   const lower: Array<{ time: number; value: number }> = [];
 
-  if (candles.length < period) return { upper, middle, lower };
+  if (candles.length < 2) return { upper, middle, lower };
 
-  for (let i = period - 1; i < candles.length; i++) {
+  for (let i = 0; i < candles.length; i++) {
+    const windowSize = Math.min(i + 1, period);
+    if (windowSize < 2) continue;
+
     let sum = 0;
-    for (let j = 0; j < period; j++) {
+    for (let j = 0; j < windowSize; j++) {
       sum += candles[i - j].close;
     }
-    const sma = sum / period;
+    const sma = sum / windowSize;
+
     let varianceSum = 0;
-    for (let j = 0; j < period; j++) {
+    for (let j = 0; j < windowSize; j++) {
       varianceSum += Math.pow(candles[i - j].close - sma, 2);
     }
-    const stdDev = Math.sqrt(varianceSum / period);
+    const stdDev = Math.sqrt(varianceSum / windowSize);
 
     const t = candles[i].time;
     upper.push({ time: t, value: Number((sma + multiplier * stdDev).toFixed(2)) });
@@ -129,6 +152,224 @@ function calculateBollingerBands(candles: Candle[], period = 20, multiplier = 2)
   }
 
   return { upper, middle, lower };
+}
+
+function calculateSAR(candles: Candle[], step = 0.02, max = 0.2) {
+  const result: Array<{ time: number; value: number; isUp: boolean }> = [];
+  if (candles.length < 2) return result;
+
+  let isUpTrend = candles[1].close >= candles[0].close;
+  let af = step;
+  let ep = isUpTrend ? candles[0].high : candles[0].low;
+  let sar = isUpTrend ? candles[0].low : candles[0].high;
+
+  for (let i = 1; i < candles.length; i++) {
+    const prevCandle = candles[i - 1];
+    const currCandle = candles[i];
+
+    if (isUpTrend) {
+      sar = sar + af * (ep - sar);
+      if (prevCandle && i >= 2) {
+        sar = Math.min(sar, candles[i - 1].low, candles[i - 2].low);
+      } else if (prevCandle) {
+        sar = Math.min(sar, prevCandle.low);
+      }
+
+      if (currCandle.low < sar) {
+        isUpTrend = false;
+        sar = ep;
+        ep = currCandle.low;
+        af = step;
+      } else {
+        if (currCandle.high > ep) {
+          ep = currCandle.high;
+          af = Math.min(af + step, max);
+        }
+      }
+    } else {
+      sar = sar + af * (ep - sar);
+      if (prevCandle && i >= 2) {
+        sar = Math.max(sar, candles[i - 1].high, candles[i - 2].high);
+      } else if (prevCandle) {
+        sar = Math.max(sar, prevCandle.high);
+      }
+
+      if (currCandle.high > sar) {
+        isUpTrend = true;
+        sar = ep;
+        ep = currCandle.high;
+        af = step;
+      } else {
+        if (currCandle.low < ep) {
+          ep = currCandle.low;
+          af = Math.min(af + step, max);
+        }
+      }
+    }
+
+    result.push({
+      time: currCandle.time,
+      value: Number(sar.toFixed(2)),
+      isUp: isUpTrend,
+    });
+  }
+
+  return result;
+}
+
+function calculateMACD(
+  candles: Candle[],
+  fast = 12,
+  slow = 26,
+  signalPeriod = 9,
+) {
+  const result: Array<{
+    time: number;
+    macd: number;
+    signal: number;
+    hist: number;
+  }> = [];
+
+  if (candles.length < slow) return result;
+
+  const kFast = 2 / (fast + 1);
+  const kSlow = 2 / (slow + 1);
+  const kSignal = 2 / (signalPeriod + 1);
+
+  let emaFast = candles[0].close;
+  let emaSlow = candles[0].close;
+
+  const macdValues: Array<{ time: number; macd: number }> = [];
+
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i].close;
+    if (i === 0) {
+      emaFast = c;
+      emaSlow = c;
+    } else {
+      emaFast = c * kFast + emaFast * (1 - kFast);
+      emaSlow = c * kSlow + emaSlow * (1 - kSlow);
+    }
+
+    if (i >= slow - 1) {
+      macdValues.push({
+        time: candles[i].time,
+        macd: emaFast - emaSlow,
+      });
+    }
+  }
+
+  if (macdValues.length < signalPeriod) return result;
+
+  let emaSignal = macdValues[0].macd;
+  for (let i = 0; i < macdValues.length; i++) {
+    const macd = macdValues[i].macd;
+    if (i === 0) {
+      emaSignal = macd;
+    } else {
+      emaSignal = macd * kSignal + emaSignal * (1 - kSignal);
+    }
+
+    if (i >= signalPeriod - 1) {
+      const hist = (macd - emaSignal) * 2;
+      result.push({
+        time: macdValues[i].time,
+        macd: Number(macd.toFixed(3)),
+        signal: Number(emaSignal.toFixed(3)),
+        hist: Number(hist.toFixed(3)),
+      });
+    }
+  }
+
+  return result;
+}
+
+function calculateRSI(candles: Candle[], period = 14) {
+  const result: Array<{ time: number; value: number }> = [];
+  if (candles.length <= period) return result;
+
+  let gains = 0;
+  let losses = 0;
+
+  for (let i = 1; i <= period; i++) {
+    const diff = candles[i].close - candles[i - 1].close;
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+
+  const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+  const rsi = 100 - 100 / (1 + rs);
+  result.push({
+    time: candles[period].time,
+    value: Number(rsi.toFixed(2)),
+  });
+
+  for (let i = period + 1; i < candles.length; i++) {
+    const diff = candles[i].close - candles[i - 1].close;
+    const gain = diff > 0 ? diff : 0;
+    const loss = diff < 0 ? -diff : 0;
+
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+    const currentRs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    const currentRsi = 100 - 100 / (1 + currentRs);
+
+    result.push({
+      time: candles[i].time,
+      value: Number(currentRsi.toFixed(2)),
+    });
+  }
+
+  return result;
+}
+
+function calculateKDJ(candles: Candle[], n = 9, m1 = 3, m2 = 3) {
+  const result: Array<{
+    time: number;
+    k: number;
+    d: number;
+    j: number;
+  }> = [];
+
+  if (candles.length < n) return result;
+
+  let prevK = 50;
+  let prevD = 50;
+
+  for (let i = n - 1; i < candles.length; i++) {
+    let lowN = Infinity;
+    let highN = -Infinity;
+
+    for (let j = 0; j < n; j++) {
+      const c = candles[i - j];
+      if (c.low < lowN) lowN = c.low;
+      if (c.high > highN) highN = c.high;
+    }
+
+    const currentClose = candles[i].close;
+    const rsv =
+      highN === lowN ? 50 : ((currentClose - lowN) / (highN - lowN)) * 100;
+
+    const k = (1 / m1) * rsv + ((m1 - 1) / m1) * prevK;
+    const d = (1 / m2) * k + ((m2 - 1) / m2) * prevD;
+    const j = 3 * k - 2 * d;
+
+    prevK = k;
+    prevD = d;
+
+    result.push({
+      time: candles[i].time,
+      k: Number(k.toFixed(2)),
+      d: Number(d.toFixed(2)),
+      j: Number(j.toFixed(2)),
+    });
+  }
+
+  return result;
 }
 
 function formatCandleDateTime(unixSec: number): string {
@@ -150,9 +391,16 @@ export default function StockTradingChart({
   avgSellPrice,
   onHoverDataChange,
   className = "",
+  liveTick = null,
 }: StockTradingChartProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
+  const priceSeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
+  const localCandlesRef = useRef<Candle[]>([]);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const intersectionObserverRef = useRef<IntersectionObserver | null>(null);
 
@@ -164,6 +412,11 @@ export default function StockTradingChart({
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
 
+  // Sync incoming candles prop into localCandlesRef
+  useEffect(() => {
+    localCandlesRef.current = candles.map((c) => ({ ...c }));
+  }, [candles]);
+
   // Pre-calculate technical indicator series data
   const ma5Data = useMemo(() => calculateSMA(candles, 5), [candles]);
   const ma10Data = useMemo(() => calculateSMA(candles, 10), [candles]);
@@ -174,9 +427,14 @@ export default function StockTradingChart({
   const ema20Data = useMemo(() => calculateEMA(candles, 20), [candles]);
 
   const bollData = useMemo(() => calculateBollingerBands(candles, 20, 2), [candles]);
+  const sarData = useMemo(() => calculateSAR(candles), [candles]);
 
   const volMa5Data = useMemo(() => calculateVolumeSMA(candles, 5), [candles]);
   const volMa10Data = useMemo(() => calculateVolumeSMA(candles, 10), [candles]);
+
+  const macdData = useMemo(() => calculateMACD(candles), [candles]);
+  const rsiData = useMemo(() => calculateRSI(candles), [candles]);
+  const kdjData = useMemo(() => calculateKDJ(candles), [candles]);
 
   const ma5DataRef = useRef(ma5Data);
   ma5DataRef.current = ma5Data;
@@ -184,10 +442,30 @@ export default function StockTradingChart({
   ma10DataRef.current = ma10Data;
   const ma20DataRef = useRef(ma20Data);
   ma20DataRef.current = ma20Data;
+
+  const ema5DataRef = useRef(ema5Data);
+  ema5DataRef.current = ema5Data;
+  const ema10DataRef = useRef(ema10Data);
+  ema10DataRef.current = ema10Data;
+  const ema20DataRef = useRef(ema20Data);
+  ema20DataRef.current = ema20Data;
+
+  const bollDataRef = useRef(bollData);
+  bollDataRef.current = bollData;
+  const sarDataRef = useRef(sarData);
+  sarDataRef.current = sarData;
+
   const volMa5DataRef = useRef(volMa5Data);
   volMa5DataRef.current = volMa5Data;
   const volMa10DataRef = useRef(volMa10Data);
   volMa10DataRef.current = volMa10Data;
+
+  const macdDataRef = useRef(macdData);
+  macdDataRef.current = macdData;
+  const rsiDataRef = useRef(rsiData);
+  rsiDataRef.current = rsiData;
+  const kdjDataRef = useRef(kdjData);
+  kdjDataRef.current = kdjData;
 
   // Latest candle data for default readout
   const latestData = useMemo<HoveredData | null>(() => {
@@ -203,10 +481,35 @@ export default function StockTradingChart({
       ma5: ma5Data[ma5Data.length - 1]?.value,
       ma10: ma10Data[ma10Data.length - 1]?.value,
       ma20: ma20Data[ma20Data.length - 1]?.value,
+      ema5: ema5Data[ema5Data.length - 1]?.value,
+      ema10: ema10Data[ema10Data.length - 1]?.value,
+      ema20: ema20Data[ema20Data.length - 1]?.value,
+      bollUpper: bollData.upper[bollData.upper.length - 1]?.value,
+      bollMid: bollData.middle[bollData.middle.length - 1]?.value,
+      bollLower: bollData.lower[bollData.lower.length - 1]?.value,
+      sar: sarData[sarData.length - 1]?.value,
       volMa5: volMa5Data[volMa5Data.length - 1]?.value,
       volMa10: volMa10Data[volMa10Data.length - 1]?.value,
+      macd: macdData[macdData.length - 1],
+      rsi: rsiData[rsiData.length - 1]?.value,
+      kdj: kdjData[kdjData.length - 1],
     };
-  }, [candles, ma5Data, ma10Data, ma20Data, volMa5Data, volMa10Data]);
+  }, [
+    candles,
+    ma5Data,
+    ma10Data,
+    ma20Data,
+    ema5Data,
+    ema10Data,
+    ema20Data,
+    bollData,
+    sarData,
+    volMa5Data,
+    volMa10Data,
+    macdData,
+    rsiData,
+    kdjData,
+  ]);
 
   const latestDataRef = useRef(latestData);
   latestDataRef.current = latestData;
@@ -254,47 +557,57 @@ export default function StockTradingChart({
       }
 
       const container = chartContainerRef.current;
-      const width = container.clientWidth || 600;
-      const height = container.clientHeight || 400;
+      const width =
+        container.clientWidth ||
+        (typeof window !== "undefined"
+          ? Math.min(window.innerWidth - 32, 600)
+          : 320);
+      const height = container.clientHeight || 340;
+
+      const hasSubPane =
+        indicators.has("VOL") ||
+        indicators.has("MACD") ||
+        indicators.has("RSI") ||
+        indicators.has("KDJ");
 
       const chart = lc.createChart(container, {
         width,
         height,
         layout: {
           background: { type: lc.ColorType.Solid, color: "transparent" },
-          textColor: "#94a3b8",
+          textColor: isDark ? "#94a3b8" : "#475569",
           fontSize: 11,
           fontFamily: "inherit",
         },
         grid: {
-          vertLines: { color: "rgba(255, 255, 255, 0.04)" },
-          horzLines: { color: "rgba(255, 255, 255, 0.04)" },
+          vertLines: { color: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.06)" },
+          horzLines: { color: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.06)" },
         },
         crosshair: {
           mode: lc.CrosshairMode.Normal,
           vertLine: {
-            color: "rgba(255, 255, 255, 0.2)",
+            color: isDark ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.25)",
             width: 1,
             style: lc.LineStyle.Dashed,
-            labelBackgroundColor: "#1e293b",
+            labelBackgroundColor: isDark ? "#1e293b" : "#cbd5e1",
           },
           horzLine: {
-            color: "rgba(255, 255, 255, 0.2)",
+            color: isDark ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.25)",
             width: 1,
             style: lc.LineStyle.Dashed,
-            labelBackgroundColor: "#1e293b",
+            labelBackgroundColor: isDark ? "#1e293b" : "#cbd5e1",
           },
         },
         rightPriceScale: {
-          borderColor: "rgba(255, 255, 255, 0.08)",
+          borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)",
           scaleMargins: {
             top: 0.08,
-            bottom: indicators.has("VOL") ? 0.28 : 0.08,
+            bottom: hasSubPane ? 0.28 : 0.08,
           },
-          textColor: "#64748b",
+          textColor: isDark ? "#94a3b8" : "#64748b",
         },
         timeScale: {
-          borderColor: "rgba(255, 255, 255, 0.08)",
+          borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)",
           timeVisible: true,
           secondsVisible: false,
           rightOffset: 6,
@@ -353,8 +666,9 @@ export default function StockTradingChart({
         }));
         priceSeries.setData(lineData);
       }
+      priceSeriesRef.current = priceSeries;
 
-      // 2. Overlaid Indicators (MA / EMA / BOLL)
+      // 2. Overlaid Indicators (MA / EMA / BOLL / SAR)
       if (indicators.has("MA")) {
         const ma5Series = chart.addSeries(lc.LineSeries, {
           color: "#f59e0b",
@@ -405,71 +719,191 @@ export default function StockTradingChart({
         ema20Series.setData(ema20Data.map((d) => ({ time: d.time as any, value: d.value })));
       } else if (indicators.has("BOLL")) {
         const bollUpper = chart.addSeries(lc.LineSeries, {
-          color: "#06b6d4",
+          color: "#f59e0b",
           lineWidth: 1,
-          lineStyle: lc.LineStyle.Dashed,
           priceLineVisible: false,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
         });
         bollUpper.setData(bollData.upper.map((d) => ({ time: d.time as any, value: d.value })));
 
         const bollMid = chart.addSeries(lc.LineSeries, {
           color: "#a855f7",
-          lineWidth: 2,
+          lineWidth: 1,
           priceLineVisible: false,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
         });
         bollMid.setData(bollData.middle.map((d) => ({ time: d.time as any, value: d.value })));
 
         const bollLower = chart.addSeries(lc.LineSeries, {
           color: "#06b6d4",
           lineWidth: 1,
-          lineStyle: lc.LineStyle.Dashed,
           priceLineVisible: false,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
         });
         bollLower.setData(bollData.lower.map((d) => ({ time: d.time as any, value: d.value })));
+      } else if (indicators.has("SAR")) {
+        const sarSeries = chart.addSeries(lc.LineSeries, {
+          color: "#eab308",
+          lineWidth: 2,
+          lineStyle: lc.LineStyle.Dotted,
+          priceLineVisible: false,
+          crosshairMarkerVisible: true,
+          lastValueVisible: false,
+        });
+        sarSeries.setData(sarData.map((d) => ({ time: d.time as any, value: d.value })));
       }
 
-      // 3. Volume Sub-Pane (VOL)
-      if (indicators.has("VOL")) {
-        const volumeSeries = chart.addSeries(lc.HistogramSeries, {
-          priceFormat: { type: "volume" },
-          priceScaleId: "volume-scale",
-        });
+      // 3. Sub-Pane Indicator (VOL / MACD / RSI / KDJ)
+      if (hasSubPane) {
+        if (indicators.has("VOL")) {
+          const volumeSeries = chart.addSeries(lc.HistogramSeries, {
+            priceFormat: { type: "volume" },
+            priceScaleId: "subpane-scale",
+          });
 
-        chart.priceScale("volume-scale").applyOptions({
-          scaleMargins: {
-            top: 0.78,
-            bottom: 0,
-          },
-          borderColor: "transparent",
-        });
+          const volumeData = candles.map((c) => {
+            const isUp = c.close >= c.open;
+            return {
+              time: c.time as any,
+              value: c.volume,
+              color: isUp ? "rgba(16, 185, 129, 0.65)" : "rgba(239, 68, 68, 0.65)",
+            };
+          });
+          volumeSeries.setData(volumeData);
+          volumeSeriesRef.current = volumeSeries;
 
-        const volumeData = candles.map((c) => {
-          const isUp = c.close >= c.open;
-          return {
-            time: c.time as any,
-            value: c.volume,
-            color: isUp ? "rgba(16, 185, 129, 0.65)" : "rgba(239, 68, 68, 0.65)",
-          };
-        });
-        volumeSeries.setData(volumeData);
+          const volMa5Series = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#f59e0b",
+            lineWidth: 1,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          volMa5Series.setData(volMa5Data.map((d) => ({ time: d.time as any, value: d.value })));
 
-        const volMa5Series = chart.addSeries(lc.LineSeries, {
-          priceScaleId: "volume-scale",
-          color: "#f59e0b",
-          lineWidth: 1,
-          priceLineVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        volMa5Series.setData(volMa5Data.map((d) => ({ time: d.time as any, value: d.value })));
+          const volMa10Series = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#a855f7",
+            lineWidth: 1,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          volMa10Series.setData(volMa10Data.map((d) => ({ time: d.time as any, value: d.value })));
+        } else if (indicators.has("MACD")) {
+          const macdHistSeries = chart.addSeries(lc.HistogramSeries, {
+            priceScaleId: "subpane-scale",
+          });
+          macdHistSeries.setData(
+            macdData.map((d) => ({
+              time: d.time as any,
+              value: d.hist,
+              color: d.hist >= 0 ? "rgba(16, 185, 129, 0.75)" : "rgba(239, 68, 68, 0.75)",
+            })),
+          );
 
-        const volMa10Series = chart.addSeries(lc.LineSeries, {
-          priceScaleId: "volume-scale",
-          color: "#a855f7",
-          lineWidth: 1,
-          priceLineVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        volMa10Series.setData(volMa10Data.map((d) => ({ time: d.time as any, value: d.value })));
+          const macdLineSeries = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#f59e0b",
+            lineWidth: 1,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          macdLineSeries.setData(macdData.map((d) => ({ time: d.time as any, value: d.macd })));
+
+          const signalLineSeries = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#a855f7",
+            lineWidth: 1,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          signalLineSeries.setData(macdData.map((d) => ({ time: d.time as any, value: d.signal })));
+        } else if (indicators.has("RSI")) {
+          const rsiSeries = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#a855f7",
+            lineWidth: 2,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          rsiSeries.setData(rsiData.map((d) => ({ time: d.time as any, value: d.value })));
+
+          rsiSeries.createPriceLine({
+            price: 70,
+            color: "rgba(239, 68, 68, 0.5)",
+            lineStyle: lc.LineStyle.Dashed,
+            lineWidth: 1,
+            axisLabelVisible: true,
+            title: "70",
+          });
+          rsiSeries.createPriceLine({
+            price: 30,
+            color: "rgba(16, 185, 129, 0.5)",
+            lineStyle: lc.LineStyle.Dashed,
+            lineWidth: 1,
+            axisLabelVisible: true,
+            title: "30",
+          });
+        } else if (indicators.has("KDJ")) {
+          const kSeries = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#f59e0b",
+            lineWidth: 1,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          kSeries.setData(kdjData.map((d) => ({ time: d.time as any, value: d.k })));
+
+          const dSeries = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#06b6d4",
+            lineWidth: 1,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          dSeries.setData(kdjData.map((d) => ({ time: d.time as any, value: d.d })));
+
+          const jSeries = chart.addSeries(lc.LineSeries, {
+            priceScaleId: "subpane-scale",
+            color: "#a855f7",
+            lineWidth: 1,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          jSeries.setData(kdjData.map((d) => ({ time: d.time as any, value: d.j })));
+
+          kSeries.createPriceLine({
+            price: 80,
+            color: "rgba(239, 68, 68, 0.4)",
+            lineStyle: lc.LineStyle.Dashed,
+            lineWidth: 1,
+            axisLabelVisible: true,
+            title: "80",
+          });
+          kSeries.createPriceLine({
+            price: 20,
+            color: "rgba(16, 185, 129, 0.4)",
+            lineStyle: lc.LineStyle.Dashed,
+            lineWidth: 1,
+            axisLabelVisible: true,
+            title: "20",
+          });
+        }
+
+        try {
+          chart.priceScale("subpane-scale").applyOptions({
+            scaleMargins: {
+              top: 0.78,
+              bottom: 0,
+            },
+            borderColor: "transparent",
+          });
+        } catch (e) {
+          console.warn("Could not configure subpane scale:", e);
+        }
       }
 
       // 4. Position Lines (Avg Buy & Avg Sell)
@@ -531,6 +965,24 @@ export default function StockTradingChart({
         }
       }
 
+      const getHoverValues = (t: number) => ({
+        ma5: ma5DataRef.current.find((d) => d.time === t)?.value,
+        ma10: ma10DataRef.current.find((d) => d.time === t)?.value,
+        ma20: ma20DataRef.current.find((d) => d.time === t)?.value,
+        ema5: ema5DataRef.current.find((d) => d.time === t)?.value,
+        ema10: ema10DataRef.current.find((d) => d.time === t)?.value,
+        ema20: ema20DataRef.current.find((d) => d.time === t)?.value,
+        bollUpper: bollDataRef.current.upper.find((d) => d.time === t)?.value,
+        bollMid: bollDataRef.current.middle.find((d) => d.time === t)?.value,
+        bollLower: bollDataRef.current.lower.find((d) => d.time === t)?.value,
+        sar: sarDataRef.current.find((d) => d.time === t)?.value,
+        volMa5: volMa5DataRef.current.find((d) => d.time === t)?.value,
+        volMa10: volMa10DataRef.current.find((d) => d.time === t)?.value,
+        macd: macdDataRef.current.find((d) => d.time === t),
+        rsi: rsiDataRef.current.find((d) => d.time === t)?.value,
+        kdj: kdjDataRef.current.find((d) => d.time === t),
+      });
+
       // 5. Crosshair Move Subscription
       chart.subscribeCrosshairMove((param: any) => {
         if (!param || !param.time || !param.point || !param.seriesData) {
@@ -541,11 +993,7 @@ export default function StockTradingChart({
         const candle = candlesRef.current.find((c) => c.time === param.time);
         if (candle) {
           isHoveringRef.current = true;
-          const ma5 = ma5DataRef.current.find((d) => d.time === param.time)?.value;
-          const ma10 = ma10DataRef.current.find((d) => d.time === param.time)?.value;
-          const ma20 = ma20DataRef.current.find((d) => d.time === param.time)?.value;
-          const volMa5 = volMa5DataRef.current.find((d) => d.time === param.time)?.value;
-          const volMa10 = volMa10DataRef.current.find((d) => d.time === param.time)?.value;
+          const indValues = getHoverValues(candle.time);
 
           onHoverDataChangeRef.current?.({
             timeStr: formatCandleDateTime(candle.time),
@@ -554,11 +1002,7 @@ export default function StockTradingChart({
             low: candle.low,
             close: candle.close,
             volume: candle.volume,
-            ma5,
-            ma10,
-            ma20,
-            volMa5,
-            volMa10,
+            ...indValues,
           });
         } else {
           resetToLatest();
@@ -575,12 +1019,7 @@ export default function StockTradingChart({
           );
           const visibleCandle = cList[toIndex] || cList[cList.length - 1];
           if (visibleCandle) {
-            const t = visibleCandle.time;
-            const ma5 = ma5DataRef.current.find((d) => d.time === t)?.value;
-            const ma10 = ma10DataRef.current.find((d) => d.time === t)?.value;
-            const ma20 = ma20DataRef.current.find((d) => d.time === t)?.value;
-            const volMa5 = volMa5DataRef.current.find((d) => d.time === t)?.value;
-            const volMa10 = volMa10DataRef.current.find((d) => d.time === t)?.value;
+            const indValues = getHoverValues(visibleCandle.time);
 
             onHoverDataChangeRef.current?.({
               timeStr: formatCandleDateTime(visibleCandle.time),
@@ -589,11 +1028,7 @@ export default function StockTradingChart({
               low: visibleCandle.low,
               close: visibleCandle.close,
               volume: visibleCandle.volume,
-              ma5,
-              ma10,
-              ma20,
-              volMa5,
-              volMa10,
+              ...indValues,
             });
           }
         }
@@ -660,8 +1095,11 @@ export default function StockTradingChart({
         chartInstanceRef.current.remove();
         chartInstanceRef.current = null;
       }
+      priceSeriesRef.current = null;
+      volumeSeriesRef.current = null;
     };
   }, [
+    isDark,
     candles,
     chartType,
     indicators,
@@ -676,18 +1114,98 @@ export default function StockTradingChart({
     bollData,
     volMa5Data,
     volMa10Data,
+    sarData,
+    macdData,
+    rsiData,
+    kdjData,
     resetToLatest,
   ]);
 
+  // Real-time sub-second candle update (Tick-by-tick bar update without re-rendering chart)
+  useEffect(() => {
+    if (!liveTick || !priceSeriesRef.current || liveTick.price <= 0) return;
+    const cList = localCandlesRef.current;
+    if (cList.length === 0) return;
+
+    const last = cList[cList.length - 1];
+    const newPrice = Number(liveTick.price.toFixed(2));
+    const newVol = Number(liveTick.volume || 0);
+
+    last.close = newPrice;
+    if (newPrice > last.high) last.high = newPrice;
+    if (newPrice < last.low) last.low = newPrice;
+    if (newVol > 0) last.volume += newVol;
+
+    try {
+      if (chartType === "candlestick") {
+        priceSeriesRef.current.update({
+          time: last.time as any,
+          open: last.open,
+          high: last.high,
+          low: last.low,
+          close: last.close,
+        });
+      } else {
+        priceSeriesRef.current.update({
+          time: last.time as any,
+          value: last.close,
+        });
+      }
+
+      if (volumeSeriesRef.current) {
+        volumeSeriesRef.current.update({
+          time: last.time as any,
+          value: last.volume,
+          color:
+            last.close >= last.open
+              ? "rgba(16, 185, 129, 0.65)"
+              : "rgba(239, 68, 68, 0.65)",
+        });
+      }
+
+      // Update hover readout if not currently inspecting a historical bar
+      if (!isHoveringRef.current && onHoverDataChangeRef.current) {
+        onHoverDataChangeRef.current({
+          timeStr: formatCandleDateTime(last.time),
+          open: last.open,
+          high: last.high,
+          low: last.low,
+          close: last.close,
+          volume: last.volume,
+          ma5: ma5DataRef.current[ma5DataRef.current.length - 1]?.value,
+          ma10: ma10DataRef.current[ma10DataRef.current.length - 1]?.value,
+          ma20: ma20DataRef.current[ma20DataRef.current.length - 1]?.value,
+          ema5: ema5DataRef.current[ema5DataRef.current.length - 1]?.value,
+          ema10: ema10DataRef.current[ema10DataRef.current.length - 1]?.value,
+          ema20: ema20DataRef.current[ema20DataRef.current.length - 1]?.value,
+          bollUpper: bollDataRef.current.upper[bollDataRef.current.upper.length - 1]?.value,
+          bollMid: bollDataRef.current.middle[bollDataRef.current.middle.length - 1]?.value,
+          bollLower: bollDataRef.current.lower[bollDataRef.current.lower.length - 1]?.value,
+          sar: sarDataRef.current[sarDataRef.current.length - 1]?.value,
+          volMa5: volMa5DataRef.current[volMa5DataRef.current.length - 1]?.value,
+          volMa10: volMa10DataRef.current[volMa10DataRef.current.length - 1]?.value,
+          macd: macdDataRef.current[macdDataRef.current.length - 1],
+          rsi: rsiDataRef.current[rsiDataRef.current.length - 1]?.value,
+          kdj: kdjDataRef.current[kdjDataRef.current.length - 1],
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, [liveTick, chartType]);
+
   return (
     <div
-      className={`relative w-full ${className}`}
+      className={cn("relative w-full max-w-full overflow-hidden", className)}
       onMouseLeave={resetToLatest}
       onPointerLeave={resetToLatest}
       onTouchCancel={resetToLatest}
       onTouchEnd={resetToLatest}
     >
-      <div ref={chartContainerRef} className="h-full w-full" />
+      <div
+        ref={chartContainerRef}
+        className="h-full w-full max-w-full overflow-hidden"
+      />
     </div>
   );
 }

@@ -34,6 +34,8 @@ export interface StockListing {
   ticker?: string;
   /** What to send as `symbol` with this provider. Absent on older backends. */
   tradeKey?: string;
+  /** Annual percentage yield for RWA vaults, treasury funds, and yielding instruments. */
+  apy?: number | string;
 }
 
 const RWA_CATEGORIES = new Set([
@@ -48,7 +50,11 @@ const RWA_CATEGORIES = new Set([
   "treasury",
   "treasuries",
   "private credit",
+  "fixed income",
 ]);
+
+const RWA_SYMBOLS_REGEX =
+  /^(GNT|GNTB|SGOV|TLT|FXI|SHY|IEF|BIL|BND|AGG|GLD|SLV|IAU|USO)(ON|[bcx])?$/i;
 
 function normalizeStockCategory(value?: string): string {
   return (value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
@@ -56,8 +62,10 @@ function normalizeStockCategory(value?: string): string {
 
 export function isRwaStockListing(listing: StockListing): boolean {
   return (
-    /^(GNT|GNTB)[bc]?$/i.test(listing.symbol) ||
-    /\btreasury bills?\b/i.test(listing.name) ||
+    RWA_SYMBOLS_REGEX.test(listing.symbol) ||
+    /\b(treasury|t-bills?|government bonds?|fixed income|sovereign reserve)\b/i.test(
+      listing.name || "",
+    ) ||
     [listing.rwaCategory, listing.category].some((category) =>
       RWA_CATEGORIES.has(normalizeStockCategory(category)),
     )

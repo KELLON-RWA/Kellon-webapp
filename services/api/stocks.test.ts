@@ -77,7 +77,7 @@ describe("stocks service routes", () => {
     );
   });
 
-  it("recognizes the treasury fund when legacy listings omit category metadata", () => {
+  it("recognizes the treasury fund and bond ETFs when legacy listings omit category metadata", () => {
     expect(
       isRwaStockListing({
         ...listing,
@@ -90,6 +90,27 @@ describe("stocks service routes", () => {
         ...listing,
         symbol: "gNTB",
         name: "Nigerian Treasury Bills Fund",
+      }),
+    ).toBe(true);
+    expect(
+      isRwaStockListing({
+        ...listing,
+        symbol: "SGOVon",
+        name: "iShares 0-3 Month T-Bill ETF Ondo Tokenized",
+      }),
+    ).toBe(true);
+    expect(
+      isRwaStockListing({
+        ...listing,
+        symbol: "TLTon",
+        name: "iShares 20+ Year US Government Bond ETF Ondo Tokenized",
+      }),
+    ).toBe(true);
+    expect(
+      isRwaStockListing({
+        ...listing,
+        symbol: "FXIon",
+        name: "iShares China Large-Cap ETF Ondo Tokenized",
       }),
     ).toBe(true);
     expect(
