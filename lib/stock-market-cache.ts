@@ -27,7 +27,7 @@ export type FinnhubStockMarketPayload = {
 };
 
 export type CachedCompanyFundamentals = {
-  profile: any | null;
+  profile: FinnhubStockMarketPayload["profile"] | Record<string, unknown> | null;
   metrics: Record<string, number | string | null>;
 };
 
@@ -112,8 +112,8 @@ export function clearStockDataCache() {
 }
 
 export type CachedNewsPayload = {
-  articles?: any[];
-  facts?: any;
+  articles?: Array<Record<string, unknown>>;
+  facts?: Record<string, unknown>;
   source: string;
 };
 
