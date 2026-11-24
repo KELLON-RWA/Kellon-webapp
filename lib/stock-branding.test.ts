@@ -6,6 +6,10 @@ describe("getCompanyLogoUrl", () => {
     expect(getCompanyLogoUrl(" dpri ")).toBe("/dangote-refinery-logo.png");
   });
 
+  it("uses the official logo for AMD", () => {
+    expect(getCompanyLogoUrl(" amd ")).toBe("/amd-logo.svg");
+  });
+
   it("does not override listings without a registered company logo", () => {
     expect(getCompanyLogoUrl("UNKNOWN")).toBeUndefined();
   });

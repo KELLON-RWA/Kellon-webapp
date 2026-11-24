@@ -8,6 +8,15 @@ describe("getUnderlyingTicker", () => {
     expect(getUnderlyingTicker("AAPLB")).toBe("AAPL");
     expect(getUnderlyingTicker("bAAPL")).toBe("AAPL");
     expect(getUnderlyingTicker("AAPLx", "solana_xstocks")).toBe("AAPL");
+    expect(getUnderlyingTicker("AMC")).toBe("AMC");
+    expect(getUnderlyingTicker("amc")).toBe("AMC");
+    expect(getUnderlyingTicker("AMCc")).toBe("AMC");
+    expect(getUnderlyingTicker("AMCc", "base_b20")).toBe("AMC");
+    expect(getUnderlyingTicker("INTC")).toBe("INTC");
+    expect(getUnderlyingTicker("intc")).toBe("INTC");
+    expect(getUnderlyingTicker("INTCc")).toBe("INTC");
+    expect(getUnderlyingTicker("BNC")).toBe("BNC");
+    expect(getUnderlyingTicker("BNCc")).toBe("BNC");
   });
 
   it("normalizes ondo tickers to underlying instrument ticker", () => {

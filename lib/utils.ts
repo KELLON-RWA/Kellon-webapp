@@ -88,9 +88,34 @@ export function decodeRevertReason(hex: string): string | null {
   }
 }
 
+export function formatLongDecimalsInText(text: string): string {
+  return text.replace(/\b(\d+\.\d{4,})\b/g, (match) => {
+    const num = Number(match);
+    if (isNaN(num)) return match;
+    if (num < 0.001) {
+      return num.toFixed(4).replace(/0+$/, "");
+    }
+    if (num < 1) {
+      return num.toFixed(3).replace(/0+$/, "");
+    }
+    return num.toFixed(2);
+  });
+}
+
+export function parseSuggestedAmount(text: string): number | null {
+  const match = text.match(/reduce (?:the )?amount to ([0-9]+(?:\.[0-9]+)?)/i);
+  if (match && match[1]) {
+    const parsed = parseFloat(match[1]);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
 export function extractHumanErrorMessage(error: unknown): string {
   if (!error) return "An unexpected error occurred.";
-  if (typeof error === "string") return error;
+  if (typeof error === "string") return formatLongDecimalsInText(error);
 
   const err = error as {
     shortMessage?: string;
@@ -107,17 +132,24 @@ export function extractHumanErrorMessage(error: unknown): string {
   const hexMatch = rawText.match(/0x08c379a0[0-9a-fA-F]+/);
   if (hexMatch) {
     const decoded = decodeRevertReason(hexMatch[0]);
-    if (decoded) return decoded;
+    if (decoded) return formatLongDecimalsInText(decoded);
   }
 
   const lower = rawText.toLowerCase();
 
-  // 2. Common balance errors
+  // 2. Common balance errors (only when generic without specific amounts/suggestions)
+  const hasSpecificAdvice =
+    lower.includes("reduce") ||
+    lower.includes("including the") ||
+    lower.includes("fee") ||
+    /\b\d+\.\d+\b/.test(rawText);
+
   if (
-    lower.includes("transfer amount exceeds balance") ||
-    lower.includes("insufficient balance") ||
-    lower.includes("exceeds balance") ||
-    lower.includes("erc20: insufficient")
+    !hasSpecificAdvice &&
+    (lower.includes("transfer amount exceeds balance") ||
+      lower.includes("insufficient balance") ||
+      lower.includes("exceeds balance") ||
+      lower.includes("erc20: insufficient"))
   ) {
     return "Insufficient token balance to complete this transaction.";
   }
@@ -160,12 +192,12 @@ export function extractHumanErrorMessage(error: unknown): string {
     !err.details.includes("0x541d") &&
     err.details.length < 180
   ) {
-    return err.details;
+    return formatLongDecimalsInText(err.details);
   }
 
   // 7. Clean up standard viem messages (strip "Request Arguments: callData: ..." and stack info)
   if (err.shortMessage && err.shortMessage !== "An unknown RPC error occurred.") {
-    return err.shortMessage;
+    return formatLongDecimalsInText(err.shortMessage);
   }
 
   if (err.message) {
@@ -174,7 +206,7 @@ export function extractHumanErrorMessage(error: unknown): string {
       .split("\n")[0]
       .trim();
     if (cleanMsg && cleanMsg !== "An unknown RPC error occurred.") {
-      return cleanMsg;
+      return formatLongDecimalsInText(cleanMsg);
     }
   }
 

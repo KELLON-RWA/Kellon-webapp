@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { decodeRevertReason, extractHumanErrorMessage } from "./utils";
+import {
+  decodeRevertReason,
+  extractHumanErrorMessage,
+  formatLongDecimalsInText,
+  parseSuggestedAmount,
+} from "./utils";
 
 describe("error message extraction", () => {
   it("decodes standard EVM revert reason strings", () => {
@@ -41,5 +46,31 @@ describe("error message extraction", () => {
     const msg = extractHumanErrorMessage(error);
     expect(msg).not.toContain("0x541d63cb");
     expect(msg).not.toContain("Request Arguments:");
+  });
+
+  it("formats long raw decimal numbers in text to readable human numbers", () => {
+    const raw =
+      "You need 0.966242324684277942 USDC including the 0.018945927934985842 USDC fee, but have 0.9472963967492921. Reduce the amount to 0.92 USDC or less.";
+    const formatted = formatLongDecimalsInText(raw);
+    expect(formatted).toBe(
+      "You need 0.966 USDC including the 0.019 USDC fee, but have 0.947. Reduce the amount to 0.92 USDC or less.",
+    );
+  });
+
+  it("parses suggested reduction amount correctly", () => {
+    const message =
+      "You need 0.966 USDC including the 0.019 USDC fee, but have 0.947. Reduce the amount to 0.92 USDC or less.";
+    expect(parseSuggestedAmount(message)).toBe(0.92);
+    expect(parseSuggestedAmount("Reduce amount to 15.5 USDC")).toBe(15.5);
+    expect(parseSuggestedAmount("Network error")).toBeNull();
+  });
+
+  it("preserves actionable backend fee and balance messages with cleaned decimals", () => {
+    const error = new Error(
+      "You need 0.966242324684277942 USDC including the 0.018945927934985842 USDC fee, but have 0.9472963967492921. Reduce the amount to 0.92 USDC or less.",
+    );
+    expect(extractHumanErrorMessage(error)).toBe(
+      "You need 0.966 USDC including the 0.019 USDC fee, but have 0.947. Reduce the amount to 0.92 USDC or less.",
+    );
   });
 });

@@ -38,7 +38,7 @@ export default function MobileFeaturedOpportunities({
                       <img
                         src={stock.logoUrl}
                         alt={`${stock.name} logo`}
-                        className="absolute inset-0 h-full w-full rounded-full bg-white object-contain p-0.5"
+                        className="absolute inset-0 h-full w-full rounded-full object-cover scale-[1.28]"
                         onError={(event) => {
                           event.currentTarget.hidden = true;
                         }}
