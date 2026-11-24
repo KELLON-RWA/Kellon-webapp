@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import {
@@ -18,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import Pagination from "@/components/Pagination";
 import { getRwaCategory, RWA_CATEGORIES } from "@/lib/rwa-category";
+import { getRwaApy } from "@/lib/rwa-yield";
 import AssetNetworkIcon from "@/components/wallet/AssetNetworkIcon";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,8 +50,14 @@ import {
   type YieldOpportunity,
   type YieldPosition,
 } from "@/types/db";
-import EarnActionDialog from "./EarnActionDialog";
-import StockActionDialog, { type StockActionType } from "./StockActionDialog";
+import type { StockActionType } from "./StockActionDialog";
+
+const EarnActionDialog = dynamic(() => import("./EarnActionDialog"), {
+  ssr: false,
+});
+const StockActionDialog = dynamic(() => import("./StockActionDialog"), {
+  ssr: false,
+});
 import {
   formatApy,
   formatMetricUsd,
@@ -369,8 +377,7 @@ export function StockLogo({
             src={src || fallbackSrc}
             alt={`${symbol} logo`}
             className={cn(
-              "absolute inset-0 h-full w-full bg-white object-contain p-1",
-              ticker !== "DPRI" && "dark:bg-secondary-60",
+              "absolute inset-0 h-full w-full rounded-full object-cover scale-[1.28] transition-transform",
             )}
             data-fallback-src={fallbackSrc}
             onError={(event) => {
@@ -405,6 +412,8 @@ const yieldRiskStyles: Record<RiskLevel, string> = {
 function PortfolioSummarySkeleton({ metricCount }: { metricCount: 2 | 3 }) {
   return (
     <section
+      role="status"
+      aria-busy="true"
       aria-label="Loading portfolio summary"
       className="relative mb-6 overflow-hidden rounded-xl border border-white/70 bg-white/70 p-5 shadow-sm shadow-primary-90/30 backdrop-blur-xl md:mb-8 md:rounded-2xl md:p-7 dark:border-white/10 dark:bg-secondary-50/40 dark:shadow-none"
     >
@@ -442,7 +451,11 @@ function YieldOpportunitySkeleton() {
   const rows = Array.from({ length: 6 });
 
   return (
-    <div aria-label="Loading yield opportunities">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading yield opportunities"
+    >
       <div className="md:hidden">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-1 pb-2 text-[11px] font-semibold text-gray-30 dark:text-gray-40">
           <span>Protocol</span>
@@ -505,6 +518,8 @@ function StockListSkeleton({ category }: { category: "stocks" | "rwa" }) {
 
   return (
     <div
+      role="status"
+      aria-busy="true"
       aria-label={`Loading ${category === "rwa" ? "RWA" : "stock"} opportunities`}
     >
       <div className="md:hidden">
@@ -649,7 +664,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const [yieldPage, setYieldPage] = useState(1);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
-  const [rwaCategory, setRwaCategory] = useState("All RWA");
+  const [rwaCategory, setRwaCategory] = useState("All RWAs");
   const [isYieldSearchOpen, setIsYieldSearchOpen] = useState(false);
   const [yieldSearchQuery, setYieldSearchQuery] = useState("");
   const [yieldChainFilter, setYieldChainFilter] = useState("all");
@@ -667,7 +682,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
   } = useQuery({
     queryKey: ["yield-opportunities"],
     queryFn: async () => (await yieldService.getOpportunities()).data,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
+    gcTime: 5 * 60_000,
     refetchInterval: isConnected ? 120_000 : 30_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
@@ -685,7 +702,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
       return response.data;
     },
     enabled: activeTab === "stocks" || activeTab === "rwa",
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
+    gcTime: 5 * 60_000,
     refetchOnWindowFocus: true,
   });
 
@@ -698,7 +717,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
     queryKey: ["stock-portfolio"],
     queryFn: async () => (await stocksService.getPortfolio()).data,
     enabled: activeTab === "stocks" || activeTab === "rwa",
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 
   const {
@@ -709,7 +730,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
     queryKey: ["market-indices"],
     queryFn: async () => (await stocksService.getIndices()).data,
     enabled: activeTab === "stocks",
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
+    gcTime: 5 * 60_000,
   });
 
   useEffect(() => {
@@ -752,7 +775,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
   } = useQuery({
     queryKey: ["yield-positions"],
     queryFn: async () => (await yieldService.getPositions()).data,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
+    gcTime: 5 * 60_000,
     refetchInterval: isConnected ? 120_000 : 30_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
@@ -918,7 +943,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
   const searchedStocks = useMemo(() => {
     const query = stockSearchQuery.trim().toLowerCase();
     const listings =
-      activeTab === "rwa" && rwaCategory !== "All RWA"
+      activeTab === "rwa" && rwaCategory !== "All RWAs"
         ? unifiedStocks.filter((stock) => getRwaCategory(stock) === rwaCategory)
         : unifiedStocks;
     if (!query) return listings;
@@ -981,7 +1006,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
     queryKey: ["stock-charts", chartSymbols],
     queryFn: () => getStockCharts(chartSymbols),
     enabled: chartSymbols.length > 0,
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
+    gcTime: 5 * 60_000,
     refetchInterval: isConnected ? 60_000 : false,
   });
   const stockCharts = chartQuery.data?.charts || {};
@@ -1049,7 +1076,13 @@ export default function EarnPage({ profile }: EarnPageProps) {
   };
   const marketEtfs = useMemo(() => {
     if (marketIndices.length) {
-      return marketIndices;
+      return marketIndices.map((idx) => ({
+        symbol: idx.symbol,
+        name: idx.name,
+        price: Number(idx.price) || 0,
+        currency: idx.currency,
+        change: idx.change24hPercentage,
+      }));
     }
 
     return stocks
@@ -1118,8 +1151,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
           setRwaCategory(value);
           setStockPage(1);
         }}
-        allValue="All RWA"
-        allLabel="All RWA"
+        allValue="All RWAs"
+        allLabel="All RWAs"
         filterLabel="Filter RWA by category"
         iconOnly
       />
@@ -1152,11 +1185,12 @@ export default function EarnPage({ profile }: EarnPageProps) {
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-[1600px] px-4 pb-32 pt-4 md:px-6 md:pb-12 md:max-lg:pt-20 lg:max-w-none lg:px-6 lg:pt-3.5 xl:px-8">
       <div className="relative z-10 mb-5 flex w-fit items-center gap-2 md:mb-6">
-        <section
+        <div
+          role="tablist"
           aria-label="Earn categories"
           className="grid w-full grid-cols-3 items-center gap-1 rounded-xl border border-gray-80 bg-white/60 p-1 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-secondary-50/40 md:inline-flex md:w-auto md:rounded-full"
         >
-          {earnCategories.map((category) => {
+          {earnCategories.map((category, index) => {
             const isActive = activeTab === category.id;
             const CategoryIcon =
               category.id === "yield"
@@ -1168,13 +1202,35 @@ export default function EarnPage({ profile }: EarnPageProps) {
             return (
               <button
                 key={category.id}
+                id={`tab-${category.id}`}
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`panel-${category.id}`}
+                tabIndex={isActive ? 0 : -1}
                 type="button"
-                aria-pressed={isActive}
                 onClick={() => {
                   selectCategory(category.id);
                 }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight") {
+                    event.preventDefault();
+                    const next =
+                      earnCategories[(index + 1) % earnCategories.length].id;
+                    selectCategory(next);
+                    document.getElementById(`tab-${next}`)?.focus();
+                  } else if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    const prev =
+                      earnCategories[
+                        (index - 1 + earnCategories.length) %
+                          earnCategories.length
+                      ].id;
+                    selectCategory(prev);
+                    document.getElementById(`tab-${prev}`)?.focus();
+                  }
+                }}
                 className={cn(
-                  "flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-center transition md:rounded-full md:py-1.5 md:px-4",
+                  "flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 md:rounded-full md:py-1.5 md:px-4",
                   isActive
                     ? "bg-gradient-to-r from-primary-70 to-primary-60 text-white dark:bg-primary-70 dark:bg-none"
                     : "text-gray-30 hover:bg-gray-90 dark:text-gray-40 dark:hover:bg-white/10",
@@ -1190,7 +1246,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
               </button>
             );
           })}
-        </section>
+        </div>
       </div>
 
       {error && !isSecureSessionError ? (
@@ -1207,7 +1263,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
       ) : null}
 
       {activeTab === "yield" ? (
-        <>
+        <div id="panel-yield" role="tabpanel" aria-labelledby="tab-yield">
           {isYieldLoading ? (
             <PortfolioSummarySkeleton metricCount={2} />
           ) : (
@@ -1266,12 +1322,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
               </section>
             </>
           )}
-        </>
-      ) : null}
 
-      <section className="w-full">
-        {activeTab === "yield" ? (
-          <>
+          <div className="w-full">
             <div className="mb-4 min-h-8">
               {isYieldSearchOpen ? (
                 <>
@@ -1283,6 +1335,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       />
                       <input
                         ref={mobileYieldSearchInputRef}
+                        id="mobile-yield-search"
                         value={yieldSearchQuery}
                         onChange={(event) =>
                           setYieldSearchQuery(event.target.value)
@@ -1295,6 +1348,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         }}
                         placeholder="Search yield"
                         aria-label="Search yield opportunities"
+                        autoComplete="off"
                         className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                       />
                       {yieldSearchQuery ? (
@@ -1304,7 +1358,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           aria-label="Clear yield search"
                           className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-4 w-4" aria-hidden="true" />
                         </button>
                       ) : null}
                     </div>
@@ -1314,6 +1368,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         setIsYieldSearchOpen(false);
                         setYieldSearchQuery("");
                       }}
+                      aria-label="Cancel yield search"
                       className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                     >
                       Cancel
@@ -1332,6 +1387,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         />
                         <input
                           ref={desktopYieldSearchInputRef}
+                          id="desktop-yield-search"
                           value={yieldSearchQuery}
                           onChange={(event) =>
                             setYieldSearchQuery(event.target.value)
@@ -1344,6 +1400,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           }}
                           placeholder="Search yield"
                           aria-label="Search yield opportunities"
+                          autoComplete="off"
                           className="h-8 w-full rounded-xl border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                         />
                         {yieldSearchQuery ? (
@@ -1353,7 +1410,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             aria-label="Clear yield search"
                             className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4" aria-hidden="true" />
                           </button>
                         ) : null}
                       </div>
@@ -1363,6 +1420,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           setIsYieldSearchOpen(false);
                           setYieldSearchQuery("");
                         }}
+                        aria-label="Cancel yield search"
                         className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         Cancel
@@ -1391,7 +1449,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       aria-expanded={isYieldSearchOpen}
                       className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
                     >
-                      <Search className="h-4 w-4" />
+                      <Search className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -1410,7 +1468,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           type="button"
                           onClick={() => openYieldOpportunity(opportunity)}
                           disabled={positionsLoading}
-                          className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
+                          aria-label={`Deposit into ${getProtocolName(opportunity.protocol)} ${opportunity.symbol} on ${opportunity.chain}, APY ${formatApy(opportunity.apy)}`}
+                          className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 active:bg-primary-90/[0.08] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <AssetNetworkIcon
@@ -1442,16 +1501,28 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </div>
 
                 <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
-                  <table className="w-full min-w-[720px] border-collapse text-left">
+                  <table
+                    className="w-full min-w-[720px] border-collapse text-left"
+                    aria-label="Yield opportunities"
+                  >
                     <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
                       <tr>
-                        <th className="px-5 py-3 font-semibold">Protocol</th>
-                        <th className="px-4 py-3 text-right font-semibold">
+                        <th scope="col" className="px-5 py-3 font-semibold">
+                          Protocol
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-right font-semibold"
+                        >
                           Est. APY
                         </th>
-                        <th className="px-4 py-3 font-semibold">Risk</th>
-                        <th className="px-4 py-3 font-semibold">Network</th>
-                        <th className="px-5 py-3" aria-label="Action" />
+                        <th scope="col" className="px-4 py-3 font-semibold">
+                          Risk
+                        </th>
+                        <th scope="col" className="px-4 py-3 font-semibold">
+                          Network
+                        </th>
+                        <th scope="col" className="px-5 py-3" aria-label="Action" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-80 dark:divide-white/10">
@@ -1505,7 +1576,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               )}
                             </td>
                             <td className="px-4 py-3.5">
-                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-90 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
+                              <span className="inline-flex rounded-md border border-primary-90/25 bg-primary-90/15 px-2.5 py-1 text-[10px] font-bold text-primary-50 dark:border-primary-70/45 dark:bg-primary-70/30 dark:text-primary-20">
                                 {opportunity.chain}
                               </span>
                             </td>
@@ -1514,15 +1585,19 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 type="button"
                                 variant="flow"
                                 size="sm"
-                                className="h-9 shrink-0 px-4"
+                                className="h-9 shrink-0 px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60"
                                 disabled={positionsLoading}
+                                aria-label={`Deposit into ${getProtocolName(opportunity.protocol)} ${opportunity.symbol}`}
                                 onClick={() =>
                                   openYieldOpportunity(opportunity)
                                 }
                               >
                                 <span className="relative z-10 flex items-center justify-center gap-1.5">
                                   Deposit
-                                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                                  <ArrowRight
+                                    className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+                                    aria-hidden="true"
+                                  />
                                 </span>
                               </Button>
                             </td>
@@ -1553,9 +1628,14 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </div>
               </div>
             )}
-          </>
-        ) : (
-          <div>
+          </div>
+        </div>
+      ) : (
+        <div
+          id={`panel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`tab-${activeTab}`}
+        >
             {stockPortfolioLoading ? (
               <PortfolioSummarySkeleton metricCount={2} />
             ) : (
@@ -1651,7 +1731,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           behavior: "smooth",
                         })
                       }
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-30"
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-30"
                     >
                       <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                     </button>
@@ -1664,7 +1744,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           behavior: "smooth",
                         })
                       }
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-30"
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-80 text-gray-30 transition hover:border-primary-90 hover:text-primary-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 dark:border-white/10 dark:text-gray-40 dark:hover:border-primary-70 dark:hover:text-primary-30"
                     >
                       <ChevronRight className="h-4 w-4" aria-hidden="true" />
                     </button>
@@ -1672,7 +1752,10 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </div>
                 <div
                   ref={marketEtfsRef}
-                  className="mr-[calc(50%_-_50vw)] flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mr-0 md:pr-0"
+                  role="region"
+                  aria-label="Market ETFs"
+                  tabIndex={0}
+                  className="mr-[calc(50%_-_50vw)] flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mr-0 md:pr-0"
                 >
                   {marketEtfs.map((idx) => (
                     <div
@@ -1687,10 +1770,26 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       <p className="mt-0.5 line-clamp-2 flex-1 text-[9px] leading-[0.875rem] text-gray-30 dark:text-gray-40 md:mt-1 md:text-[11px] md:leading-4">
                         {idx.name}
                       </p>
-                      <div className="mt-2 flex flex-col items-start gap-0.5 md:mt-3">
+                      <div className="mt-2 flex items-baseline justify-between gap-1 md:mt-3">
                         <p className="truncate text-xs font-bold text-cryptoNight dark:text-white min-[360px]:text-sm md:text-base">
                           ${idx.price.toFixed(2)}
                         </p>
+                        {idx.change !== undefined ? (
+                          <span
+                            className={cn(
+                              "text-[10px] font-semibold tabular-nums",
+                              idx.change >= 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-rose-600 dark:text-rose-400",
+                            )}
+                          >
+                            <span className="sr-only">
+                              {idx.change >= 0 ? "Increased by" : "Decreased by"}
+                            </span>
+                            {idx.change >= 0 ? "+" : ""}
+                            {idx.change.toFixed(2)}%
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   ))}
@@ -1709,6 +1808,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       />
                       <input
                         ref={mobileStockSearchInputRef}
+                        id="mobile-stock-search"
                         value={stockSearchQuery}
                         onChange={(event) =>
                           setStockSearchQuery(event.target.value)
@@ -1721,16 +1821,17 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         }}
                         placeholder={`Search ${assetCategoryLabel.toLowerCase()} opportunities`}
                         aria-label={`Search ${assetCategoryLabel} opportunities`}
+                        autoComplete="off"
                         className="h-10 w-full rounded-xl border border-gray-80 bg-white py-2 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                       />
                       {stockSearchQuery ? (
                         <button
                           type="button"
                           onClick={() => setStockSearchQuery("")}
-                          aria-label="Clear stock search"
+                          aria-label={`Clear ${assetCategoryLabel.toLowerCase()} search`}
                           className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-4 w-4" aria-hidden="true" />
                         </button>
                       ) : null}
                     </div>
@@ -1740,6 +1841,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         setIsStockSearchOpen(false);
                         setStockSearchQuery("");
                       }}
+                      aria-label={`Cancel ${assetCategoryLabel.toLowerCase()} search`}
                       className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                     >
                       Cancel
@@ -1758,6 +1860,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         />
                         <input
                           ref={desktopStockSearchInputRef}
+                          id="desktop-stock-search"
                           value={stockSearchQuery}
                           onChange={(event) =>
                             setStockSearchQuery(event.target.value)
@@ -1770,16 +1873,17 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           }}
                           placeholder={`Search ${assetCategoryLabel.toLowerCase()} opportunities`}
                           aria-label={`Search ${assetCategoryLabel} opportunities`}
+                          autoComplete="off"
                           className="h-8 w-full rounded-xl border border-gray-80 bg-white py-1 pl-10 pr-10 text-sm text-cryptoNight backdrop-blur-xl outline-none caret-primary-90 transition-all placeholder:text-gray-30 focus:border-primary-60 focus:ring-1 focus:ring-primary-50 dark:border-white/10 dark:bg-secondary-50/55 dark:text-white dark:caret-primary-30 dark:placeholder:text-white/38 dark:focus:border-primary-80 dark:focus:ring-primary-80/70"
                         />
                         {stockSearchQuery ? (
                           <button
                             type="button"
                             onClick={() => setStockSearchQuery("")}
-                            aria-label="Clear stock search"
+                            aria-label={`Clear ${assetCategoryLabel.toLowerCase()} search`}
                             className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-30 transition hover:bg-gray-90 hover:text-cryptoNight dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4" aria-hidden="true" />
                           </button>
                         ) : null}
                       </div>
@@ -1789,6 +1893,7 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           setIsStockSearchOpen(false);
                           setStockSearchQuery("");
                         }}
+                        aria-label={`Cancel ${assetCategoryLabel.toLowerCase()} search`}
                         className="shrink-0 cursor-pointer text-sm text-gray-30 transition hover:text-cryptoNight dark:text-gray-40 dark:hover:text-white"
                       >
                         Cancel
@@ -1808,9 +1913,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                       onClick={() => setIsStockSearchOpen(true)}
                       aria-label={`Search ${assetCategoryLabel} opportunities`}
                       aria-expanded={isStockSearchOpen}
-                      className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
+                      className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-30 transition hover:bg-primary-90/[0.08] hover:text-primary-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 dark:text-gray-40 dark:hover:bg-white/[0.08] dark:hover:text-primary-60"
                     >
-                      <Search className="h-4 w-4" />
+                      <Search className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -1832,8 +1937,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                         onPointerEnter={() => prefetchStockDetails(stock)}
                         onFocus={() => prefetchStockDetails(stock)}
                         onClick={() => openStockDetails(stock)}
-                        aria-label={`View ${getDisplayStockSymbol(stock.symbol, stock.provider)}`}
-                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] active:bg-primary-90/[0.08] dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
+                        aria-label={`View ${getDisplayStockSymbol(stock.symbol, stock.provider)} details`}
+                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-80 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary-90/40 hover:bg-primary-90/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 active:bg-primary-90/[0.08] dark:border-white/10 dark:bg-secondary-50/65 dark:shadow-none dark:hover:border-primary-70/50 dark:hover:bg-white/[0.04] dark:active:bg-white/[0.07]"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <StockLogo
@@ -1857,7 +1962,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
                           <p className="text-sm font-normal tabular-nums text-cryptoNight dark:text-white">
                             {formatUsd(Number(stock.price) || 0)}
                           </p>
-                          {(() => {
+                          {activeTab === "rwa" ? (
+                            <p className="mt-0.5 text-xs font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                              +{getRwaApy(stock).toFixed(2)}% APY
+                            </p>
+                          ) : (() => {
                             const change = getListingChange(
                               stock,
                               stockChartChanges[
@@ -1876,6 +1985,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                     : "text-rose-600 dark:text-rose-400",
                                 )}
                               >
+                                <span className="sr-only">
+                                  {change >= 0 ? "Increased by" : "Decreased by"}
+                                </span>
                                 {change >= 0 ? "+" : ""}
                                 {change.toFixed(2)}%
                               </p>
@@ -1888,53 +2000,97 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </div>
 
                 <div className="hidden overflow-x-auto rounded-2xl border border-gray-80 bg-white/70 dark:border-white/10 dark:bg-secondary-50/65 md:block">
-                  <table className="w-full min-w-[680px] border-collapse text-left">
+                  <table
+                    className="w-full min-w-[680px] border-collapse text-left"
+                    aria-label={`${assetCategoryLabel} opportunities`}
+                  >
                     <thead className="border-b border-gray-80 bg-gray-95 text-[11px] text-gray-30 dark:border-white/10 dark:bg-secondary-50 dark:text-gray-40">
                       <tr>
-                        <th className="px-5 py-3 font-semibold">
+                        <th
+                          scope="col"
+                          className="px-5 py-3 font-semibold"
+                          aria-sort={
+                            stockSort.key === "name"
+                              ? stockSort.direction === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : "none"
+                          }
+                        >
                           <button
                             type="button"
                             onClick={() => toggleStockSort("name")}
-                            className="inline-flex items-center gap-1 hover:text-cryptoNight dark:hover:text-white"
+                            aria-label={`Sort by Name ${stockSort.key === "name" && stockSort.direction === "asc" ? "descending" : "ascending"}`}
+                            className="inline-flex items-center gap-1 rounded hover:text-cryptoNight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 dark:hover:text-white"
                           >
                             Name
-                            {stockSort.key === "name"
-                              ? stockSort.direction === "asc"
-                                ? " ↑"
-                                : " ↓"
-                              : ""}
+                            <span aria-hidden="true">
+                              {stockSort.key === "name"
+                                ? stockSort.direction === "asc"
+                                  ? " ↑"
+                                  : " ↓"
+                                : ""}
+                            </span>
                           </button>
                         </th>
-                        <th className="px-4 py-3 text-right font-semibold">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-right font-semibold"
+                          aria-sort={
+                            stockSort.key === "price"
+                              ? stockSort.direction === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : "none"
+                          }
+                        >
                           <button
                             type="button"
                             onClick={() => toggleStockSort("price")}
-                            className="inline-flex items-center gap-1 hover:text-cryptoNight dark:hover:text-white"
+                            aria-label={`Sort by Price ${stockSort.key === "price" && stockSort.direction === "asc" ? "descending" : "ascending"}`}
+                            className="inline-flex items-center gap-1 rounded hover:text-cryptoNight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 dark:hover:text-white"
                           >
                             Price
-                            {stockSort.key === "price"
-                              ? stockSort.direction === "asc"
-                                ? " ↑"
-                                : " ↓"
-                              : ""}
+                            <span aria-hidden="true">
+                              {stockSort.key === "price"
+                                ? stockSort.direction === "asc"
+                                  ? " ↑"
+                                  : " ↓"
+                                : ""}
+                            </span>
                           </button>
                         </th>
-                        <th className="px-4 py-3 text-right font-semibold">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-right font-semibold"
+                          aria-sort={
+                            stockSort.key === "change"
+                              ? stockSort.direction === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : "none"
+                          }
+                        >
                           <button
                             type="button"
                             onClick={() => toggleStockSort("change")}
-                            className="inline-flex items-center gap-1 hover:text-cryptoNight dark:hover:text-white"
+                            aria-label={`Sort by 24h change ${stockSort.key === "change" && stockSort.direction === "asc" ? "descending" : "ascending"}`}
+                            className="inline-flex items-center gap-1 rounded hover:text-cryptoNight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 dark:hover:text-white"
                           >
-                            24h change
-                            {stockSort.key === "change"
-                              ? stockSort.direction === "asc"
-                                ? " ↑"
-                                : " ↓"
-                              : ""}
+                            {activeTab === "rwa" ? "Yield / APY" : "24h change"}
+                            <span aria-hidden="true">
+                              {stockSort.key === "change"
+                                ? stockSort.direction === "asc"
+                                  ? " ↑"
+                                  : " ↓"
+                                : ""}
+                            </span>
                           </button>
                         </th>
-                        <th className="px-4 py-3 font-semibold">Last 24h</th>
-                        <th className="px-5 py-3" aria-label="Action" />
+                        <th scope="col" className="px-4 py-3 font-semibold">
+                          Last 24h
+                        </th>
+                        <th scope="col" className="px-5 py-3" aria-label="Action" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-80 dark:divide-white/10">
@@ -1962,8 +2118,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                             }}
                             tabIndex={0}
                             role="link"
-                            aria-label={`View ${getDisplayStockSymbol(stock.symbol, stock.provider)}`}
-                            className="cursor-pointer transition-colors hover:bg-primary-90/[0.035] dark:hover:bg-white/[0.025]"
+                            aria-label={`View ${getDisplayStockSymbol(stock.symbol, stock.provider)} details`}
+                            className="cursor-pointer transition-colors hover:bg-primary-90/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60 dark:hover:bg-white/[0.025]"
                           >
                             <td className="px-5 py-3.5">
                               <div className="flex min-w-0 items-center gap-3">
@@ -1997,7 +2153,11 @@ export default function EarnPage({ profile }: EarnPageProps) {
                               </p>
                             </td>
                             <td className="px-4 py-3.5 text-right">
-                              {change === undefined ? (
+                              {activeTab === "rwa" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                  +{getRwaApy(stock).toFixed(2)}% APY
+                                </span>
+                              ) : change === undefined ? (
                                 <span className="text-sm text-gray-30 dark:text-gray-40">
                                   —
                                 </span>
@@ -2010,6 +2170,9 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                       : "text-rose-600 dark:text-rose-400",
                                   )}
                                 >
+                                  <span className="sr-only">
+                                    {change >= 0 ? "Increased by" : "Decreased by"}
+                                  </span>
                                   {change >= 0 ? "+" : ""}
                                   {change.toFixed(2)}%
                                 </span>
@@ -2032,14 +2195,15 @@ export default function EarnPage({ profile }: EarnPageProps) {
                                 type="button"
                                 variant="flow"
                                 size="sm"
-                                className="h-9 px-4"
+                                className="h-9 px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-60"
+                                aria-label={`Buy ${getDisplayStockSymbol(stock.symbol, stock.provider)}`}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   openStockDetails(stock);
                                 }}
                               >
                                 <span className="relative z-10 flex items-center gap-1.5">
-                                  Buy <ArrowRight className="h-3.5 w-3.5" />
+                                  Buy <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                                 </span>
                               </Button>
                             </td>
@@ -2066,9 +2230,8 @@ export default function EarnPage({ profile }: EarnPageProps) {
                 </p>
               </div>
             )}
-          </div>
-        )}
-      </section>
+        </div>
+      )}
 
       <EarnActionDialog
         action={selectedAction?.action || "supply"}

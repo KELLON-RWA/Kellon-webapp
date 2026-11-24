@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Asset, User } from "@/types/db";
 import {
   getMaxUsableBalanceForChain,
+  getSafeExternalUrl,
   getStockProviderLabel,
   getStockSettlementChain,
+  parseIntervalToSeconds,
   resolveStockCategory,
+  resolveVisibleTimeframes,
   sanitizeWikidataIndustry,
+  uint8ArrayToBase64,
 } from "./earn-utils";
 import { getDisplayStockName } from "./EarnPage";
 
@@ -144,4 +148,98 @@ describe("resolveStockCategory", () => {
     ).toBe("Treasuries");
   });
 });
+
+describe("Stock timeframe intervals", () => {
+  it("converts interval strings to seconds for accurate sorting", () => {
+    expect(parseIntervalToSeconds("Time")).toBe(0);
+    expect(parseIntervalToSeconds("1s")).toBe(1);
+    expect(parseIntervalToSeconds("1m")).toBe(60);
+    expect(parseIntervalToSeconds("15m")).toBe(900);
+    expect(parseIntervalToSeconds("1h")).toBe(3600);
+    expect(parseIntervalToSeconds("4h")).toBe(14400);
+    expect(parseIntervalToSeconds("1D")).toBe(86400);
+    expect(parseIntervalToSeconds("1W")).toBe(604800);
+    expect(parseIntervalToSeconds("1M")).toBe(2592000);
+  });
+
+  it("prioritizes active interval by guaranteeing it is in visible timeframes", () => {
+    const pinned = ["Time", "15m", "1h", "4h", "1D", "1W"];
+
+    // When pinned interval is active, returns base list
+    expect(resolveVisibleTimeframes(pinned, "4h", true)).toEqual([
+      "Time",
+      "15m",
+      "1h",
+      "4h",
+      "1D",
+      "1W",
+    ]);
+
+    // When an available interval (e.g. 30m) is active, inserts it in sorted position
+    expect(resolveVisibleTimeframes(pinned, "30m", true)).toEqual([
+      "Time",
+      "15m",
+      "30m",
+      "1h",
+      "4h",
+      "1D",
+      "1W",
+    ]);
+
+    // When 1s is active, inserts it right after Time
+    expect(resolveVisibleTimeframes(pinned, "1s", true)).toEqual([
+      "Time",
+      "1s",
+      "15m",
+      "1h",
+      "4h",
+      "1D",
+      "1W",
+    ]);
+
+    // In line chart mode, does not inject candlestick intervals
+    expect(resolveVisibleTimeframes(pinned, "30m", false)).toEqual([
+      "Time",
+      "15m",
+      "1h",
+      "4h",
+      "1D",
+      "1W",
+    ]);
+  });
+});
+
+describe("getSafeExternalUrl", () => {
+  it("allows safe http and https URLs", () => {
+    expect(getSafeExternalUrl("https://apple.com")).toBe("https://apple.com/");
+    expect(getSafeExternalUrl("http://example.com/page")).toBe("http://example.com/page");
+    expect(getSafeExternalUrl("tesla.com")).toBe("https://tesla.com/");
+  });
+
+  it("blocks dangerous javascript: and data: schemes", () => {
+    expect(getSafeExternalUrl("javascript:alert(1)")).toBeNull();
+    expect(getSafeExternalUrl("JAVASCRIPT:alert('xss')")).toBeNull();
+    expect(getSafeExternalUrl("data:text/html,<script>alert(1)</script>")).toBeNull();
+    expect(getSafeExternalUrl("vbscript:msgbox(1)")).toBeNull();
+    expect(getSafeExternalUrl("")).toBeNull();
+    expect(getSafeExternalUrl(null)).toBeNull();
+    expect(getSafeExternalUrl(undefined)).toBeNull();
+  });
+});
+
+describe("uint8ArrayToBase64", () => {
+  it("correctly encodes byte arrays to Base64 without call-stack limits", () => {
+    const sample = new Uint8Array([72, 101, 108, 108, 111]); // "Hello"
+    expect(uint8ArrayToBase64(sample)).toBe("SGVsbG8=");
+
+    // Large byte array (e.g. 100,000 bytes) that would crash spread operator
+    const large = new Uint8Array(100_000);
+    large.fill(65); // 'A'
+    const encoded = uint8ArrayToBase64(large);
+    expect(typeof encoded).toBe("string");
+    expect(encoded.length).toBeGreaterThan(100_000);
+  });
+});
+
+
 

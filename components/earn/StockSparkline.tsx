@@ -85,6 +85,7 @@ export function StockSparkline({
     <svg
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
+      role="img"
       aria-label={isUp ? "Price trend up" : "Price trend down"}
       className={cn(
         "h-9 w-28",

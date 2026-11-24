@@ -66,6 +66,7 @@ import {
   getPositionValue,
   getProtocolName,
   getSymbolBalances,
+  uint8ArrayToBase64,
 } from "./earn-utils";
 
 type EvmSmartAccountClient = {
@@ -74,9 +75,14 @@ type EvmSmartAccountClient = {
   sendTransaction(args: {
     account: unknown;
     chain: unknown;
-    to: `0x${string}`;
+    to?: `0x${string}`;
     data?: `0x${string}`;
-    value: bigint;
+    value?: bigint;
+    calls?: Array<{
+      to: `0x${string}`;
+      data?: `0x${string}`;
+      value?: bigint;
+    }>;
   }): Promise<string>;
 };
 
@@ -307,15 +313,38 @@ export default function EarnActionDialog({
       );
     }
 
-    let finalHash = "";
+    // Group consecutive transactions on the same chain so multiple calls
+    // (e.g. approve + deposit) execute in a single atomic UserOp multi-call.
+    type StepGroup = {
+      chainKey: string;
+      transactions: typeof prepared.transactions;
+    };
+
+    const groups: StepGroup[] = [];
     for (const transaction of prepared.transactions) {
       if (!transaction.to) {
         throw new Error("The provider returned an incomplete transaction.");
       }
-
       const chainId = Number(transaction.chainId);
       const chainKey =
         CHAIN_BY_ID[chainId] || opportunity?.chain.toLowerCase() || "";
+      const lastGroup = groups[groups.length - 1];
+
+      // If the last transaction was a bridge, it requires a cross-chain wait before next step
+      const lastWasBridge = lastGroup?.transactions.some(
+        (t) => t.stepType === "bridge",
+      );
+
+      if (lastGroup && lastGroup.chainKey === chainKey && !lastWasBridge) {
+        lastGroup.transactions.push(transaction);
+      } else {
+        groups.push({ chainKey, transactions: [transaction] });
+      }
+    }
+
+    let finalHash = "";
+    for (const group of groups) {
+      const { chainKey, transactions } = group;
       const client = await getSmartAccountClient(
         evmWallet,
         chainKey,
@@ -325,18 +354,32 @@ export default function EarnActionDialog({
         throw new Error(`Could not initialize your ${chainKey} account.`);
       }
 
-      finalHash = await (
-        client as unknown as EvmSmartAccountClient
-      ).sendTransaction({
-        account: client.account,
-        chain: client.chain,
-        to: transaction.to as `0x${string}`,
-        data: transaction.data as `0x${string}` | undefined,
-        value: transactionValue(transaction.value),
-      });
+      const smartClient = client as unknown as EvmSmartAccountClient;
 
-      if (transaction.stepType === "bridge") {
-        const provider = transaction.provider;
+      if (transactions.length > 1) {
+        finalHash = await smartClient.sendTransaction({
+          account: client.account,
+          chain: client.chain,
+          calls: transactions.map((t) => ({
+            to: t.to as `0x${string}`,
+            data: (t.data || "0x") as `0x${string}`,
+            value: transactionValue(t.value),
+          })),
+        });
+      } else {
+        const tx = transactions[0];
+        finalHash = await smartClient.sendTransaction({
+          account: client.account,
+          chain: client.chain,
+          to: tx.to as `0x${string}`,
+          data: tx.data as `0x${string}` | undefined,
+          value: transactionValue(tx.value),
+        });
+      }
+
+      const bridgeTx = transactions.find((t) => t.stepType === "bridge");
+      if (bridgeTx) {
+        const provider = bridgeTx.provider;
         if (
           provider === "lifi" ||
           provider === "allbridge" ||
@@ -361,7 +404,7 @@ export default function EarnActionDialog({
           id: "yield-bridge",
         });
         try {
-          await waitForBridge(transaction, finalHash);
+          await waitForBridge(bridgeTx, finalHash);
           bridgeOutbox.remove(profile.id, finalHash);
         } finally {
           toast.dismiss("yield-bridge");
@@ -453,23 +496,18 @@ export default function EarnActionDialog({
         }
         let signedTx = solanaTx.data;
         if (solanaWalletsReady && solanaWallets.length > 0) {
-          try {
-            const rawBytes = Uint8Array.from(atob(solanaTx.data), (c) =>
-              c.charCodeAt(0),
-            );
-            const result = await signSolanaTransaction({
-              transaction: rawBytes,
-              wallet: solanaWallets[0],
-            });
-            const signedBytes = result.signedTransaction;
-            if (signedBytes) {
-              signedTx = btoa(
-                String.fromCharCode(...Array.from(signedBytes)),
-              );
-            }
-          } catch {
-            // Fallback to sending sponsored tx as prepared
+          const rawBytes = Uint8Array.from(atob(solanaTx.data), (c) =>
+            c.charCodeAt(0),
+          );
+          const result = await signSolanaTransaction({
+            transaction: rawBytes,
+            wallet: solanaWallets[0],
+          });
+          const signedBytes = result.signedTransaction;
+          if (!signedBytes) {
+            throw new Error("Transaction signature was not provided.");
           }
+          signedTx = uint8ArrayToBase64(signedBytes);
         }
         await yieldService.executeSolana(
           opportunity.id,

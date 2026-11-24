@@ -351,3 +351,78 @@ export function resolveStockCategory({
   return "Technology";
 }
 
+export function parseIntervalToSeconds(interval: string): number {
+  if (interval === "Time") return 0;
+  const match = interval.match(/^(\d+)([smhDWM])$/);
+  if (!match) return 99999999;
+  const val = parseInt(match[1], 10);
+  const unit = match[2];
+  switch (unit) {
+    case "s":
+      return val;
+    case "m":
+      return val * 60;
+    case "h":
+      return val * 3600;
+    case "D":
+      return val * 86400;
+    case "W":
+      return val * 604800;
+    case "M":
+      return val * 2592000;
+    default:
+      return val;
+  }
+}
+
+export function resolveVisibleTimeframes(
+  pinnedTimeframes: readonly string[],
+  activeInterval: string,
+  isCandlestick: boolean,
+): string[] {
+  const base = [...pinnedTimeframes];
+  if (isCandlestick && activeInterval && !base.includes(activeInterval)) {
+    base.push(activeInterval);
+    base.sort((a, b) => parseIntervalToSeconds(a) - parseIntervalToSeconds(b));
+  }
+  return base;
+}
+
+/**
+ * Validate and normalize external URLs to prevent script injection (e.g. javascript: schemes)
+ * and ensure safe http/https protocol.
+ */
+export function getSafeExternalUrl(rawUrl?: string | null): string | null {
+  if (!rawUrl || typeof rawUrl !== "string") return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  try {
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
+    const candidate = hasScheme ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(candidate);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return parsed.href;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Safe conversion of Uint8Array bytes to Base64 without call-stack argument limits.
+ */
+export function uint8ArrayToBase64(bytes: Uint8Array): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+  let binary = "";
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+

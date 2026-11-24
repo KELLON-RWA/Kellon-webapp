@@ -26,13 +26,18 @@ export default function StockLogo({
   }
 
   return (
-    <Image
-      src={logoUrl}
-      alt={`${symbol} logo`}
-      width={size}
-      height={size}
-      className="shrink-0 rounded-full"
-      onError={() => setFailed(true)}
-    />
+    <span
+      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-80 bg-white font-extrabold text-primary-90 dark:border-white/10 dark:bg-secondary-60 dark:text-primary-30"
+      style={{ width: size, height: size }}
+    >
+      <Image
+        src={logoUrl}
+        alt={`${symbol} logo`}
+        width={size}
+        height={size}
+        className="h-full w-full rounded-full object-cover scale-[1.28]"
+        onError={() => setFailed(true)}
+      />
+    </span>
   );
 }

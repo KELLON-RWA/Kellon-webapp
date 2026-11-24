@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowDownToLine,
   ArrowUpFromLine,
+  AlertCircle,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -46,6 +47,7 @@ import { sweepStrandedShares } from "@/services/stock-sweep";
 import { getActiveChains } from "@/lib/chains";
 import { getCompanyLogoUrl } from "@/lib/stock-branding";
 import { getUnderlyingTicker } from "@/lib/stock-catalog";
+import { extractHumanErrorMessage, parseSuggestedAmount } from "@/lib/utils";
 import {
   stocksService,
   type StockListing,
@@ -96,6 +98,7 @@ interface StockActionDialogProps {
   onOpenChange: (open: boolean) => void;
   onComplete: () => Promise<void> | void;
   onViewPosition?: () => void;
+  livePrice?: number;
 }
 
 type StockOrderSuccess = {
@@ -144,6 +147,7 @@ export default function StockActionDialog({
   onOpenChange,
   onComplete,
   onViewPosition,
+  livePrice,
 }: StockActionDialogProps) {
   const { wallets, ready: walletsReady } = useWallets();
   const { getSmartAccountClient } = useSmartAccount();
@@ -164,6 +168,10 @@ export default function StockActionDialog({
   const [selectedFundingChain, setSelectedFundingChain] = useState("");
   const [fundingSymbol, setFundingSymbol] = useState<"USDC" | "USDT">("USDC");
   const [isNetworkPickerOpen, setIsNetworkPickerOpen] = useState(false);
+  const [actionError, setActionError] = useState<{
+    message: string;
+    suggestedAmount?: number;
+  } | null>(null);
   const otpRequestInFlightRef = useRef(false);
   const lastOtpRequestAtRef = useRef(0);
 
@@ -260,7 +268,12 @@ export default function StockActionDialog({
     getCompanyLogoUrl(symbol) ||
     currentStock?.logoUrl ||
     `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(symbol)}`;
-  const stockPrice = Number(currentStock?.price || holding?.currentPrice || 0);
+  const stockPrice = Number(
+    (livePrice && livePrice > 0 ? livePrice : 0) ||
+      currentStock?.price ||
+      holding?.currentPrice ||
+      0,
+  );
   const stockProvider = currentStock?.provider || holding?.provider || "";
 
   const availableFundingBalance = getMaxUsableBalanceForChain(
@@ -315,7 +328,10 @@ export default function StockActionDialog({
 
   const closeDialog = (nextOpen: boolean) => {
     if (isSubmitting) return;
-    if (!nextOpen) form.reset();
+    if (!nextOpen) {
+      form.reset();
+      setActionError(null);
+    }
     onOpenChange(nextOpen);
   };
 
@@ -407,14 +423,19 @@ export default function StockActionDialog({
     verification?: StockActionVerification,
   ) => {
     if (!currentStock && !holding) return;
-    const tradeStock = currentStock || {
+    const baseTradeStock = currentStock || {
       symbol: holding!.symbol,
       name: holding!.symbol,
       price: holding!.currentPrice,
       currency: "USD",
       provider: holding!.provider,
     };
+    const tradeStock = {
+      ...baseTradeStock,
+      price: stockPrice > 0 ? stockPrice : baseTradeStock.price,
+    };
 
+    setActionError(null);
     setIsSubmitting(true);
     beginOperation(Boolean(verification));
 
@@ -667,10 +688,14 @@ export default function StockActionDialog({
       }
 
       endOperation();
-      // RPC providers can include full calldata in an error message. That is useful
-      // for developers but far too noisy (and not actionable) in a customer toast.
       console.error(`[StockActionDialog] Failed to ${action} stock:`, error);
-      toast.error("Something went wrong. Please try again.");
+      const friendlyMessage = extractHumanErrorMessage(error);
+      const suggestedAmount = parseSuggestedAmount(friendlyMessage);
+      setActionError({
+        message: friendlyMessage,
+        suggestedAmount: suggestedAmount || undefined,
+      });
+      toast.error(friendlyMessage);
     } finally {
       setStickyVerificationCode(null);
       setIsSubmitting(false);
@@ -684,6 +709,7 @@ export default function StockActionDialog({
   const selectFundingRoute = (chain: string) => {
     setSelectedFundingChain(chain);
     form.reset({ value: "" });
+    setActionError(null);
     setIsNetworkPickerOpen(false);
   };
 
@@ -893,17 +919,31 @@ export default function StockActionDialog({
                         </label>
                         <button
                           type="button"
-                          onClick={() =>
-                            form.setValue(
-                              "value",
-                              String(
-                                action === "buy"
-                                  ? availableFundingBalance
-                                  : availableShares,
-                              ),
-                              { shouldValidate: true },
-                            )
-                          }
+                          onClick={() => {
+                            setActionError(null);
+                            let targetAmount =
+                              action === "buy"
+                                ? availableFundingBalance
+                                : availableShares;
+                            if (action === "buy" && availableFundingBalance > 0) {
+                              const estimatedFee = Math.min(
+                                0.05,
+                                Math.max(0.015, availableFundingBalance * 0.02),
+                              );
+                              const safeMax = Math.max(
+                                0,
+                                Math.floor(
+                                  (availableFundingBalance - estimatedFee) * 100,
+                                ) / 100,
+                              );
+                              if (safeMax > 0 && availableFundingBalance < 10) {
+                                targetAmount = safeMax;
+                              }
+                            }
+                            form.setValue("value", String(targetAmount), {
+                              shouldValidate: true,
+                            });
+                          }}
                           className="cursor-pointer text-xs font-bold text-primary-50 hover:text-primary-30 dark:text-primary-80"
                         >
                           Max
@@ -919,6 +959,10 @@ export default function StockActionDialog({
                             min="0"
                             step="any"
                             placeholder="0.00"
+                            onChange={(e) => {
+                              if (actionError) setActionError(null);
+                              field.onChange(e);
+                            }}
                             className="h-14 rounded-lg border-gray-80 bg-white pr-24 text-xl font-bold text-cryptoNight dark:border-white/10 dark:bg-secondary-50 dark:text-white"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-20 dark:text-gray-40">
@@ -961,13 +1005,45 @@ export default function StockActionDialog({
                   </div>
                 )}
 
+                {actionError && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-left dark:border-red-500/30 dark:bg-red-950/30">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500 dark:text-red-400" />
+                      <div className="flex-1 space-y-2">
+                        <p className="text-xs leading-relaxed text-red-600 dark:text-red-300">
+                          {actionError.message}
+                        </p>
+                        {actionError.suggestedAmount && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              form.setValue(
+                                "value",
+                                String(actionError.suggestedAmount),
+                                { shouldValidate: true },
+                              );
+                              setActionError(null);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-500/25 active:scale-95 dark:text-red-200 cursor-pointer"
+                          >
+                            <span>
+                              Set amount to {actionError.suggestedAmount}{" "}
+                              {action === "buy" ? fundingSymbol : "shares"}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   variant={action === "sell" ? "destructive" : "flow"}
                   size="flow"
                   className={
                     action === "sell"
-                      ? "group relative overflow-hidden rounded-xl bg-red-500 font-bold text-white shadow-lg hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-500"
+                      ? "group relative overflow-hidden rounded-xl bg-red-500 font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl active:scale-[0.98] dark:bg-red-500 dark:hover:bg-red-600"
                       : undefined
                   }
                   disabled={isSubmitting || isAvailableZero}
