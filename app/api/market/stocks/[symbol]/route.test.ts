@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
+import { clearStockDataCache } from "@/lib/stock-market-cache";
 const get = () =>
   GET(new Request("http://localhost/api/market/stocks/AAPL"), {
     params: Promise.resolve({ symbol: "AAPL" }),
   });
 afterEach(() => {
+  clearStockDataCache();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
@@ -41,5 +43,26 @@ describe("Finnhub partial data", () => {
       profile: null,
       metrics: {},
     });
+  });
+
+  it("caches market data and serves from memory on repeated calls", async () => {
+    vi.stubEnv("FINNHUB_API_KEY", "test-secret");
+    let fetchCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      fetchCount++;
+      return new Response(JSON.stringify({ metric: { peTTM: 35 } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res1 = await get();
+    expect(res1.headers.get("X-Cache")).toBe("MISS");
+    expect(await res1.json()).toMatchObject({ metrics: { peTTM: 35 } });
+    const countAfterFirst = fetchCount;
+
+    const res2 = await get();
+    expect(res2.headers.get("X-Cache")).toBe("HIT");
+    expect(await res2.json()).toMatchObject({ metrics: { peTTM: 35 } });
+    // Fetch should not have been called again!
+    expect(fetchCount).toBe(countAfterFirst);
   });
 });

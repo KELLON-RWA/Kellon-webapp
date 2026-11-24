@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getUnderlyingTicker } from "@/lib/stock-catalog";
 
 export const runtime = "nodejs";
 export const revalidate = 30;
@@ -68,12 +69,7 @@ const INTERVAL_CONFIG: Record<
 };
 
 function normalizeYahooSymbol(symbol: string): string {
-  const raw = symbol.trim();
-  const withoutSuffix = /[bc]$/i.test(raw) ? raw.slice(0, -1) : raw;
-  const ticker = (
-    withoutSuffix.startsWith("b") ? withoutSuffix.slice(1) : withoutSuffix
-  ).toUpperCase();
-
+  const ticker = getUnderlyingTicker(symbol);
   if (ticker === "SKHY") return "000660.KS";
   return ticker;
 }
