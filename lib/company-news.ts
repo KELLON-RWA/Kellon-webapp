@@ -72,7 +72,7 @@ function rssImage(item: string, description: string): string | undefined {
 
 export function parseGoogleNewsRss(
   xml: string,
-  limit = 6,
+  limit = 10,
 ): CompanyNewsArticle[] {
   return normalizeCompanyNews(
     (xml.match(/<item>[\s\S]*?<\/item>/gi) || []).map((item) => {
@@ -102,7 +102,7 @@ export function parseGoogleNewsRss(
 /** Normalize Finnhub headlines, removing invalid links and duplicate stories. */
 export function normalizeCompanyNews(
   data: unknown[],
-  limit = 6,
+  limit = 10,
 ): CompanyNewsArticle[] {
   const articles: CompanyNewsArticle[] = [];
   const seen = new Set<string>();
@@ -145,4 +145,40 @@ export function normalizeCompanyNews(
   return articles
     .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))
     .slice(0, limit);
+}
+
+export function formatNewsTimestamp(
+  value: Date | string,
+  now = Date.now(),
+): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (!date || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const diffMs = Math.max(0, now - date.getTime());
+  const diffMinutes = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  // Same day / within 24 hours: use hrs (or mins/just now if < 1 hr)
+  if (diffHours < 24) {
+    if (diffHours < 1) {
+      if (diffMinutes < 1) return "Just now";
+      return `${diffMinutes} min${diffMinutes === 1 ? "" : "s"} ago`;
+    }
+    return `${diffHours} hr${diffHours === 1 ? "" : "s"} ago`;
+  }
+
+  // Up to 3 days ago: use days
+  if (diffDays <= 3) {
+    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  }
+
+  // From 4 days: use date
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }

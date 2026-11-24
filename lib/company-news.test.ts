@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatNewsTimestamp,
   getCompanyNewsName,
   normalizeCompanyNews,
   parseGoogleNewsRss,
@@ -102,16 +103,16 @@ describe("Finnhub company news", () => {
     ).toHaveLength(1);
   });
 
-  it("limits results to six stories", () => {
+  it("limits results to ten stories", () => {
     expect(
       normalizeCompanyNews(
-        Array.from({ length: 10 }, (_, id) => ({
+        Array.from({ length: 15 }, (_, id) => ({
           headline: String(id),
           url: `https://news.example/${id}`,
           datetime: id + 1,
         })),
       ),
-    ).toHaveLength(6);
+    ).toHaveLength(10);
   });
 
   it("handles missing or invalid publication timestamps", () => {
@@ -121,5 +122,60 @@ describe("Finnhub company news", () => {
       ])[0],
     ).toMatchObject({ source: "Finnhub", publishedAt: "" });
     expect(normalizeCompanyNews([])).toEqual([]);
+  });
+
+  describe("formatNewsTimestamp", () => {
+    const now = new Date("2026-11-23T16:00:00.000Z").getTime();
+
+    it("uses hours for same-day articles", () => {
+      // 2 hours ago
+      const twoHoursAgo = new Date(now - 2 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(twoHoursAgo, now)).toBe("2 hrs ago");
+
+      // 5 hours ago
+      const fiveHoursAgo = new Date(now - 5 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(fiveHoursAgo, now)).toBe("5 hrs ago");
+
+      // 1 hour ago
+      const oneHourAgo = new Date(now - 1 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(oneHourAgo, now)).toBe("1 hr ago");
+
+      // 25 minutes ago
+      const minsAgo = new Date(now - 25 * 60 * 1000).toISOString();
+      expect(formatNewsTimestamp(minsAgo, now)).toBe("25 mins ago");
+
+      // Less than 1 minute ago
+      const justNow = new Date(now - 30 * 1000).toISOString();
+      expect(formatNewsTimestamp(justNow, now)).toBe("Just now");
+    });
+
+    it("uses days up to 3 days ago", () => {
+      // 1 day ago (26 hours)
+      const oneDayAgo = new Date(now - 26 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(oneDayAgo, now)).toBe("1 day ago");
+
+      // 2 days ago (50 hours)
+      const twoDaysAgo = new Date(now - 50 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(twoDaysAgo, now)).toBe("2 days ago");
+
+      // 3 days ago (75 hours)
+      const threeDaysAgo = new Date(now - 75 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(threeDaysAgo, now)).toBe("3 days ago");
+    });
+
+    it("uses formatted date from 4 days onwards", () => {
+      // 4 days ago (98 hours) -> Nov 19, 2026
+      const fourDaysAgo = new Date(now - 98 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(fourDaysAgo, now)).toBe("Nov 19, 2026");
+
+      // 10 days ago -> Nov 13, 2026
+      const tenDaysAgo = new Date(now - 10 * 24 * 3600 * 1000).toISOString();
+      expect(formatNewsTimestamp(tenDaysAgo, now)).toBe("Nov 13, 2026");
+    });
+
+    it("handles invalid or empty timestamps gracefully", () => {
+      expect(formatNewsTimestamp("", now)).toBe("");
+      expect(formatNewsTimestamp("invalid-date", now)).toBe("");
+    });
   });
 });

@@ -102,12 +102,14 @@ export const stockResearchService = {
       `/api/market/stocks/${encodeURIComponent(symbol)}`,
     );
   },
-  getCompanyNews(symbol: string, name: string) {
+  getCompanyNews(symbol: string, name: string, limit?: number) {
+    const params = new URLSearchParams({ name });
+    if (limit) params.set("limit", String(limit));
     return getJson<{
       articles: CompanyNewsArticle[];
       source: CompanyNewsSource;
     }>(
-      `/api/market/news/${encodeURIComponent(symbol)}?${new URLSearchParams({ name })}`,
+      `/api/market/news/${encodeURIComponent(symbol)}?${params}`,
     );
   },
   getDexScreenerPool({
